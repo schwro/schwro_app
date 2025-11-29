@@ -22,3 +22,42 @@ textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Glass effect dla kart */
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  border-radius: 16px;
+}
+
+/* Nowoczesne inputy i selecty */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="date"],
+select,
+textarea {
+  @apply px-4 py-3 rounded-xl border border-gray-200/50 bg-white/70 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all;
+}
+
+/* Tabele z glass effect */
+table {
+  @apply bg-white/70 backdrop-blur-sm rounded-xl overflow-hidden shadow-sm;
+}
+
+thead {
+  @apply bg-gradient-to-r from-blue-50/80 to-purple-50/80;
+}
+
+tbody tr:hover {
+  @apply bg-blue-50/30;
+}
+
+/* Przyciski */
+button {
+  @apply transition-all duration-200;
+}

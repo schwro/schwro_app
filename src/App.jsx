@@ -7,7 +7,7 @@ import Navbar from './components/Navbar';
 import Login from './modules/Login';
 import Dashboard from './modules/Programs/Dashboard';
 import Members from './modules/Members';
-import WorshipModule from './modules/MusicTeam/WorshipModule'; // Nowa ścieżka!
+import WorshipModule from './modules/MusicTeam/WorshipModule_zly wydruk i brak zlacznika';
 import MediaTeam from './modules/MediaTeam';
 
 export default function App() {
@@ -19,6 +19,8 @@ export default function App() {
       try {
         const { data } = await supabase.auth.getSession();
         if (data?.session) setSession(data.session);
+      } catch (error) {
+        console.error('Auth error:', error);
       } finally {
         setLoading(false);
       }
@@ -30,20 +32,32 @@ export default function App() {
     });
 
     return () => {
-      if (authListener?.data?.subscription) authListener.data.subscription.unsubscribe();
+      if (authListener?.data?.subscription) {
+        authListener.data.subscription.unsubscribe();
+      }
     };
   }, []);
 
-  if (loading) return <div className="h-screen flex items-center justify-center">Ładowanie...</div>;
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Ładowanie...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!session) return <Login />;
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen bg-gray-100">
+      <div className="flex h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Navbar user={session.user} />
-          <main className="flex-1 overflow-y-auto bg-gray-50">
+          <main className="flex-1 overflow-y-auto p-6">
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/members" element={<Members />} />
