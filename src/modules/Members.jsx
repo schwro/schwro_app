@@ -1,24 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Download, Upload, Search, Edit, Trash2, X, Save, LayoutGrid, List } from 'lucide-react';
+import { 
+  Plus, Search, Trash2, Edit2, X, User, 
+  Mail, Phone, Filter, CheckCircle, XCircle 
+} from 'lucide-react';
 
 export default function Members() {
   const [members, setMembers] = useState([]);
-  const [filter, setFilter] = useState('');
-  const [viewMode, setViewMode] = useState('table'); // 'table' lub 'cards'
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
+
+  // Stan modala
   const [showModal, setShowModal] = useState(false);
-  
   const [formData, setFormData] = useState({
     id: null,
     first_name: '',
     last_name: '',
     email: '',
     phone: '',
-    address: '',
-    status: 'Członek',
-    join_date: '',
-    group_home: '',
-    ministry: ''
+    ministry: '',
+    status: 'Aktywny'
   });
 
   useEffect(() => {
@@ -26,278 +28,363 @@ export default function Members() {
   }, []);
 
   const fetchMembers = async () => {
-    const { data } = await supabase.from('members').select('*').order('last_name');
-    setMembers(data || []);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('members')
+        .select('*')
+        .order('last_name');
+      
+      if (error) throw error;
+      setMembers(data || []);
+    } catch (error) {
+      console.error('Błąd pobierania członków:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async () => {
-    const payload = { ...formData };
-    // Usuwamy pustą datę, żeby SQL nie zgłaszał błędu formatu
-    if (!payload.join_date) delete payload.join_date;
+    try {
+      const { id, ...dataToSave } = formData;
+      
+      if (!dataToSave.first_name || !dataToSave.last_name) {
+        alert("Imię i nazwisko są wymagane");
+        return;
+      }
 
-    if (formData.id) {
-      await supabase.from('members').update(payload).eq('id', formData.id);
-    } else {
-      const { id, ...newMember } = payload;
-      await supabase.from('members').insert([newMember]);
+      if (id) {
+        const { error } = await supabase
+          .from('members')
+          .update(dataToSave)
+          .eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('members')
+          .insert([dataToSave]);
+        if (error) throw error;
+      }
+
+      setShowModal(false);
+      fetchMembers();
+    } catch (error) {
+      console.error('Błąd zapisu:', error);
+      alert('Wystąpił błąd podczas zapisywania.');
     }
-    setShowModal(false);
-    fetchMembers();
-    resetForm();
   };
 
   const handleDelete = async (id) => {
-    if (confirm('Czy na pewno chcesz trwale usunąć tego członka?')) {
-      await supabase.from('members').delete().eq('id', id);
+    if (!confirm('Czy na pewno chcesz usunąć tego członka?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('members')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
       fetchMembers();
+    } catch (error) {
+      console.error('Błąd usuwania:', error);
     }
   };
 
-  const openEdit = (member) => {
-    setFormData(member);
+  const openModal = (member = null) => {
+    if (member) {
+      setFormData(member);
+    } else {
+      setFormData({
+        id: null,
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        ministry: '',
+        status: 'Aktywny'
+      });
+    }
     setShowModal(true);
   };
 
-  const resetForm = () => {
-    setFormData({
-      id: null,
-      first_name: '',
-      last_name: '',
-      email: '',
-      phone: '',
-      address: '',
-      status: 'Członek',
-      join_date: '',
-      group_home: '',
-      ministry: ''
-    });
-  };
+  // Filtrowanie
+  const filteredMembers = members.filter(member => {
+    const matchesSearch = (
+      (member.first_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.last_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    const matchesStatus = statusFilter === 'all' 
+      ? true 
+      : statusFilter === 'active' 
+        ? member.status === 'Aktywny'
+        : member.status !== 'Aktywny';
 
-  const handleExportCSV = () => {
-    const headers = ['Imię', 'Nazwisko', 'Email', 'Telefon', 'Adres', 'Status', 'Data członkostwa', 'Grupa domowa', 'Służba'];
-    const rows = members.map(m => [m.first_name, m.last_name, m.email, m.phone, m.address, m.status, m.join_date, m.group_home, m.ministry]);
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'czlonkowie.csv';
-    link.click();
-  };
+    return matchesSearch && matchesStatus;
+  });
 
-  const filteredMembers = members.filter(m => 
-    (m.first_name + ' ' + m.last_name).toLowerCase().includes(filter.toLowerCase()) ||
-    (m.email || '').toLowerCase().includes(filter.toLowerCase())
-  );
+  if (loading) {
+    return (
+      <div className="p-10 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="mt-4 text-gray-600">Ładowanie bazy członków...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="space-y-8">
       {/* NAGŁÓWEK */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Baza Członków</h1>
-        <div className="flex gap-3">
-          <button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 flex items-center gap-2 shadow-sm">
-            <Plus size={18} /> Dodaj Członka
-          </button>
-          <button onClick={handleExportCSV} className="bg-white text-gray-700 border border-gray-200 px-4 py-2 rounded font-medium hover:bg-gray-50 flex items-center gap-2">
-            <Download size={18} /> Eksport CSV
-          </button>
-        </div>
+      <div className="flex items-center justify-between">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          Baza Członków
+        </h1>
       </div>
 
-      {/* FILTRY I PRZEŁĄCZNIK WIDOKU */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 p-4 flex justify-between items-center">
-        <div className="relative max-w-md w-full">
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
-          <input 
-            className="w-full pl-10 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-200 outline-none" 
-            placeholder="Szukaj..." 
-            value={filter} onChange={e => setFilter(e.target.value)}
-          />
-        </div>
-        <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
-          <button 
-            onClick={() => setViewMode('table')} 
-            className={`p-2 rounded-md flex items-center gap-2 text-sm font-medium transition ${viewMode === 'table' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            <List size={18} /> Lista
-          </button>
-          <button 
-            onClick={() => setViewMode('cards')} 
-            className={`p-2 rounded-md flex items-center gap-2 text-sm font-medium transition ${viewMode === 'cards' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            <LayoutGrid size={18} /> Karty
-          </button>
-        </div>
-      </div>
+      {/* GŁÓWNY KONTENER - STYL GLASSMORPHISM */}
+      <section className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 p-6">
+        
+        {/* PASEK NARZĘDZI (SZUKANIE / FILTROWANIE / DODAWANIE) */}
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+          
+          <div className="flex-1 w-full md:w-auto flex items-center gap-3">
+            {/* Wyszukiwarka */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <input 
+                className="w-full pl-10 pr-4 py-2.5 bg-white/50 backdrop-blur-sm border border-gray-200/50 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none text-sm"
+                placeholder="Szukaj po imieniu, nazwisku, email..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-      {/* WIDOK TABELI */}
-      {viewMode === 'table' && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm font-bold border-b border-gray-200">
-                <th className="p-4">Imię i nazwisko</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Telefon</th>
+            {/* Filtr Statusu */}
+            <div className="flex bg-white/50 backdrop-blur-sm p-1 rounded-xl border border-gray-200/50 gap-1">
+              <button 
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${statusFilter === 'all' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Wszyscy
+              </button>
+              <button 
+                onClick={() => setStatusFilter('active')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${statusFilter === 'active' ? 'bg-white shadow text-green-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Aktywni
+              </button>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => openModal()} 
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm px-6 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition flex items-center gap-2 whitespace-nowrap"
+          >
+            <Plus size={18}/> Dodaj osobę
+          </button>
+        </div>
+
+        {/* TABELA */}
+        <div className="bg-white/50 backdrop-blur-sm rounded-2xl border border-gray-200/50 overflow-hidden">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gradient-to-r from-blue-50/80 to-purple-50/80 text-gray-700 font-bold border-b border-gray-200/50">
+              <tr>
+                <th className="p-4 pl-6">Osoba</th>
+                <th className="p-4">Kontakt</th>
+                <th className="p-4">Służba / Grupa</th>
                 <th className="p-4">Status</th>
-                <th className="p-4">Grupa domowa</th>
-                <th className="p-4">Służba</th>
-                <th className="p-4 text-right">Akcje</th>
+                <th className="p-4 pr-6 text-right">Akcje</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredMembers.map(m => (
-                <tr key={m.id} className="hover:bg-gray-50 transition-colors text-sm text-gray-700">
-                  <td className="p-4 font-medium text-gray-900">{m.first_name} {m.last_name}</td>
-                  <td className="p-4 text-gray-600">{m.email}</td>
-                  <td className="p-4 text-gray-600">{m.phone}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${m.status === 'Członek' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {m.status}
-                    </span>
+            <tbody className="divide-y divide-gray-200/50">
+              {filteredMembers.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-gray-400">
+                    Nie znaleziono członków spełniających kryteria.
                   </td>
-                  <td className="p-4">{m.group_home}</td>
-                  <td className="p-4">{m.ministry}</td>
-                  <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => openEdit(m)} className="bg-gray-100 text-gray-600 px-3 py-1 rounded hover:bg-gray-200 text-xs font-medium">Edytuj</button>
-                    <button onClick={() => handleDelete(m.id)} className="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 text-xs font-medium">Usuń</button>
+                </tr>
+              ) : filteredMembers.map((member) => (
+                <tr key={member.id} className="hover:bg-blue-50/30 transition duration-200">
+                  
+                  {/* Kolumna: Osoba */}
+                  <td className="p-4 pl-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center text-blue-700 font-bold shadow-sm border border-white">
+                        {member.first_name?.[0]}{member.last_name?.[0]}
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-800">{member.first_name} {member.last_name}</div>
+                        <div className="text-xs text-gray-500">ID: {member.id.toString().slice(0, 4)}...</div>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Kolumna: Kontakt */}
+                  <td className="p-4">
+                    <div className="space-y-1">
+                      {member.email && (
+                        <div className="flex items-center gap-2 text-gray-600 text-xs">
+                          <Mail size={14} className="text-blue-400" /> {member.email}
+                        </div>
+                      )}
+                      {member.phone && (
+                        <div className="flex items-center gap-2 text-gray-600 text-xs">
+                          <Phone size={14} className="text-purple-400" /> {member.phone}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Kolumna: Służba */}
+                  <td className="p-4">
+                    {member.ministry ? (
+                      <span className="bg-white border border-gray-200 text-gray-700 px-3 py-1 rounded-lg text-xs font-medium shadow-sm">
+                        {member.ministry}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">-</span>
+                    )}
+                  </td>
+
+                  {/* Kolumna: Status */}
+                  <td className="p-4">
+                    {member.status === 'Aktywny' ? (
+                      <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200/50">
+                        <CheckCircle size={12} /> Aktywny
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold border border-gray-200/50">
+                        <XCircle size={12} /> {member.status || 'Nieaktywny'}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Kolumna: Akcje */}
+                  <td className="p-4 pr-6 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => openModal(member)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                        title="Edytuj"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(member.id)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                        title="Usuń"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
+      </section>
 
-      {/* WIDOK KART */}
-      {viewMode === 'cards' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMembers.map(m => (
-            <div key={m.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition flex flex-col">
-              <div className="flex justify-between items-start mb-4">
-                <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl font-bold uppercase">
-                  {(m.first_name?.[0] || '')}{(m.last_name?.[0] || '')}
-                </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${m.status === 'Członek' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                  {m.status}
-                </span>
-              </div>
-              
-              <h3 className="font-bold text-lg text-gray-900 mb-1">
-                {m.first_name} {m.last_name}
-              </h3>
-              <p className="text-sm text-gray-500 mb-4 truncate" title={m.email}>
-                {m.email || 'Brak email'}
-              </p>
-              
-              <div className="space-y-2 text-sm text-gray-600 mb-6 flex-1">
-                <div className="flex justify-between border-b border-gray-50 pb-1">
-                  <span className="text-gray-400">Telefon:</span> 
-                  <span className="font-medium text-right">{m.phone || '-'}</span>
-                </div>
-                <div className="flex justify-between border-b border-gray-50 pb-1">
-                  <span className="text-gray-400">Grupa:</span> 
-                  <span className="font-medium text-right">{m.group_home || '-'}</span>
-                </div>
-                <div className="flex justify-between border-b border-gray-50 pb-1">
-                  <span className="text-gray-400">Służba:</span> 
-                  <span className="font-medium text-right truncate max-w-[150px]" title={m.ministry}>{m.ministry || '-'}</span>
-                </div>
-                 <div className="flex justify-between border-b border-gray-50 pb-1">
-                  <span className="text-gray-400">Od:</span> 
-                  <span className="font-medium text-right">{m.join_date || '-'}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2 mt-auto pt-4 border-t border-gray-50">
-                <button 
-                  onClick={() => openEdit(m)} 
-                  className="flex-1 bg-white text-gray-700 py-2 rounded text-sm font-medium hover:bg-gray-50 border border-gray-200 transition-colors"
-                >
-                  Edytuj
-                </button>
-                <button 
-                  onClick={() => handleDelete(m.id)} 
-                  className="flex-1 bg-white text-red-600 py-2 rounded text-sm font-medium hover:bg-red-50 border border-red-100 transition-colors"
-                >
-                  Usuń
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* MODAL FORMULARZ */}
+      {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-gray-900">{formData.id ? 'Edytuj Członka' : 'Dodaj Członka'}</h2>
-              <button onClick={() => setShowModal(false)}><X size={24} className="text-gray-400"/></button>
-            </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-lg p-8 border border-white/20 relative animate-in fade-in zoom-in duration-200">
             
-            <div className="p-6 space-y-4">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {formData.id ? 'Edytuj dane' : 'Nowa osoba'}
+              </h3>
+              <button 
+                onClick={() => setShowModal(false)} 
+                className="p-2 hover:bg-gray-100/50 rounded-full transition"
+              >
+                <X size={24} className="text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Imię</label>
-                  <input className="w-full p-3 border border-gray-300 rounded-lg" value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Imię</label>
+                  <input 
+                    className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    placeholder="Jan" 
+                    value={formData.first_name} 
+                    onChange={e => setFormData({...formData, first_name: e.target.value})} 
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Nazwisko</label>
-                  <input className="w-full p-3 border border-gray-300 rounded-lg" value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Nazwisko</label>
+                  <input 
+                    className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    placeholder="Kowalski" 
+                    value={formData.last_name} 
+                    onChange={e => setFormData({...formData, last_name: e.target.value})} 
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
-                <input className="w-full p-3 border border-gray-300 rounded-lg" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email</label>
+                <input 
+                  className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                  placeholder="jan@example.com" 
+                  value={formData.email} 
+                  onChange={e => setFormData({...formData, email: e.target.value})} 
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Telefon</label>
+                  <input 
+                    className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    placeholder="123 456 789" 
+                    value={formData.phone} 
+                    onChange={e => setFormData({...formData, phone: e.target.value})} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Status</label>
+                  <select 
+                    className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    value={formData.status} 
+                    onChange={e => setFormData({...formData, status: e.target.value})}
+                  >
+                    <option value="Aktywny">Aktywny</option>
+                    <option value="Nieaktywny">Nieaktywny</option>
+                    <option value="Gość">Gość</option>
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Telefon</label>
-                <input className="w-full p-3 border border-gray-300 rounded-lg" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Służba / Grupa</label>
+                <input 
+                  className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                  placeholder="np. Uwielbienie, Media..." 
+                  value={formData.ministry} 
+                  onChange={e => setFormData({...formData, ministry: e.target.value})} 
+                />
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Adres</label>
-                <input className="w-full p-3 border border-gray-300 rounded-lg" placeholder="ul. Kwiatowa 5, Warszawa" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Status *</label>
-                <select className="w-full p-3 border border-gray-300 rounded-lg bg-white" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-                  <option>Członek</option>
-                  <option>Sympatyk</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Data członkostwa</label>
-                <input type="date" className="w-full p-3 border border-gray-300 rounded-lg" value={formData.join_date} onChange={e => setFormData({...formData, join_date: e.target.value})} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Grupa domowa</label>
-                <select className="w-full p-3 border border-gray-300 rounded-lg bg-white" value={formData.group_home} onChange={e => setFormData({...formData, group_home: e.target.value})}>
-                  <option value="">-- Wybierz grupę --</option>
-                  <option>Grupa Centrum</option>
-                  <option>Grupa Północ</option>
-                  <option>Grupa Południe</option>
-                  <option>Grupa Młodzieżowa</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Służba</label>
-                <input className="w-full p-3 border border-gray-300 rounded-lg" value={formData.ministry} onChange={e => setFormData({...formData, ministry: e.target.value})} />
+              <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
+                <button 
+                  onClick={() => setShowModal(false)} 
+                  className="px-6 py-3 bg-white border border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition"
+                >
+                  Anuluj
+                </button>
+                <button 
+                  onClick={handleSave} 
+                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-blue-500/30 transition"
+                >
+                  Zapisz
+                </button>
               </div>
             </div>
 
-            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3 sticky bottom-0">
-              <button onClick={() => setShowModal(false)} className="px-6 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg">Anuluj</button>
-              <button onClick={handleSave} className="px-8 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">Zapisz</button>
-            </div>
           </div>
         </div>
       )}

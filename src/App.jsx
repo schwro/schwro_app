@@ -7,8 +7,9 @@ import Navbar from './components/Navbar';
 import Login from './modules/Login';
 import Dashboard from './modules/Programs/Dashboard';
 import Members from './modules/Members';
-import WorshipModule from './modules/MusicTeam/WorshipModule_zly wydruk i brak zlacznika';
-import MediaTeam from './modules/MediaTeam';
+import WorshipModule from './modules/MusicTeam/WorshipModule';
+// POPRAWIONA ŚCIEŻKA PONIŻEJ (zakładając, że plik jest w src/modules):
+import MediaTeamModule from './modules/MediaTeamModule'; 
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -62,7 +63,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/members" element={<Members />} />
               <Route path="/worship" element={<WorshipModule />} />
-              <Route path="/media" element={<MediaTeam />} />
+              <Route path="/media" element={<MediaTeamModule />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
