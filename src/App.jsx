@@ -7,9 +7,11 @@ import Navbar from './components/Navbar';
 import Login from './modules/Login';
 import Dashboard from './modules/Programs/Dashboard';
 import Members from './modules/Members';
-import WorshipModule from './modules/MusicTeam/WorshipModule';
-// POPRAWIONA ŚCIEŻKA PONIŻEJ (zakładając, że plik jest w src/modules):
-import MediaTeamModule from './modules/MediaTeamModule'; 
+import WorshipModule from './modules/MusicTeam/WorshipModule'; // Upewnij się, że ścieżka jest poprawna
+import MediaTeamModule from './modules/MediaTeamModule';
+import KidsModule from './modules/Kids/KidsModule';
+// NOWY IMPORT:
+import GlobalSettings from './modules/Settings/GlobalSettings';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -64,6 +66,11 @@ export default function App() {
               <Route path="/members" element={<Members />} />
               <Route path="/worship" element={<WorshipModule />} />
               <Route path="/media" element={<MediaTeamModule />} />
+              <Route path="/kids" element={<KidsModule />} />
+              
+              {/* NOWA ŚCIEŻKA USTAWIEŃ */}
+              <Route path="/settings" element={<GlobalSettings />} />
+              
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
