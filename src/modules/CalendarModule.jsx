@@ -523,6 +523,16 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
     status: 'Do zrobienia'
   });
 
+  useEffect(() => {
+      if (initialTask) {
+          setTask({
+              ...initialTask,
+              location: initialTask.location || '',
+              description: initialTask.description || ''
+          });
+      }
+  }, [initialTask]);
+
   const handleDateChange = (val) => {
       setTask(prev => ({...prev, due_date: val}));
   };
@@ -530,18 +540,19 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
   const handleSubmit = () => {
     if (!task.title) return alert('Podaj tytuł');
     
-    // Konstrukcja daty z zachowaniem strefy czasowej (unikanie przesunięć)
     const dateStr = task.due_date;
     const timeStr = task.due_time || '00:00';
-    const finalDate = new Date(`${dateStr}T${timeStr}:00`);
+    
+    // Tworzymy datę w formacie ISO z offsetem, aby baza zapisała to poprawnie
+    const localDate = new Date(`${dateStr}T${timeStr}:00`);
     
     const payload = {
         title: task.title,
-        description: task.description,
-        team: task.team || 'media', // Domyślny team
-        due_date: finalDate.toISOString(),
-        location: task.location,
-        status: task.status
+        description: task.description || '',
+        team: task.team || 'media',
+        due_date: localDate.toISOString(), // Pełny timestamp ISO
+        location: task.location || '',
+        status: task.status || 'Do zrobienia'
     };
     
     if (task.id) payload.id = task.id;
@@ -601,11 +612,23 @@ const EventBadge = ({ event, onClick }) => {
   };
   const style = colors[teamConfig.color] || colors.orange;
 
+  // Formatowanie czasu z raw data, aby uniknąć konwersji stref czasowych
+  let timeDisplay = "";
+  if (event.raw) {
+      // Próbujemy wziąć wprost due_time jeśli istnieje, a jak nie to parsować datę
+      if (event.raw.due_time && event.raw.due_time.length === 5) {
+         timeDisplay = event.raw.due_time;
+      } else if (event.raw.due_date && event.raw.due_date.includes('T')) {
+          const parts = event.raw.due_date.split('T')[1].split(':');
+          timeDisplay = `${parts[0]}:${parts[1]}`;
+      }
+  }
+
   return (
     <div onClick={e => { e.stopPropagation(); onClick(event); }} className={`text-[10px] px-1.5 py-1 rounded-md border mb-1 cursor-pointer truncate flex items-center gap-1 transition hover:brightness-95 ${style}`}>
       <div className={`w-1.5 h-1.5 rounded-full bg-current opacity-50`} />
       <span className="truncate font-medium">{event.title}</span>
-      {event.raw?.due_date && <span className="ml-auto opacity-60 text-[9px]">{new Date(event.raw.due_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>}
+      {timeDisplay && <span className="ml-auto opacity-60 text-[9px]">{timeDisplay}</span>}
     </div>
   );
 };
@@ -636,14 +659,24 @@ export default function CalendarModule() {
     const { data: prog } = await supabase.from('programs').select('*');
     const { data: task } = await supabase.from('tasks').select('*');
     const all = [];
+    
     prog?.forEach(p => all.push({ id: p.id, type: 'program', team: 'program', title: p.title || 'Nabożeństwo', date: new Date(p.date), raw: p }));
     
-    // Konwersja tasków i walidacja daty
     task?.forEach(t => {
         if (!t.due_date) return;
         const d = new Date(t.due_date);
-        // Sprawdzenie czy data jest prawidłowa
         if (isNaN(d.getTime())) return;
+
+        // FIX 2: Pobieranie czasu bezpośrednio ze stringa ISO, aby uniknąć przesunięć
+        // Format ISO: YYYY-MM-DDTHH:MM:SS
+        let timeStr = '00:00';
+        let dateStr = t.due_date.split('T')[0];
+
+        if (t.due_date.includes('T')) {
+           const timePart = t.due_date.split('T')[1];
+           const [h, m] = timePart.split(':');
+           timeStr = `${h}:${m}`;
+        }
 
         all.push({ 
             id: t.id, 
@@ -652,7 +685,12 @@ export default function CalendarModule() {
             title: t.title, 
             date: d, 
             status: t.status, 
-            raw: { ...t, due_time: d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), due_date: d.toISOString().split('T')[0] } 
+            // Przekazujemy "surową" godzinę i datę do edycji
+            raw: { 
+                ...t, 
+                due_time: timeStr, 
+                due_date: dateStr 
+            } 
         });
     });
     setEvents(all.filter(e => e.date));
@@ -784,8 +822,15 @@ export default function CalendarModule() {
                 
                 {/* Zdarzenia */}
                 {dayEvents.map(ev => {
-                    const h = ev.date.getHours();
-                    const m = ev.date.getMinutes();
+                    // Pobieranie godziny z raw data jeśli dostępne, lub z daty
+                    let h, m;
+                    if (ev.raw.due_time) {
+                        [h, m] = ev.raw.due_time.split(':').map(Number);
+                    } else {
+                        h = ev.date.getHours();
+                        m = ev.date.getMinutes();
+                    }
+
                     const startMin = (Math.max(8, h) - 8) * 60 + m;
                     const top = (startMin / 60) * 80; 
                     
@@ -836,7 +881,8 @@ export default function CalendarModule() {
                              <h4 className="font-bold text-gray-800 dark:text-gray-200">{ev.title}</h4>
                              <div className="text-xs text-gray-500 flex gap-3 mt-0.5">
                                  <span>{TEAMS[ev.team]?.label}</span>
-                                 {ev.raw?.due_date && <span>• {new Date(ev.raw.due_date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
+                                 {/* FIX 3: Wyświetlanie czasu w widoku listy */}
+                                 {ev.raw?.due_time && <span>• {ev.raw.due_time}</span>}
                              </div>
                          </div>
                      </div>
@@ -887,7 +933,7 @@ export default function CalendarModule() {
                 <button onClick={nextMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"><ChevronRight size={16} /></button>
               </div>
             </div>
-            <div className="grid grid-cols-7 text-center text-xs text-gray-400 mb-2">{['P','W','Ś','C','P','S','N'].map(d => <div key={d} className="py-1">{d}</div>)}</div>
+            <div className="grid grid-cols-7 text-center text-xs text-gray-400 mb-2">{['Pon','Wt','Śr','Czw','Pt','Sob','Nd'].map(d => <div key={d} className="py-1">{d.charAt(0)}</div>)}</div>
             <div className="grid grid-cols-7 gap-1">
               {emptyDays.map((_, i) => <div key={`e-${i}`} />)}
               {daysArray.map(d => (
