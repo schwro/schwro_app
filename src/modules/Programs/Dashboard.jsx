@@ -13,14 +13,14 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 
 const PROGRAM_ELEMENTS = [
-  'WstÄp', 'Uwielbienie', 'Modlitwa', 'Czytanie', 
+  'Wstęp', 'Uwielbienie', 'Modlitwa', 'Czytanie', 
   'Kazanie', 'Wieczerza', 'Uwielbienie / Kolekta', 
-  'OgĹoszenia', 'ZakoĹczenie'
+  'Ogłoszenia', 'Zakończenie'
 ];
 
 const MUSICAL_KEYS = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
 
-// --- HOOKI I NARZÄDZIA (PORTALE) ---
+// --- HOOKI I NARZĘDZIA (PORTALE) ---
 
 function useDropdownPosition(triggerRef, isOpen) {
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
@@ -82,7 +82,7 @@ const CustomDatePicker = ({ value, onChange }) => {
 
   const monthName = viewDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
   const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
-  const startDay = (new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay() + 6) % 7; // PoniedziaĹek = 0
+  const startDay = (new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay() + 6) % 7; // Poniedziałek = 0
 
   return (
     <div className="relative">
@@ -93,7 +93,7 @@ const CustomDatePicker = ({ value, onChange }) => {
       >
         <Calendar size={16} className="text-pink-600 dark:text-pink-400" />
         <span className="text-gray-700 dark:text-gray-200 font-medium text-sm">
-          {value ? new Date(value).toLocaleDateString('pl-PL') : 'Wybierz datÄ'}
+          {value ? new Date(value).toLocaleDateString('pl-PL') : 'Wybierz datę'}
         </span>
       </div>
 
@@ -108,7 +108,7 @@ const CustomDatePicker = ({ value, onChange }) => {
             <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() + 1))); }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"><ChevronRight size={18} className="text-gray-600 dark:text-gray-400"/></button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center mb-2">
-            {['Pn','Wt','Ĺr','Cz','Pt','So','Nd'].map(d => <div key={d} className="text-[10px] font-bold text-gray-400 uppercase">{d}</div>)}
+            {['Pn','Wt','Śr','Cz','Pt','So','Nd'].map(d => <div key={d} className="text-[10px] font-bold text-gray-400 uppercase">{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: startDay }).map((_, i) => <div key={`empty-${i}`} />)}
@@ -312,7 +312,7 @@ const MultiSelect = ({ label, options, value, onChange, absentMembers = [] }) =>
               </div>
             );
           })}
-          {options.length === 0 && <div className="p-3 text-center text-gray-400 dark:text-gray-500 text-xs">Brak czĹonkĂłw w bazie</div>}
+          {options.length === 0 && <div className="p-3 text-center text-gray-400 dark:text-gray-500 text-xs">Brak członków w bazie</div>}
         </div>,
         document.body
       )}
@@ -346,7 +346,7 @@ const SongSelector = ({ songs, onSelect }) => {
         className="w-full px-3 py-2 bg-pink-50 dark:bg-pink-900/20 border border-pink-100 dark:border-pink-800 rounded-lg text-sm text-pink-800 dark:text-pink-300 font-medium flex items-center justify-between cursor-pointer hover:bg-pink-100 dark:hover:bg-pink-900/30 transition"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <span>+ Wybierz pieĹĹ...</span>
+        <span>+ Wybierz pieśń...</span>
         <ChevronDown size={16} className="text-pink-400" />
       </div>
 
@@ -369,7 +369,7 @@ const SongSelector = ({ songs, onSelect }) => {
           </div>
           <div className="overflow-y-auto flex-1 max-h-48 custom-scrollbar">
             {filteredSongs.length === 0 ? (
-              <div className="p-3 text-xs text-gray-400 text-center">Brak wynikĂłw</div>
+              <div className="p-3 text-xs text-gray-400 text-center">Brak wyników</div>
             ) : (
               filteredSongs.map(s => (
                 <div 
@@ -585,7 +585,7 @@ const SortableRow = ({ row, index, program, setProgram, songs }) => {
   );
 };
 
-// --- GĹĂWNY KOMPONENT ---
+// --- GŁÓWNY KOMPONENT ---
 
 export default function Dashboard() {
   const [programs, setPrograms] = useState([]);
@@ -652,7 +652,7 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id) => {
-    if (confirm('Na pewno usunÄÄ?')) {
+    if (confirm('Na pewno usunąć?')) {
       await supabase.from('programs').delete().eq('id', id);
       fetchPrograms();
       if (selectedId === id) setSelectedId(null);
@@ -725,7 +725,7 @@ export default function Dashboard() {
       </div>
       <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition duration-200">
         <button onClick={(e) => { e.stopPropagation(); handleDuplicate(p); }} className="p-1 bg-pink-50 dark:bg-pink-900 text-pink-600 dark:text-pink-400 rounded hover:bg-pink-100 dark:hover:bg-pink-800" title="Duplikuj"><Copy size={14} /></button>
-        <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="p-1 bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/50" title="UsuĹ"><Trash2 size={14} /></button>
+        <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="p-1 bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/50" title="Usuń"><Trash2 size={14} /></button>
       </div>
       {selectedId === p.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-pink-500 dark:bg-pink-400"></div>}
     </div>
@@ -736,7 +736,7 @@ export default function Dashboard() {
       {/* LEWA KOLUMNA - LISTA */}
       <div className="w-80 bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl border-r border-white/40 dark:border-gray-700/40 flex flex-col h-full">
         <div className="p-6 border-b border-white/40 dark:border-gray-700/40">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent mb-4">Lista programĂłw</h2>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent mb-4">Lista programów</h2>
           <div className="flex gap-2 mb-3">
             <div className="relative flex-1">
               <input 
@@ -759,8 +759,8 @@ export default function Dashboard() {
         
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           <div className="mb-4">
-            <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 ml-1">NadchodzÄce</h3>
-            {upcomingPrograms.length === 0 ? <div className="text-xs text-gray-400 dark:text-gray-600 italic ml-1">Brak planĂłw</div> : upcomingPrograms.map(p => <ProgramItem key={p.id} p={p} />)}
+            <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 ml-1">Nadchodzące</h3>
+            {upcomingPrograms.length === 0 ? <div className="text-xs text-gray-400 dark:text-gray-600 italic ml-1">Brak planów</div> : upcomingPrograms.map(p => <ProgramItem key={p.id} p={p} />)}
           </div>
           <div>
             <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 ml-1 hover:text-pink-600 dark:hover:text-pink-400 transition w-full text-left"><History size={12} /> Historia {showHistory ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</button>
@@ -777,7 +777,7 @@ export default function Dashboard() {
           <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/50 p-8 transition-colors duration-300">
             <div className="flex justify-between items-start mb-8 pb-6 border-b border-gray-200/50 dark:border-gray-700/50">
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent mb-2">Program NaboĹźeĹstwa</h1>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent mb-2">Program Nabożeństwa</h1>
                 <CustomDatePicker value={program.date} onChange={(val) => setProgram({...program, date: val})} />
               </div>
               <div className="flex gap-3">
@@ -790,11 +790,11 @@ export default function Dashboard() {
 
             <div className="bg-white/70 dark:bg-gray-800/40 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 dark:border-gray-700/50 p-6 mb-8 min-h-[500px]">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-xl text-gray-800 dark:text-gray-200 flex items-center gap-2"><div className="w-1.5 h-6 bg-pink-600 dark:bg-pink-500 rounded-full"></div>Plan szczegĂłĹowy</h3>
+                <h3 className="font-bold text-xl text-gray-800 dark:text-gray-200 flex items-center gap-2"><div className="w-1.5 h-6 bg-pink-600 dark:bg-pink-500 rounded-full"></div>Plan szczegółowy</h3>
                 <button onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [], selectedSongs: [] }]})} className="bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-4 py-2 rounded-xl font-bold hover:shadow-lg transition">+ Dodaj Element</button>
               </div>
               <div className="bg-white/50 dark:bg-gray-900/50 rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner overflow-hidden">
-                <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><div className="col-span-1"></div><div className="col-span-3">Element</div><div className="col-span-3">Osoba</div><div className="col-span-4">SzczegĂłĹy / Notatki</div><div className="col-span-1"></div></div>
+                <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><div className="col-span-1"></div><div className="col-span-3">Element</div><div className="col-span-3">Osoba</div><div className="col-span-4">Szczegóły / Notatki</div><div className="col-span-1"></div></div>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContext items={program.schedule.map(s => s.id)} strategy={verticalListSortingStrategy}>
                     <div>{program.schedule.map((row, idx) => <SortableRow key={row.id} row={row} index={idx} program={program} setProgram={setProgram} songs={songs} />)}</div>
@@ -805,7 +805,7 @@ export default function Dashboard() {
 
             <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-6 mb-6 hover:shadow-xl transition relative z-50">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">ZespĂłĹ Uwielbienia</h3>
+                <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zespół Uwielbienia</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[{ key: 'lider', label: 'Lider Uwielbienia' }, { key: 'piano', label: 'Piano' }, { key: 'gitara_akustyczna', label: 'Gitara Akustyczna' }, { key: 'gitara_elektryczna', label: 'Gitara Elektryczna' }, { key: 'bas', label: 'Gitara Basowa' }, { key: 'wokale', label: 'Wokale' }, { key: 'cajon', label: 'Cajon / Perkusja' }].map(field => (
@@ -823,12 +823,12 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
               <SectionCard title="Atmosfera Team" dataKey="atmosfera_team" program={program} setProgram={setProgram} fields={[{ key: 'przygotowanie', label: 'Przygotowanie:' }, { key: 'witanie', label: 'Witanie:' }]} />
-              <SectionCard title="Produkcja" dataKey="produkcja" program={program} setProgram={setProgram} fields={[{ key: 'naglosnienie', label: 'NagĹoĹnienie:' }, { key: 'propresenter', label: 'ProPresenter:' }, { key: 'social', label: 'Social Media:' }, { key: 'host', label: 'Host wydarzenia:' }]} />
+              <SectionCard title="Produkcja" dataKey="produkcja" program={program} setProgram={setProgram} fields={[{ key: 'naglosnienie', label: 'Nagłośnienie:' }, { key: 'propresenter', label: 'ProPresenter:' }, { key: 'social', label: 'Social Media:' }, { key: 'host', label: 'Host wydarzenia:' }]} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
-              <SectionCard title="Scena" dataKey="scena" program={program} setProgram={setProgram} fields={[{ key: 'prowadzenie', label: 'Prowadzenie:' }, { key: 'modlitwa', label: 'Modlitwa:' }, { key: 'kazanie', label: 'Kazanie:' }, { key: 'wieczerza', label: 'Wieczerza:' }, { key: 'ogloszenia', label: 'OgĹoszenia:' }]} />
-              <SectionCard title="SzkĂłĹka Niedzielna" dataKey="szkolka" program={program} setProgram={setProgram} fields={[{ key: 'mlodsza', label: 'Grupa MĹodsza:' }, { key: 'srednia', label: 'Grupa Ĺrednia:' }, { key: 'starsza', label: 'Grupa Starsza:' }]} />
+              <SectionCard title="Scena" dataKey="scena" program={program} setProgram={setProgram} fields={[{ key: 'prowadzenie', label: 'Prowadzenie:' }, { key: 'modlitwa', label: 'Modlitwa:' }, { key: 'kazanie', label: 'Kazanie:' }, { key: 'wieczerza', label: 'Wieczerza:' }, { key: 'ogloszenia', label: 'Ogłoszenia:' }]} />
+              <SectionCard title="Szkółka Niedzielna" dataKey="szkolka" program={program} setProgram={setProgram} fields={[{ key: 'mlodsza', label: 'Grupa Młodsza:' }, { key: 'srednia', label: 'Grupa Średnia:' }, { key: 'starsza', label: 'Grupa Starsza:' }]} />
             </div>
           </div>
         </div>

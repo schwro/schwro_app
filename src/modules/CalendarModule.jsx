@@ -126,7 +126,6 @@ const CustomDatePicker = ({ value, onChange }) => {
   );
 };
 
-// --- FIX 3: MultiSelect - obsługa braku pola fullname ---
 const MultiSelect = ({ label, options, value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef(null);
@@ -161,7 +160,6 @@ const MultiSelect = ({ label, options, value, onChange }) => {
              <div className="p-3 text-center text-gray-400 text-xs">Brak osób w bazie</div>
           ) : (
              options.map(person => {
-                // Używamy fullname lub name lub fallbacku
                 const displayName = person.fullname || person.name || 'Brak danych';
                 const isSelected = selectedItems.includes(displayName);
                 return (
@@ -325,7 +323,6 @@ const SortableRow = ({ row, index, program, setProgram, onRemove, songs }) => {
 
       <div className="col-span-3"><input className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200" placeholder="Osoba" value={row.person || ''} onChange={e => updateRow('person', e.target.value)} /></div>
       
-      {/* FIX 2: Przeniesienie wyboru pieśni do kolumny Szczegóły */}
       <div className="col-span-4 space-y-2">
           <input className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200" placeholder="Szczegóły / Notatka" value={row.details || ''} onChange={e => updateRow('details', e.target.value)} />
           
@@ -374,7 +371,6 @@ const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
   useEffect(() => {
     const fetch = async () => {
       const { data: pData } = await supabase.from('programs').select('*').eq('id', eventId).single();
-      // Sortowanie po fullname, ale pobieramy wszystko *
       const { data: wData } = await supabase.from('worshipteam').select('*');
       
       if (pData) {
@@ -434,7 +430,6 @@ const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
         {/* CONTENT */}
         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar bg-gradient-to-br from-pink-50/50 via-white to-orange-50/50 dark:from-gray-900 dark:to-gray-800">
           
-          {/* LEWA KOLUMNA: PLAN */}
           <div className="bg-white/70 dark:bg-gray-800/40 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 dark:border-gray-700/50 p-6 min-h-[500px]">
             <div className="flex justify-between items-center mb-6">
                <h3 className="font-bold text-xl text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -476,7 +471,6 @@ const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
             </div>
           </div>
 
-          {/* ZESPÓŁ UWIELBIENIA */}
           <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-6 relative z-50">
              <div className="flex justify-between items-center mb-6">
                  <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zespół Uwielbienia</h3>
@@ -502,7 +496,6 @@ const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
              </div>
           </div>
 
-          {/* SEKCJE POZOSTAŁE (GRID) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-0">
             <SectionCard title="Atmosfera Team" dataKey="atmosferateam" program={program} setProgram={setProgram} fields={[{ key: 'przygotowanie', label: 'Przygotowanie' }, { key: 'witanie', label: 'Witanie' }]} />
             <SectionCard title="Produkcja" dataKey="produkcja" program={program} setProgram={setProgram} fields={[{ key: 'naglosnienie', label: 'Nagłośnienie' }, { key: 'propresenter', label: 'ProPresenter' }, { key: 'social', label: 'Social Media' }, { key: 'host', label: 'Host wydarzenia' }]} />
@@ -519,7 +512,6 @@ const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
 
 // --- TASK MODAL ---
 
-// --- FIX 1: Poprawa zapisu zadań ---
 const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
   const [task, setTask] = useState(initialTask || {
     title: '',
@@ -538,21 +530,21 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
   const handleSubmit = () => {
     if (!task.title) return alert('Podaj tytuł');
     
-    // Budowanie poprawnego obiektu dla Supabase
-    const finalDate = new Date(`${task.due_date}T${task.due_time}:00`);
+    // Konstrukcja daty z zachowaniem strefy czasowej (unikanie przesunięć)
+    const dateStr = task.due_date;
+    const timeStr = task.due_time || '00:00';
+    const finalDate = new Date(`${dateStr}T${timeStr}:00`);
+    
     const payload = {
         title: task.title,
         description: task.description,
-        team: task.team,
+        team: task.team || 'media', // Domyślny team
         due_date: finalDate.toISOString(),
         location: task.location,
         status: task.status
     };
     
-    // Jeśli edytujemy, dodajemy ID. Jeśli nowe - ID generuje baza.
-    if (task.id) {
-        payload.id = task.id;
-    }
+    if (task.id) payload.id = task.id;
     
     onSave(payload);
     onClose();
@@ -650,6 +642,9 @@ export default function CalendarModule() {
     task?.forEach(t => {
         if (!t.due_date) return;
         const d = new Date(t.due_date);
+        // Sprawdzenie czy data jest prawidłowa
+        if (isNaN(d.getTime())) return;
+
         all.push({ 
             id: t.id, 
             type: 'task', 
@@ -663,17 +658,22 @@ export default function CalendarModule() {
     setEvents(all.filter(e => e.date));
   };
 
-  // Poprawiona logika zapisu
   const handleSaveTask = async (taskData) => { 
-      // Jeżeli mamy ID, to UPDATE, jeżeli nie, to INSERT
+      let error = null;
       if (taskData.id) {
-          const { error } = await supabase.from('tasks').update(taskData).eq('id', taskData.id);
-          if (error) console.error("Błąd aktualizacji:", error);
+          const { error: e } = await supabase.from('tasks').update(taskData).eq('id', taskData.id);
+          error = e;
       } else {
-          const { error } = await supabase.from('tasks').insert([taskData]); 
-          if (error) console.error("Błąd dodawania:", error);
+          const { error: e } = await supabase.from('tasks').insert([taskData]); 
+          error = e;
       }
-      fetchEvents(); 
+
+      if (error) {
+          alert(`Błąd zapisu: ${error.message}`);
+          console.error(error);
+      } else {
+          fetchEvents(); 
+      }
   };
 
   const handleDeleteTask = async (id) => {
