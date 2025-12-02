@@ -1,24 +1,21 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { jsPDF } from "jspdf";
 
-// --- Łączenie klas CSS (Tailwind) ---
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-// --- Helper formatujący datę ---
-const formatDateFull = (dateString) => {
-  if (!dateString) return '';
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  const date = new Date(dateString);
-  const formatted = date.toLocaleDateString('pl-PL', options);
-  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
-};
 
-// --- GENEROWANIE PDF (Wersja do druku - otwiera nowe okno) ---
+// src/lib/utils.js
+
 export const generatePDF = (program, songsMap) => {
-  
+  const formatDateFull = (dateString) => {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const date = new Date(dateString);
+    const formatted = date.toLocaleDateString('pl-PL', options);
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  };
+
   // Liczy wszystkie pieśni w całym planie - numeracja ciągła
   let songCounter = 0;
   const songNumberMap = {};
@@ -189,7 +186,7 @@ export const generatePDF = (program, songsMap) => {
 
     if (allSongs.length === 0) return '';
 
-    return allSongs.map((song) => `
+    return allSongs.map((song, idx) => `
       <div style="page-break-before: always; page-break-inside: avoid; padding: 5px 0 40px 0;">
         <div style="text-align: center; margin-bottom: 16px;">
           <div style="font-size: 11px; font-weight: 600; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
@@ -344,86 +341,4 @@ export const generatePDF = (program, songsMap) => {
   } else {
     alert('Proszę wyłączyć blokadę wyskakujących okien');
   }
-};
-
-// --- GENEROWANIE PDF do Base64 (Dla wysyłki e-mailem przez Supabase) ---
-// Ta funkcja używa biblioteki jsPDF do stworzenia pliku w pamięci
-export const generatePDFBase64 = async (program, songsMap) => {
-  const doc = new jsPDF();
-  
-  // Ustawienia czcionek
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text("Program nabożeństwa", 105, 20, null, null, "center");
-  
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-  doc.setTextColor(100);
-  doc.text(formatDateFull(program.date), 105, 30, null, null, "center");
-  doc.setTextColor(0);
-
-  // Tabela Planu (prosta implementacja w jsPDF, można użyć autoTable dla lepszego efektu)
-  let yPos = 50;
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text("Plan szczegółowy", 20, yPos);
-  yPos += 10;
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  
-  program.schedule?.forEach((row) => {
-    if (yPos > 270) { doc.addPage(); yPos = 20; }
-    
-    const element = row.element || '-';
-    const person = row.person || '-';
-    let details = row.details || '-';
-
-    // Jeśli uwielbienie i są pieśni
-    if ((row.element || '').toLowerCase().includes('uwielbienie') && row.selectedSongs?.length > 0) {
-      details = row.selectedSongs.map(s => {
-        const song = songsMap[s.songId];
-        return song ? `${song.title} [${s.key}]` : '';
-      }).join(', ');
-    }
-
-    doc.text(`${element}`, 20, yPos);
-    doc.text(`${person}`, 80, yPos);
-    
-    // Zawijanie tekstu szczegółów
-    const splitDetails = doc.splitTextToSize(details, 80);
-    doc.text(splitDetails, 120, yPos);
-    
-    yPos += (splitDetails.length * 5) + 5;
-  });
-
-  // Sekcja Zespołu
-  if (program.zespol) {
-    if (yPos > 250) { doc.addPage(); yPos = 20; } else { yPos += 10; }
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Zespół Uwielbienia", 20, yPos);
-    yPos += 10;
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    
-    const teamFields = [
-      { k: 'lider', l: 'Lider' }, { k: 'piano', l: 'Piano' }, 
-      { k: 'gitara_akustyczna', l: 'Akustyk' }, { k: 'gitara_elektryczna', l: 'Elektryk' },
-      { k: 'bas', l: 'Bas' }, { k: 'wokale', l: 'Wokale' }, { k: 'cajon', l: 'Perkusja' }
-    ];
-
-    teamFields.forEach(f => {
-        const val = program.zespol[f.k];
-        if(val) {
-            doc.text(`${f.l}: ${val}`, 20, yPos);
-            yPos += 6;
-        }
-    });
-  }
-
-  // Zwracamy czysty string Base64 (bez prefixu)
-  const dataUri = doc.output('datauristring');
-  return dataUri.split(',')[1];
 };

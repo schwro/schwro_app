@@ -4,9 +4,10 @@ import { supabase } from '../../lib/supabase';
 import { 
   Plus, Save, FileText, Presentation, Copy, Trash2, Calendar, 
   ChevronDown, GripVertical, Search, X, Check, ChevronUp, 
-  History, ArrowUpDown, User, UserX, ChevronLeft, ChevronRight 
+  History, ArrowUpDown, User, UserX, ChevronLeft, ChevronRight,
+  Mail, Loader2
 } from 'lucide-react';
-import { generatePDF } from '../../lib/utils';
+import { generatePDF, generatePDFBase64 } from '../../lib/utils'; // Upewnij się, że masz generatePDFBase64
 import { generatePPT } from '../../lib/ppt';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -29,14 +30,13 @@ function useDropdownPosition(triggerRef, isOpen) {
       const updatePosition = () => {
         const rect = triggerRef.current.getBoundingClientRect();
         setCoords({
-          top: rect.bottom + window.scrollY + 4, // 4px odstępu
+          top: rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX,
           width: rect.width
         });
       };
       
       updatePosition();
-      // Aktualizuj pozycję przy scrollowaniu lub zmianie rozmiaru okna
       window.addEventListener('scroll', updatePosition, true);
       window.addEventListener('resize', updatePosition);
       
@@ -49,6 +49,28 @@ function useDropdownPosition(triggerRef, isOpen) {
 
   return coords;
 }
+
+// --- FUNKCJA POMOCNICZA DO ZBIERANIA MAILI ---
+
+const getAllRecipients = (program, worshipTeamMembers) => {
+  const recipients = new Set();
+
+  // Zespół Uwielbienia (z MultiSelecta)
+  if (program.zespol) {
+    Object.values(program.zespol).forEach(value => {
+      if (typeof value === 'string') {
+        const names = value.split(',').map(s => s.trim()).filter(Boolean);
+        names.forEach(name => {
+           // Szukamy e-maila w pobranej liście członków zespołu
+           const member = worshipTeamMembers.find(m => m.full_name === name);
+           if (member?.email) recipients.add(member.email);
+        });
+      }
+    });
+  }
+  
+  return Array.from(recipients);
+};
 
 // --- HELPERY KALENDARZA ---
 
@@ -64,20 +86,15 @@ const CustomDatePicker = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
   const wrapperRef = useRef(null);
-  // Używamy portalu również dla DatePickera, żeby był spójny
   const coords = useDropdownPosition(wrapperRef, isOpen); 
 
   useEffect(() => { if (value) setViewDate(new Date(value)); }, [value]);
 
   useEffect(() => {
-    // Zamknij przy kliknięciu na zewnątrz (obsługa dla Portalu)
     const handleClick = (e) => {
         if (isOpen && wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-           // Sprawdź czy kliknięto w portal (który jest poza wrapperRef)
            const portal = document.getElementById('datepicker-portal');
-           if (portal && !portal.contains(e.target)) {
-               setIsOpen(false);
-           }
+           if (portal && !portal.contains(e.target)) setIsOpen(false);
         }
     }
     document.addEventListener('mousedown', handleClick);
@@ -172,8 +189,6 @@ const SectionCard = ({ title, dataKey, fields, program, setProgram }) => (
   </div>
 );
 
-// --- POPRAWIONY ELEMENT SELECTOR (PORTAL) ---
-
 const ElementSelector = ({ value, onChange, options }) => {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
@@ -181,12 +196,9 @@ const ElementSelector = ({ value, onChange, options }) => {
 
   useEffect(() => {
     const handleClick = (e) => {
-        // Zamknij jeśli kliknięto poza wrapper ORAZ poza portalem
         if (isOpen && wrapperRef.current && !wrapperRef.current.contains(e.target)) {
              const portal = document.getElementById('element-selector-portal');
-             if (portal && !portal.contains(e.target)) {
-                 setIsOpen(false);
-             }
+             if (portal && !portal.contains(e.target)) setIsOpen(false);
         }
     }
     document.addEventListener("mousedown", handleClick);
@@ -237,8 +249,6 @@ const ElementSelector = ({ value, onChange, options }) => {
     </div>
   );
 };
-
-// --- POPRAWIONY MULTI SELECT (PORTAL) ---
 
 const MultiSelect = ({ label, options, value, onChange, absentMembers = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -329,8 +339,6 @@ const MultiSelect = ({ label, options, value, onChange, absentMembers = [] }) =>
     </div>
   );
 };
-
-// --- POPRAWIONY SONG SELECTOR (PORTAL) ---
 
 const SongSelector = ({ songs, onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -598,6 +606,7 @@ export default function Dashboard() {
   const [worshipTeam, setWorshipTeam] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [sortOrder, setSortOrder] = useState('asc');
+  const [isSending, setIsSending] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -669,6 +678,51 @@ export default function Dashboard() {
     await supabase.from('programs').insert([rest]);
     fetchPrograms();
   };
+
+  // OBSŁUGA WYSYŁKI MAILA (SUPABASE EDGE FUNCTION)
+  const handleSendEmail = async () => {
+    if (!confirm('Czy na pewno chcesz wysłać program do wszystkich osób z listy?')) return;
+
+    setIsSending(true);
+
+    try {
+      const emails = getAllRecipients(program, worshipTeam);
+      
+      if (emails.length === 0) {
+        alert('Brak adresów e-mail przypisanych do osób w programie. Upewnij się, że członkowie zespołu mają wpisane adresy e-mail w bazie.');
+        setIsSending(false);
+        return;
+      }
+
+      const songsMap = {};
+      songs.forEach(s => songsMap[s.id] = s);
+      
+      // Generowanie PDF do Base64 (bez nagłówka data:...)
+      // Wymaga dodania generatePDFBase64 do utils.js
+      const pdfBase64 = await generatePDFBase64(program, songsMap); 
+
+      const { data, error } = await supabase.functions.invoke('send-program-email', {
+        body: {
+          emailTo: emails,
+          subject: `Program Nabożeństwa: ${new Date(program.date).toLocaleDateString('pl-PL')}`,
+          htmlBody: `<p>Cześć,</p><p>W załączniku przesyłam program nabożeństwa na dzień <strong>${new Date(program.date).toLocaleDateString('pl-PL')}</strong>.</p><p>Pozdrawiam,<br>Lider</p>`,
+          pdfBase64: pdfBase64,
+          filename: `Program_${program.date}.pdf`
+        }
+      });
+
+      if (error) throw error;
+
+      alert(`Wysłano e-mail do ${emails.length} osób!`);
+
+    } catch (error) {
+      console.error('Błąd wysyłki:', error);
+      alert('Wystąpił błąd podczas wysyłania e-maila. Sprawdź konsolę.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
@@ -796,6 +850,18 @@ export default function Dashboard() {
               <div className="flex gap-3">
                 <button className="bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 px-4 py-2.5 rounded-xl border border-green-100 dark:border-green-900 font-bold hover:bg-green-50 dark:hover:bg-green-900/30 flex items-center gap-2 transition shadow-sm" onClick={handleSave}><Save size={18}/> <span className="hidden md:inline">Zapisz</span></button>
                 <div className="h-10 w-px bg-gray-300 dark:bg-gray-700 mx-1 self-center"></div>
+
+                {/* PRZYCISK WYSYŁKI MAILA */}
+                <button 
+                    onClick={handleSendEmail} 
+                    disabled={isSending}
+                    className="bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-600 hover:shadow-lg transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Generuj PDF i wyślij e-mail"
+                >
+                    {isSending ? <Loader2 size={18} className="animate-spin"/> : <Mail size={18}/>} 
+                    <span className="hidden md:inline">{isSending ? 'Wysyłanie...' : 'Wyślij'}</span>
+                </button>
+
                 <button onClick={() => { const songsMap = {}; songs.forEach(s => songsMap[s.id] = s); generatePDF(program, songsMap); }} className="bg-gradient-to-r from-pink-600 to-pink-700 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg transition"><FileText size={18}/> <span className="hidden md:inline">PDF</span></button>
                 <button onClick={() => { const songsMap = {}; songs.forEach(s => songsMap[s.id] = s); generatePPT(program, songsMap); }} className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg transition"><Presentation size={18}/> <span className="hidden md:inline">PPT</span></button>
               </div>
