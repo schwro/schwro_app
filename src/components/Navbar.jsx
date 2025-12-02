@@ -9,9 +9,8 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
   };
 
   return (
-    // ZMIANA 1: Dodano 'relative' i bardzo wysoki 'z-[100]' do głównego kontenera.
-    // To gwarantuje, że Navbar i wszystko co z niego "wystaje" (dropdowny) będzie nad resztą strony.
-    <div className="relative z-[100] h-16 bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700 flex items-center justify-between px-6 transition-colors duration-300">
+    // Dodano z-[1000] i relative, aby navbar był zawsze nad treścią strony
+    <div className="relative z-[1000] h-16 bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700 flex items-center justify-between px-6 transition-colors duration-300">
       
       {/* Lewa strona */}
       <div className="flex items-center gap-4">
@@ -47,9 +46,9 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
             <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-1">Online</p>
           </div>
           
-          {/* Kontener dropdowna musi mieć relative, żeby absolute działało względem niego */}
+          {/* Kontener grupy musi być relative */}
           <div className="relative group">
-            <button className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-600 p-[2px] cursor-pointer shadow-md hover:shadow-lg transition-all">
+            <button className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-600 p-[2px] cursor-pointer shadow-md hover:shadow-lg transition-all block">
               <div className="w-full h-full rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
                 <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-orange-600 uppercase">
                   {user?.email?.charAt(0) || 'U'}
@@ -57,21 +56,28 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
               </div>
             </button>
 
-            {/* Dropdown Menu */}
-            {/* ZMIANA 2: Upewniamy się, że z-index dropdowna też jest wysoki, choć dziedziczy po rodzicu */}
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 z-[101]">
-              <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 mb-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Konto</p>
+            {/* 
+               POPRAWKA: 
+               1. Zamiast 'mt-2' używamy 'pt-2' na zewnętrznym divie. 
+                  Dzięki temu 'powietrze' między przyciskiem a menu jest częścią elementu i myszka nie gubi hovera.
+               2. Wewnętrzny div ma tło i obramowanie.
+               3. Dodany wysoki z-index [1000].
+            */}
+            <div className="absolute right-0 top-full pt-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 z-[1000]">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Konto</p>
+                </div>
+                <a href="/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-700 hover:text-pink-600 transition-colors cursor-pointer">
+                  <UserIcon size={16}/> Mój Profil
+                </a>
+                <button 
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+                >
+                  <LogOut size={16}/> Wyloguj
+                </button>
               </div>
-              <a href="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-700 hover:text-pink-600 transition-colors cursor-pointer">
-                <UserIcon size={16}/> Mój Profil
-              </a>
-              <button 
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
-              >
-                <LogOut size={16}/> Wyloguj
-              </button>
             </div>
           </div>
         </div>
