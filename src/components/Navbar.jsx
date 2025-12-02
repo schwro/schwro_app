@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Sun, Moon, LogOut, User } from 'lucide-react';
+import { Bell, Sun, Moon, LogOut, User as UserIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Navbar({ user, darkMode, toggleTheme }) {
@@ -9,11 +9,13 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
   };
 
   return (
-    <div className="h-16 bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700 flex items-center justify-between px-6 transition-colors duration-300">
+    // ZMIANA 1: Dodano 'relative' i bardzo wysoki 'z-[100]' do głównego kontenera.
+    // To gwarantuje, że Navbar i wszystko co z niego "wystaje" (dropdowny) będzie nad resztą strony.
+    <div className="relative z-[100] h-16 bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700 flex items-center justify-between px-6 transition-colors duration-300">
       
-      {/* Lewa strona (tytuł lub puste) */}
+      {/* Lewa strona */}
       <div className="flex items-center gap-4">
-        {/* Tu można dodać breadcrumbs */}
+        {/* Breadcrumbs itp. */}
       </div>
 
       {/* Prawa strona */}
@@ -28,7 +30,7 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
           {darkMode ? <Sun size={20} /> : <Moon size={20} />}
         </button>
 
-        {/* Powiadomienia (Placeholder) */}
+        {/* Powiadomienia */}
         <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors relative">
           <Bell size={20} />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
@@ -45,6 +47,7 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
             <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-1">Online</p>
           </div>
           
+          {/* Kontener dropdowna musi mieć relative, żeby absolute działało względem niego */}
           <div className="relative group">
             <button className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-600 p-[2px] cursor-pointer shadow-md hover:shadow-lg transition-all">
               <div className="w-full h-full rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
@@ -55,12 +58,13 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
             </button>
 
             {/* Dropdown Menu */}
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 z-50">
+            {/* ZMIANA 2: Upewniamy się, że z-index dropdowna też jest wysoki, choć dziedziczy po rodzicu */}
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 z-[101]">
               <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 mb-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Konto</p>
               </div>
               <a href="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-700 hover:text-pink-600 transition-colors cursor-pointer">
-                <User size={16}/> Mój Profil
+                <UserIcon size={16}/> Mój Profil
               </a>
               <button 
                 onClick={handleLogout}
