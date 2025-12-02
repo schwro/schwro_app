@@ -180,8 +180,8 @@ function SongDetailsModal({ song, onClose, onEdit }) {
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white/95 backdrop-blur-xl max-w-5xl w-full rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border border-white/20 max-h-[90vh]">
         
-        <div className="flex justify-between items-center py-6 px-10 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/80 to-purple-50/80">
-          <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+        <div className="flex justify-between items-center py-6 px-10 border-b border-gray-200/50 bg-gradient-to-r from-pink-50/80 to-orange-50/80">
+          <div className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">
             {song.title}
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-xl transition">
@@ -201,7 +201,7 @@ function SongDetailsModal({ song, onClose, onEdit }) {
               <div className="flex flex-wrap gap-2">
                 {Array.isArray(song.tags) && song.tags.length > 0 ? (
                   song.tags.map((t, i) => (
-                    <span key={i} className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-200/50">
+                    <span key={i} className="bg-gradient-to-r from-pink-100 to-orange-100 text-pink-700 px-3 py-1 rounded-full text-xs font-medium border border-pink-200/50">
                       {t}
                     </span>
                   ))
@@ -212,21 +212,21 @@ function SongDetailsModal({ song, onClose, onEdit }) {
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-blue-50/50 to-purple-50/50 border border-blue-200/30 rounded-2xl p-5">
+          <div className="bg-gradient-to-r from-pink-50/50 to-orange-50/50 border border-pink-200/30 rounded-2xl p-5">
             <div className="text-xs font-semibold text-gray-500 mb-2">Tonacja</div>
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">
                 {displayKey}
               </span>
               <button
                 onClick={() => setTranspose(transpose - 1)}
-                className="px-4 py-2 rounded-xl border border-gray-300/50 bg-white/70 text-blue-700 font-bold hover:bg-gradient-to-r hover:from-blue-500 hover:to-purple-500 hover:text-white transition"
+                className="px-4 py-2 rounded-xl border border-gray-300/50 bg-white/70 text-pink-700 font-bold hover:bg-gradient-to-r hover:from-pink-500 hover:to-orange-500 hover:text-white transition"
               >
                 ▼ Niżej
               </button>
               <button
                 onClick={() => setTranspose(transpose + 1)}
-                className="px-4 py-2 rounded-xl border border-gray-300/50 bg-white/70 text-blue-700 font-bold hover:bg-gradient-to-r hover:from-blue-500 hover:to-purple-500 hover:text-white transition"
+                className="px-4 py-2 rounded-xl border border-gray-300/50 bg-white/70 text-pink-700 font-bold hover:bg-gradient-to-r hover:from-pink-500 hover:to-orange-500 hover:text-white transition"
               >
                 ▲ Wyżej
               </button>
@@ -257,7 +257,7 @@ function SongDetailsModal({ song, onClose, onEdit }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <div className="font-bold text-blue-700 mb-2 flex items-center gap-2">
+              <div className="font-bold text-pink-700 mb-2 flex items-center gap-2">
                 <FileText size={18} />
                 Tekst pieśni
               </div>
@@ -266,14 +266,14 @@ function SongDetailsModal({ song, onClose, onEdit }) {
               </pre>
             </div>
             <div>
-              <div className="font-bold text-purple-700 mb-2 flex items-center gap-2 justify-between">
+              <div className="font-bold text-orange-700 mb-2 flex items-center gap-2 justify-between">
                 <span className="flex items-center gap-2">
                   <Music size={18} />
                   Akordy w taktach
                 </span>
                 <button
                   onClick={() => navigator.clipboard.writeText(transposedChordsBars)}
-                  className="text-xs text-gray-500 hover:text-blue-600 underline"
+                  className="text-xs text-gray-500 hover:text-pink-600 underline"
                 >
                   Kopiuj
                 </button>
@@ -285,11 +285,11 @@ function SongDetailsModal({ song, onClose, onEdit }) {
           </div>
 
           <div>
-            <div className="font-bold text-blue-700 mb-2 flex items-center gap-2">
+            <div className="font-bold text-pink-700 mb-2 flex items-center gap-2">
               <Music size={18} />
               Tekst z akordami (pełna wersja)
             </div>
-            <pre className="bg-gradient-to-br from-blue-50/50 to-purple-50/50 backdrop-blur-sm border border-blue-200/30 rounded-xl p-5 text-sm font-mono text-gray-900 max-h-80 overflow-y-auto">
+            <pre className="bg-gradient-to-br from-pink-50/50 to-orange-50/50 backdrop-blur-sm border border-pink-200/30 rounded-xl p-5 text-sm font-mono text-gray-900 max-h-80 overflow-y-auto">
               {lyricsWithChords || "(brak)"}
             </pre>
           </div>
@@ -306,9 +306,9 @@ function SongDetailsModal({ song, onClose, onEdit }) {
                   className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-xl border border-gray-200/50 p-4 mb-2 hover:bg-white/90 transition"
                 >
                   {file.name?.endsWith(".mp3") ? (
-                    <Music size={20} className="text-blue-600" />
+                    <Music size={20} className="text-pink-600" />
                   ) : (
-                    <FileText size={20} className="text-purple-600" />
+                    <FileText size={20} className="text-orange-600" />
                   )}
                   <span className="font-semibold flex-1">{file.name}</span>
                   <span className="text-xs text-gray-500">
@@ -335,7 +335,7 @@ function SongDetailsModal({ song, onClose, onEdit }) {
                 href={song.sheet_music_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 rounded-xl border border-blue-200/50 hover:from-blue-200 hover:to-purple-200 transition font-semibold"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-100 to-orange-100 text-pink-700 rounded-xl border border-pink-200/50 hover:from-pink-200 hover:to-orange-200 transition font-semibold"
               >
                 Zobacz nuty / nagranie ↗
               </a>
@@ -344,8 +344,8 @@ function SongDetailsModal({ song, onClose, onEdit }) {
             )}
           </div>
 
-          <div className="bg-gradient-to-r from-blue-50/80 to-purple-50/80 backdrop-blur-sm border border-blue-200/30 rounded-2xl p-6">
-            <div className="font-bold text-blue-700 mb-3 flex items-center gap-2">
+          <div className="bg-gradient-to-r from-pink-50/80 to-orange-50/80 backdrop-blur-sm border border-pink-200/30 rounded-2xl p-6">
+            <div className="font-bold text-pink-700 mb-3 flex items-center gap-2">
               <Calendar size={20} />
               Historia wykorzystania ({usageHistory.length}x)
             </div>
@@ -372,7 +372,7 @@ function SongDetailsModal({ song, onClose, onEdit }) {
           </div>
         </div>
 
-        <div className="flex justify-end gap-4 p-6 border-t border-gray-200/50 bg-gradient-to-r from-blue-50/30 to-purple-50/30">
+        <div className="flex justify-end gap-4 p-6 border-t border-gray-200/50 bg-gradient-to-r from-pink-50/30 to-orange-50/30">
           <button
             onClick={onClose}
             className="px-6 py-3 bg-white/80 backdrop-blur-sm border border-gray-200/50 font-medium rounded-xl hover:bg-white transition"
@@ -381,13 +381,13 @@ function SongDetailsModal({ song, onClose, onEdit }) {
           </button>
           <button 
             onClick={generatePDF}
-            className="px-7 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-blue-500/50 transition"
+            className="px-7 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-pink-500/50 transition"
           >
             Generuj PDF
           </button>
           <button
             onClick={onEdit}
-            className="px-7 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-purple-500/50 transition"
+            className="px-7 py-3 bg-gradient-to-r from-orange-600 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-orange-500/50 transition"
           >
             Edytuj pieśń
           </button>
@@ -482,22 +482,22 @@ export default function WorshipModule() {
     (tagFilter ? (Array.isArray(s.tags) ? s.tags.map(String).map(t => t.toLowerCase()).includes(tagFilter.toLowerCase()) : false) : true)
   );
 
-  if (loading) return <div className="p-10 text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div></div>;
+  if (loading) return <div className="p-10 text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div></div>;
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Grupa Uwielbienia</h1>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">Grupa Uwielbienia</h1>
       </div>
 
       <section className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Członkowie Zespołu</h2>
-          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setShowMemberModal(true); }} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">Członkowie Zespołu</h2>
+          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
         </div>
         <div className="bg-white/50 backdrop-blur-sm rounded-2xl border border-gray-200/50 overflow-hidden">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gradient-to-r from-blue-50/80 to-purple-50/80 text-gray-700 font-bold border-b border-gray-200/50">
+            <thead className="bg-gradient-to-r from-pink-50/80 to-orange-50/80 text-gray-700 font-bold border-b border-gray-200/50">
               <tr>
                 <th className="p-4">Imię i nazwisko</th>
                 <th className="p-4">Instrument/Rola</th>
@@ -511,14 +511,14 @@ export default function WorshipModule() {
               {team.length === 0 ? (
                 <tr><td colSpan="6" className="p-8 text-center text-gray-400">Brak danych</td></tr>
               ) : team.map(m => (
-                <tr key={m.id} className="hover:bg-blue-50/30 transition">
+                <tr key={m.id} className="hover:bg-pink-50/30 transition">
                   <td className="p-4 font-medium">{m.full_name}</td>
                   <td className="p-4">{m.role}</td>
                   <td className="p-4"><span className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium border border-green-200/50">{m.status}</span></td>
                   <td className="p-4">{m.phone}</td>
                   <td className="p-4">{m.email}</td>
                   <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => { setMemberForm(m); setShowMemberModal(true); }} className="text-blue-600 hover:text-purple-600 font-medium transition">Edytuj</button>
+                    <button onClick={() => { setMemberForm(m); setShowMemberModal(true); }} className="text-pink-600 hover:text-orange-600 font-medium transition">Edytuj</button>
                     <button onClick={() => deleteMember(m.id)} className="text-red-500 hover:text-red-700 font-medium transition">Usuń</button>
                   </td>
                 </tr>
@@ -530,8 +530,8 @@ export default function WorshipModule() {
 
       <section className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 p-6">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Baza Pieśni</h2>
-          <button onClick={() => { setSongForm({}); setShowSongModal(true); }} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj pieśń</button>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">Baza Pieśni</h2>
+          <button onClick={() => { setSongForm({}); setShowSongModal(true); }} className="bg-gradient-to-r from-orange-600 to-pink-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj pieśń</button>
         </div>
         <div className="bg-white/50 backdrop-blur-sm p-4 mb-4 rounded-2xl border border-gray-200/50 flex flex-col md:flex-row gap-3">
           <div className="flex-1 flex items-center gap-2">
@@ -541,7 +541,7 @@ export default function WorshipModule() {
           <div className="flex gap-2 flex-wrap items-center">
             <input className="px-4 py-2 border border-gray-200/50 rounded-xl text-sm bg-white/50 backdrop-blur-sm" placeholder="Szukaj po tagach..." value={tagFilter} onChange={e => setTagFilter(e.target.value)} />
             {TAGS.map(tag => tagFilter !== tag && (
-              <button key={tag} onClick={() => setTagFilter(tag)} className="bg-gradient-to-r from-blue-50 to-purple-50 px-3 py-1.5 rounded-xl text-xs text-blue-800 border border-blue-200/50 hover:from-blue-100 hover:to-purple-100 transition font-medium">{tag}</button>
+              <button key={tag} onClick={() => setTagFilter(tag)} className="bg-gradient-to-r from-pink-50 to-orange-50 px-3 py-1.5 rounded-xl text-xs text-pink-800 border border-pink-200/50 hover:from-pink-100 hover:to-orange-100 transition font-medium">{tag}</button>
             ))}
             {tagFilter && <button onClick={() => setTagFilter('')} className="ml-2 text-sm text-gray-500 hover:text-gray-700 transition">Wyczyść</button>}
           </div>
@@ -549,7 +549,7 @@ export default function WorshipModule() {
 
         <div className="bg-white/50 backdrop-blur-sm rounded-2xl border border-gray-200/50 overflow-x-auto">
           <table className="w-full text-left text-sm align-middle">
-            <thead className="bg-gradient-to-r from-blue-50/80 to-purple-50/80 text-gray-700 font-bold border-b border-gray-200/50">
+            <thead className="bg-gradient-to-r from-pink-50/80 to-orange-50/80 text-gray-700 font-bold border-b border-gray-200/50">
               <tr>
                 <th className="p-4">Tytuł</th>
                 <th className="p-4">Kategoria</th>
@@ -563,21 +563,21 @@ export default function WorshipModule() {
               {filteredSongs.length === 0 ? (
                 <tr><td colSpan="6" className="p-8 text-center text-gray-400">Brak danych - Dodaj pierwszą pieśń!</td></tr>
               ) : filteredSongs.map(s => (
-                <tr key={s.id} className="hover:bg-blue-50/30 transition">
+                <tr key={s.id} className="hover:bg-pink-50/30 transition">
                   <td className="p-4 font-bold">{s.title}</td>
                   <td className="p-4">{s.category}</td>
-                  <td className="p-4 font-mono font-bold text-blue-600">{s.key}</td>
+                  <td className="p-4 font-mono font-bold text-pink-600">{s.key}</td>
                   <td className="p-4">{s.tempo || "-"}</td>
                   <td className="p-4">
                     <div className="flex gap-1 flex-wrap">
                       {Array.isArray(s.tags) && s.tags.length > 0 ? s.tags.map((t, i) => (
-                        <span key={i} className="bg-gradient-to-r from-blue-100 to-purple-100 px-2 py-1 text-xs rounded-full text-blue-800 border border-blue-200/50 font-medium">{t}</span>
+                        <span key={i} className="bg-gradient-to-r from-pink-100 to-orange-100 px-2 py-1 text-xs rounded-full text-pink-800 border border-pink-200/50 font-medium">{t}</span>
                       )) : <span className="text-gray-400 text-xs">-</span>}
                     </div>
                   </td>
                   <td className="p-4 text-right flex justify-end gap-2">
                     <button onClick={() => setShowSongDetails(s)} className="text-gray-800 font-semibold px-3 py-1.5 rounded-xl hover:bg-white/50 transition">Szczegóły</button>
-                    <button onClick={() => { setSongForm(s); setShowSongModal(true); }} className="text-blue-600 hover:text-purple-600 font-medium transition">Edytuj</button>
+                    <button onClick={() => { setSongForm(s); setShowSongModal(true); }} className="text-pink-600 hover:text-orange-600 font-medium transition">Edytuj</button>
                     <button onClick={() => deleteSong(s.id)} className="text-red-500 hover:text-red-700 font-medium transition">Usuń</button>
                   </td>
                 </tr>
@@ -590,7 +590,7 @@ export default function WorshipModule() {
       {showMemberModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md p-6 border border-white/20">
-            <div className="flex justify-between mb-6"><h3 className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Członek Zespołu</h3><button onClick={() => setShowMemberModal(false)} className="p-2 hover:bg-gray-100/50 rounded-xl transition"><X size={20}/></button></div>
+            <div className="flex justify-between mb-6"><h3 className="font-bold text-xl bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">Członek Zespołu</h3><button onClick={() => setShowMemberModal(false)} className="p-2 hover:bg-gray-100/50 rounded-xl transition"><X size={20}/></button></div>
             <div className="space-y-4">
               <input className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm" placeholder="Imię i nazwisko" value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} />
               <input className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm" placeholder="Rola (np. Wokal)" value={memberForm.role} onChange={e => setMemberForm({...memberForm, role: e.target.value})} />
@@ -598,7 +598,7 @@ export default function WorshipModule() {
               <input className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/50 backdrop-blur-sm" placeholder="Email" value={memberForm.email} onChange={e => setMemberForm({...memberForm, email: e.target.value})} />
               <div className="flex justify-end gap-3 mt-6">
                 <button onClick={() => setShowMemberModal(false)} className="px-5 py-2.5 border border-gray-200/50 rounded-xl bg-white/50 hover:bg-white transition">Anuluj</button>
-                <button onClick={saveMember} className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/50 transition font-medium">Zapisz</button>
+                <button onClick={saveMember} className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg hover:shadow-pink-500/50 transition font-medium">Zapisz</button>
               </div>
             </div>
           </div>

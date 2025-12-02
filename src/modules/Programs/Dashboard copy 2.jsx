@@ -87,14 +87,14 @@ export default function Dashboard() {
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-bold text-lg text-gray-800">{title}</h3>
-        <button className="bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700">+ Dodaj Pole</button>
+        <button className="bg-pink-600 text-white text-xs px-3 py-1 rounded hover:bg-pink-700">+ Dodaj Pole</button>
       </div>
       <div className="space-y-4">
         {fields.map(field => (
           <div key={field.key}>
             <label className="block text-sm font-medium text-gray-600 mb-1">{field.label}</label>
             <input 
-              className="w-full p-2 border border-gray-200 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+              className="w-full p-2 border border-gray-200 rounded focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition"
               value={program[dataKey]?.[field.key] || ''}
               onChange={e => setProgram({
                 ...program,
@@ -121,7 +121,7 @@ export default function Dashboard() {
           />
           <button 
             onClick={() => setSelectedId(null)}
-            className="w-full bg-blue-600 text-white py-2 rounded font-medium text-sm hover:bg-blue-700 transition"
+            className="w-full bg-pink-600 text-white py-2 rounded font-medium text-sm hover:bg-pink-700 transition"
           >
             + Nowy Program
           </button>
@@ -143,8 +143,8 @@ export default function Dashboard() {
               onClick={() => setSelectedId(p.id)}
               className={`p-3 rounded-lg border cursor-pointer transition ${
                 selectedId === p.id 
-                  ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-200' 
-                  : 'bg-white border-gray-100 hover:border-blue-100 hover:bg-gray-50'
+                  ? 'bg-pink-50 border-pink-200 ring-1 ring-pink-200' 
+                  : 'bg-white border-gray-100 hover:border-pink-100 hover:bg-gray-50'
               }`}
             >
               <div className="font-bold text-gray-800">
@@ -194,7 +194,7 @@ export default function Dashboard() {
                   songs.forEach(s => songsMap[s.id] = s);
                   generatePDF(program, songsMap);
                 }} 
-                className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 flex items-center gap-2"
+                className="bg-pink-600 text-white px-4 py-2 rounded font-medium hover:bg-pink-700 flex items-center gap-2"
               >
                 <FileText size={18}/> Generuj PDF
               </button>
@@ -204,7 +204,7 @@ export default function Dashboard() {
                   songs.forEach(s => songsMap[s.id] = s);
                   generatePPT(program, songsMap);
                 }} 
-                className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 flex items-center gap-2"
+                className="bg-pink-600 text-white px-4 py-2 rounded font-medium hover:bg-pink-700 flex items-center gap-2"
               >
                 <Presentation size={18}/> Generuj PowerPoint
               </button>
@@ -217,7 +217,7 @@ export default function Dashboard() {
               <h3 className="font-bold text-lg text-gray-800">Program Nabożeństwa</h3>
               <button 
                 onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [] }]})}
-                className="bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700"
+                className="bg-pink-600 text-white text-xs px-3 py-1 rounded hover:bg-pink-700"
               >
                 + Dodaj Element
               </button>
@@ -266,7 +266,7 @@ export default function Dashboard() {
                       {(row.element || '').toLowerCase().includes('uwielbienie') ? (
                         <div className="space-y-2">
                           <select 
-                            className="w-full p-2 border rounded text-sm bg-blue-50 text-blue-800"
+                            className="w-full p-2 border rounded text-sm bg-pink-50 text-pink-800"
                             onChange={e => {
                               const id = parseInt(e.target.value);
                               if(id && !row.songIds?.includes(id)) {
@@ -283,7 +283,7 @@ export default function Dashboard() {
                             {row.songIds?.map(sid => {
                               const s = songs.find(x => x.id === sid);
                               return s ? (
-                                <span key={sid} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                <span key={sid} className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-800 rounded text-xs">
                                   {s.title}
                                   <button onClick={() => {
                                     const newSchedule = [...program.schedule];

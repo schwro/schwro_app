@@ -11,7 +11,6 @@ textarea {
   resize: vertical;
 }
 
-/* Paski przewijania */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -33,7 +32,7 @@ textarea {
   border-radius: 16px;
 }
 
-/* Nowoczesne inputy */
+/* Nowoczesne inputy i selecty */
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -42,23 +41,23 @@ input[type="tel"],
 input[type="date"],
 select,
 textarea {
-  @apply px-4 py-3 rounded-xl border border-gray-200/50 bg-white/70 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent transition-all dark:bg-gray-800 dark:border-gray-700 dark:text-white;
+  @apply px-4 py-3 rounded-xl border border-gray-200/50 bg-white/70 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent transition-all;
 }
 
-/* Tabele */
+/* Tabele z glass effect */
 table {
-  @apply bg-white/70 backdrop-blur-sm rounded-xl overflow-hidden shadow-sm dark:bg-gray-900;
+  @apply bg-white/70 backdrop-blur-sm rounded-xl overflow-hidden shadow-sm;
 }
 
-/* INTELIGENTNY NAGŁÓWEK: Gradient w Light, Ciemny Szary w Dark */
 thead {
-  @apply bg-gradient-to-r from-pink-50/80 to-orange-50/80 dark:bg-none dark:bg-gray-800 dark:text-gray-200;
+  @apply bg-gradient-to-r from-pink-50/80 to-orange-50/80;
 }
 
 tbody tr:hover {
-  @apply bg-pink-50/30 dark:hover:bg-gray-800/50;
+  @apply bg-pink-50/30;
 }
 
+/* Przyciski */
 button {
   @apply transition-all duration-200;
 }

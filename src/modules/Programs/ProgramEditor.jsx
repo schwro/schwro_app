@@ -87,7 +87,7 @@ export default function ProgramEditor() {
             onClick={() => setActiveTab(tab)}
             className={`px-6 py-3 font-medium rounded-t-lg transition-colors ${
               activeTab === tab 
-                ? 'bg-white text-blue-600 border-t-2 border-blue-600 shadow-sm' 
+                ? 'bg-white text-pink-600 border-t-2 border-pink-600 shadow-sm' 
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
@@ -117,7 +117,7 @@ export default function ProgramEditor() {
                     <td className="py-3 pr-4">
                       <input 
                         list="elements" 
-                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-100 outline-none"
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-pink-100 outline-none"
                         placeholder="Wybierz lub wpisz..."
                         value={row.element}
                         onChange={e => updateScheduleRow(row.id, 'element', e.target.value)}
@@ -129,7 +129,7 @@ export default function ProgramEditor() {
                     </td>
                     <td className="py-3 pr-4">
                       <input 
-                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-100 outline-none"
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-pink-100 outline-none"
                         placeholder="Osoba odpowiedzialna"
                         value={row.person}
                         onChange={e => updateScheduleRow(row.id, 'person', e.target.value)}
@@ -139,7 +139,7 @@ export default function ProgramEditor() {
                       {row.element === 'Uwielbienie' ? (
                         <div className="space-y-2">
                           <select 
-                            className="w-full p-2 border rounded bg-blue-50 text-blue-800 font-medium"
+                            className="w-full p-2 border rounded bg-pink-50 text-pink-800 font-medium"
                             onChange={e => {
                               const id = parseInt(e.target.value);
                               if(id && !row.songIds.includes(id)) {
@@ -155,7 +155,7 @@ export default function ProgramEditor() {
                               const song = songs.find(s => s.id === sid);
                               if(!song) return null;
                               return (
-                                <span key={sid} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
+                                <span key={sid} className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-700 rounded text-sm">
                                   {song.title}
                                   <button 
                                     onClick={() => updateScheduleRow(row.id, 'songIds', row.songIds.filter(id => id !== sid))}
@@ -171,7 +171,7 @@ export default function ProgramEditor() {
                       ) : (
                         <textarea 
                           rows="1"
-                          className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-100 outline-none resize-none"
+                          className="w-full p-2 border rounded focus:ring-2 focus:ring-pink-100 outline-none resize-none"
                           placeholder="Dodatkowe informacje..."
                           value={row.details}
                           onChange={e => updateScheduleRow(row.id, 'details', e.target.value)}
@@ -189,7 +189,7 @@ export default function ProgramEditor() {
             </table>
             <button 
               onClick={addScheduleRow}
-              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 font-medium"
+              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-pink-400 hover:text-pink-600 hover:bg-pink-50 transition-all flex items-center justify-center gap-2 font-medium"
             >
               <Plus size={20} /> Dodaj nowy element programu
             </button>
@@ -205,7 +205,7 @@ export default function ProgramEditor() {
                   {field.replace('_', ' ')}
                 </label>
                 <input
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-pink-200 outline-none transition-all"
                   value={program[activeTab.replace('atmosfera', 'atmosfera_team')][field]}
                   onChange={e => updateNestedField(activeTab.replace('atmosfera', 'atmosfera_team'), field, e.target.value)}
                 />

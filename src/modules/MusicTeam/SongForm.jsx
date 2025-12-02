@@ -1,448 +1,379 @@
-import React, { useState, useRef } from 'react';
-import { X, Music, FileText } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Check, ChevronDown, Music, Hash, AlignLeft, FileText, Upload, PlusCircle } from 'lucide-react';
 
-const METER_OPTIONS = ['2/4', '3/4', '4/4', '6/8', '7/8', '9/8'];
-const TAG_PRESETS = ['uwielbienie', 'szybka', 'wolna', 'popularna', 'niedzielna', 'modlitwa', 'intymna'];
-const CHORDS_KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+// --- STAŁE DANYCH ---
+const KEYS = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
+const CATEGORIES = ["Uwielbienie", "Modlitwa", "Na wejście", "Na ofiarowanie", "Komunia", "Uwielbienie (szybkie)", "Kolęda", "Inne"];
+const METERS = ["4/4", "3/4", "2/4", "6/8", "12/8", "Inne"];
+const AVAILABLE_TAGS = ["intymna", "modlitewna", "niedzielna", "popularna", "szybko", "wolna", "nowość", "klasyk"];
 
-export default function SongForm({ initialData = {}, onSave, onCancel }) {
-  const [formData, setFormData] = useState({
-    id: initialData.id || null,
-    title: initialData.title || '',
-    category: initialData.category || 'Uwielbienie',
-    key: initialData.key || '',
-    tempo: initialData.tempo || '',
-    meter: initialData.meter || '4/4',
-    lyrics: initialData.lyrics || '',
-    chord_format: initialData.chord_format || 'bars',
-    chords_bars: initialData.chords_bars || '',
-    lyrics_chords: initialData.lyrics_chords || '',
-    attachments: initialData.attachments || [],
-    sheet_music_url: initialData.sheet_music_url || '',
-    tags: Array.isArray(initialData.tags) ? initialData.tags : [],
-  });
-  
-  const fileInput = useRef();
+// Szablony sekcji muzycznych
+const MUSIC_SECTIONS = [
+  { label: 'Intro', template: '\n[INTRO]\n|      |      |      |      |\n' },
+  { label: 'Zwrotka', template: '\n[ZWROTKA]\n|      |      |      |      |\n' },
+  { label: 'Refren', template: '\n[REFREN]\n|      |      |      |      |\n' },
+  { label: 'Bridge', template: '\n[BRIDGE]\n|      |      |      |      |\n' },
+  { label: 'Solo', template: '\n[SOLO]\n|      |      |      |      |\n' },
+  { label: 'Outro', template: '\n[OUTRO]\n|      |      |      |      |\n' },
+  { label: 'Pusty Takt', template: '|      |      |      |      |' },
+];
 
-  const handleTags = val => {
-    const newTags = val.split(',').map(tag => tag.trim()).filter(Boolean);
-    setFormData({ ...formData, tags: newTags });
-  };
+// --- KOMPONENTY POMOCNICZE (Customowe Selecty) ---
 
-  const toggleTag = tag => {
-    const newTags = formData.tags.includes(tag)
-      ? formData.tags.filter(t => t !== tag)
-      : [...formData.tags, tag];
-    setFormData({ ...formData, tags: newTags });
-  };
+const CustomSelect = ({ label, options, value, onChange, placeholder, icon: Icon }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
 
-  const handleFileChange = e => {
-    const newFiles = Array.from(e.target.files).map(f => ({
-      name: f.name,
-      size: f.size,
-      type: f.type
-    }));
-    setFormData({ ...formData, attachments: [...(formData.attachments || []), ...newFiles] });
-  };
-
-  const removeFile = idx => {
-    setFormData({
-      ...formData,
-      attachments: formData.attachments.filter((_, i) => i !== idx)
-    });
-  };
-
-  const insertSection = (sectionName, shortName) => {
-    const textarea = document.getElementById('chords-bars-editor');
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const text = formData.chords_bars || '';
-      
-      // Wylicz ile taktów na podstawie metrum
-      const meter = formData.meter || '4/4';
-      const barsCount = 4; // domyślnie 4 takty
-      const emptyBars = Array(barsCount).fill('   ').join(' |');
-      
-      const newText = text.substring(0, start) + 
-        `\n\n${shortName}\n|${emptyBars} |\n` + 
-        text.substring(end);
-      
-      setFormData({ ...formData, chords_bars: newText });
-      
-      // Ustaw focus z powrotem
-      setTimeout(() => {
-        textarea.focus();
-        textarea.selectionStart = textarea.selectionEnd = start + newText.length - text.length;
-      }, 10);
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
     }
-  };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const handleSave = () => {
-    const cleanData = {
-      ...formData,
-      tempo: formData.tempo ? parseInt(formData.tempo, 10) : null,
-      title: formData.title.trim(),
-      category: formData.category.trim(),
-      key: formData.key.trim(),
-      meter: formData.meter.trim(),
-      lyrics: formData.lyrics.trim(),
-      chords_bars: formData.chords_bars.trim(),
-      lyrics_chords: formData.lyrics_chords.trim(),
-      sheet_music_url: formData.sheet_music_url.trim(),
-    };
-    onSave(cleanData);
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      {label && <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{label}</label>}
+      <div 
+        onClick={() => setIsOpen(!isOpen)} 
+        className={`w-full px-4 py-3 rounded-xl border cursor-pointer flex justify-between items-center transition
+          bg-white dark:bg-gray-800 
+          border-gray-200 dark:border-gray-700 
+          text-gray-800 dark:text-gray-200
+          hover:border-pink-400 dark:hover:border-pink-500
+          ${isOpen ? 'ring-2 ring-pink-500/20 border-pink-500' : ''}
+        `}
+      >
+        <div className="flex items-center gap-2 overflow-hidden">
+          {Icon && <Icon size={16} className="text-gray-400 dark:text-gray-500 shrink-0"/>}
+          <span className={!value ? "text-gray-400 dark:text-gray-500" : ""}>
+            {value || placeholder || "Wybierz..."}
+          </span>
+        </div>
+        <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+          {options.map((opt) => (
+            <div 
+              key={opt} 
+              onClick={() => { onChange(opt); setIsOpen(false); }} 
+              className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition
+                ${value === opt ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}
+              `}
+            >
+              {opt}
+              {value === opt && <Check size={14} />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TagMultiSelect = ({ label, options, value = [], onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleTag = (tag) => {
+    const newValue = value.includes(tag) 
+      ? value.filter(t => t !== tag) 
+      : [...value, tag];
+    onChange(newValue);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white/95 backdrop-blur-xl max-w-5xl w-full rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border border-white/20 max-h-[90vh]">
+    <div ref={wrapperRef} className="relative w-full">
+      {label && <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{label}</label>}
+      <div 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer min-h-[50px] flex flex-wrap gap-2 hover:border-pink-400 dark:hover:border-pink-500 transition"
+      >
+        {value.length === 0 && <span className="text-gray-400 dark:text-gray-500 pt-0.5">Wybierz tagi...</span>}
+        {value.map(tag => (
+          <span key={tag} className="bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border border-orange-100 dark:border-orange-800">
+            {tag}
+            <div 
+              onMouseDown={(e) => { e.stopPropagation(); toggleTag(tag); }}
+              className="cursor-pointer hover:text-orange-900 dark:hover:text-white"
+            >
+              <X size={12} />
+            </div>
+          </span>
+        ))}
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+          {options.map((tag) => {
+            const isSelected = value.includes(tag);
+            return (
+              <div 
+                key={tag} 
+                onClick={() => toggleTag(tag)} 
+                className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition
+                  ${isSelected ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}
+                `}
+              >
+                {tag}
+                {isSelected && <Check size={14} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- GŁÓWNY FORMULARZ ---
+
+export default function SongForm({ initialData, onSave, onCancel }) {
+  const [formData, setFormData] = useState({
+    id: null,
+    title: '',
+    author: '',
+    category: '',
+    key: '',
+    tempo: '',
+    meter: '',
+    tags: [],
+    lyrics: '',
+    chords_bars: '', // ZMIANA NAZWY POLA NA ZGODNĄ Z BAZĄ
+    sheet_music_url: '',
+    attachments: []
+  });
+
+  const [activeTab, setActiveTab] = useState('basic'); // basic | lyrics
+  const chordsTextareaRef = useRef(null);
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        ...initialData,
+        tags: initialData.tags || [],
+        title: initialData.title || '',
+        author: initialData.author || '',
+        category: initialData.category || '',
+        key: initialData.key || '',
+        tempo: initialData.tempo || '',
+        meter: initialData.meter || '',
+        lyrics: initialData.lyrics || '',
+        chords_bars: initialData.chords_bars || '' // ZMIANA
+      });
+    }
+  }, [initialData]);
+
+  const handleSubmit = () => {
+    if (!formData.title) return alert("Podaj tytuł pieśni");
+    onSave(formData);
+  };
+
+  // Funkcja wstawiająca szablon w miejscu kursora (DLA POLA CHORDS_BARS)
+  const insertAtCursor = (template) => {
+    const textarea = chordsTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = formData.chords_bars || ''; // ZMIANA
+
+    const newText = text.substring(0, start) + template + text.substring(end);
+    
+    setFormData({ ...formData, chords_bars: newText }); // ZMIANA
+
+    // Przywrócenie focusu i ustawienie kursora po wstawionym tekście
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + template.length, start + template.length);
+    }, 0);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 flex flex-col max-h-[90vh]">
         
         {/* HEADER */}
-        <div className="flex justify-between items-center py-6 px-10 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/80 to-purple-50/80">
-          <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            {formData.id ? "Edytuj Pieśń" : "Dodaj Pieśń"}
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+              {formData.id ? 'Edycja Pieśni' : 'Nowa Pieśń'}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Uzupełnij szczegóły utworu</p>
           </div>
-          <button onClick={onCancel} className="p-2 hover:bg-white/50 rounded-xl transition">
-            <X size={28} className="text-gray-600" />
+          <button onClick={onCancel} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition">
+            <X size={24} />
           </button>
         </div>
 
-        {/* CONTENT - SCROLLABLE */}
-        <form className="flex-1 overflow-y-auto px-10 py-8 space-y-6" onSubmit={e => { e.preventDefault(); handleSave(); }}>
+        {/* CONTENT - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           
-          {/* TYTUŁ */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Tytuł pieśni *</label>
-            <input 
-              className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm text-lg font-bold" 
-              value={formData.title} 
-              onChange={e => setFormData({ ...formData, title: e.target.value })} 
-              required 
-              placeholder="Wpisz tytuł pieśni"
-            />
+          {/* TABS */}
+          <div className="flex gap-2 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
+            <button 
+              onClick={() => setActiveTab('basic')} 
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'basic' ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+            >
+              Informacje Podstawowe
+            </button>
+            <button 
+              onClick={() => setActiveTab('lyrics')} 
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'lyrics' ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+            >
+              Tekst i Chwyty
+            </button>
           </div>
 
-          {/* 2 KOLUMNY: Kategoria + Tagi */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Kategoria *</label>
-              <select 
-                className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm" 
-                value={formData.category} 
-                onChange={e => setFormData({ ...formData, category: e.target.value })} 
-                required
-              >
-                <option>Uwielbienie</option>
-                <option>Modlitwa</option>
-                <option>Kolęda</option>
-                <option>Hymn</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Tagi</label>
-              <div className="flex flex-wrap gap-2">
-                {TAG_PRESETS.map(tag => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
-                      formData.tags.includes(tag)
-                        ? 'bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 border-blue-200/50'
-                        : 'bg-white/60 text-gray-600 border-gray-200/50 hover:bg-gray-50'
-                    }`}
-                  >
-                    {formData.tags.includes(tag) ? '✓ ' : ''}
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 3 KOLUMNY: Tonacja, Tempo, Metrum */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Tonacja</label>
-              <select 
-                className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm font-mono font-bold text-blue-600" 
-                value={formData.key} 
-                onChange={e => setFormData({ ...formData, key: e.target.value })}
-              >
-                <option value="">---</option>
-                {CHORDS_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Tempo (BPM)</label>
-              <input 
-                className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm" 
-                type="number" 
-                value={formData.tempo} 
-                onChange={e => setFormData({ ...formData, tempo: e.target.value })} 
-                placeholder="120"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Metrum</label>
-              <select 
-                className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm" 
-                value={formData.meter} 
-                onChange={e => setFormData({ ...formData, meter: e.target.value })}
-              >
-                {METER_OPTIONS.map(met => <option key={met}>{met}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* FORMAT AKORDÓW */}
-          <div className="bg-gradient-to-r from-blue-50/50 to-purple-50/50 border border-blue-200/30 rounded-2xl p-5">
-            <label className="block text-xs font-semibold text-gray-500 mb-2">Format akordów</label>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, chord_format: 'bars' })}
-                className={`flex-1 px-4 py-2 rounded-xl border font-bold transition ${
-                  formData.chord_format === 'bars'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent'
-                    : 'bg-white/70 text-gray-700 border-gray-300/50 hover:bg-white'
-                }`}
-              >
-                Akordy w taktach
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, chord_format: 'chords_over_lyrics' })}
-                className={`flex-1 px-4 py-2 rounded-xl border font-bold transition ${
-                  formData.chord_format === 'chords_over_lyrics'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent'
-                    : 'bg-white/70 text-gray-700 border-gray-300/50 hover:bg-white'
-                }`}
-              >
-                Akordy nad tekstem
-              </button>
-            </div>
-          </div>
-
-          {/* WARUNKOWA ZAWARTOŚĆ: Akordy w taktach */}
-          {formData.chord_format === 'bars' && (
-            <>
-              {/* 2 KOLUMNY: Treść + Akordy w taktach */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {activeTab === 'basic' && (
+            <div className="space-y-6">
+              {/* Rząd 1: Tytuł i Autor */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-bold text-blue-700 mb-2 flex items-center gap-2">
-                    <FileText size={18} />
-                    Tekst pieśni *
-                  </label>
-                  <textarea 
-                    className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm text-sm font-mono" 
-                    rows={8}
-                    value={formData.lyrics} 
-                    onChange={e => setFormData({ ...formData, lyrics: e.target.value })} 
-                    required 
-                    placeholder="Wpisz pełny tekst pieśni..."
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tytuł</label>
+                  <input 
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition"
+                    placeholder="Np. Jak wielki jest Bóg"
+                    value={formData.title}
+                    onChange={e => setFormData({...formData, title: e.target.value})}
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-purple-700 mb-2 flex items-center gap-2">
-                    <Music size={18} />
-                    Akordy w taktach
-                  </label>
-                  <textarea 
-                    id="chords-bars-editor"
-                    className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm text-sm font-mono" 
-                    rows={8}
-                    value={formData.chords_bars} 
-                    onChange={e => setFormData({ ...formData, chords_bars: e.target.value })} 
-                    placeholder="zwr.&#10;|D   |Bm7 Asus4 |G2  |G2   |"
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Autor</label>
+                  <input 
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition"
+                    placeholder="Np. Chris Tomlin"
+                    value={formData.author}
+                    onChange={e => setFormData({...formData, author: e.target.value})}
                   />
                 </div>
               </div>
 
-              {/* PRZYCISKI SEKCJI */}
-              <div className="bg-gradient-to-br from-blue-50/50 to-purple-50/50 backdrop-blur-sm border border-blue-200/30 rounded-2xl p-5">
-                <div className="text-xs font-semibold text-gray-500 mb-3">Dodaj sekcję do akordów:</div>
-                <div className="flex gap-2 flex-wrap">
-                  <button 
-                    type="button" 
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-blue-500/50 transition text-sm"
-                    onClick={() => insertSection('Zwrotka', 'zwr.')}
-                  >
-                    + Zwrotka
-                  </button>
-                  <button 
-                    type="button" 
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-purple-500/50 transition text-sm"
-                    onClick={() => insertSection('Refren', 'ref.')}
-                  >
-                    + Refren
-                  </button>
-                  <button 
-                    type="button" 
-                    className="px-4 py-2 bg-gradient-to-r from-pink-600 to-pink-700 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-pink-500/50 transition text-sm"
-                    onClick={() => insertSection('Bridge', 'bridge')}
-                  >
-                    + Bridge
-                  </button>
-                  <button 
-                    type="button" 
-                    className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition text-sm"
-                    onClick={() => insertSection('Pre-chorus', 'pre-chorus')}
-                  >
-                    + Pre-chorus
-                  </button>
-                  <button 
-                    type="button" 
-                    className="px-4 py-2 bg-gradient-to-r from-teal-600 to-teal-700 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-teal-500/50 transition text-sm"
-                    onClick={() => insertSection('Outro', 'outro')}
-                  >
-                    + Outro
-                  </button>
+              {/* Rząd 2: Dane Muzyczne */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <CustomSelect 
+                  label="Tonacja"
+                  options={KEYS} 
+                  value={formData.key} 
+                  onChange={val => setFormData({...formData, key: val})} 
+                  placeholder="Klucz"
+                  icon={Music}
+                />
+                <CustomSelect 
+                  label="Metrum"
+                  options={METERS} 
+                  value={formData.meter} 
+                  onChange={val => setFormData({...formData, meter: val})} 
+                  placeholder="4/4"
+                  icon={Hash}
+                />
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tempo (BPM)</label>
+                  <input 
+                    type="number"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition"
+                    placeholder="120"
+                    value={formData.tempo}
+                    onChange={e => setFormData({...formData, tempo: e.target.value})}
+                  />
                 </div>
-                <div className="text-xs text-gray-600 mt-3 bg-white/50 rounded-xl p-3 border border-gray-200/30">
-                  <b>Wskazówki:</b>
-                  <ul className="list-disc list-inside mt-1 space-y-1">
-                    <li>Każdy takt oddzielony kreską | </li>
-                    <li>Puste takty: wpis tylko | lub spację między kreskami</li>
-                    <li>Zmiana akordu w takcie: D/F# G2 (środek taktu)</li>
-                    <li>Sekcje: zwr., ref., bridge, pre-chorus, outro</li>
-                  </ul>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* WARUNKOWA ZAWARTOŚĆ: Akordy nad tekstem */}
-          {formData.chord_format === 'chords_over_lyrics' && (
-            <>
-              {/* TREŚĆ */}
-              <div>
-                <label className="block font-bold text-blue-700 mb-2 flex items-center gap-2">
-                  <FileText size={18} />
-                  Tekst pieśni *
-                </label>
-                <textarea 
-                  className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm text-sm font-mono" 
-                  rows={6}
-                  value={formData.lyrics} 
-                  onChange={e => setFormData({ ...formData, lyrics: e.target.value })} 
-                  required 
-                  placeholder="Wpisz pełny tekst pieśni..."
+                 <CustomSelect 
+                  label="Kategoria"
+                  options={CATEGORIES} 
+                  value={formData.category} 
+                  onChange={val => setFormData({...formData, category: val})} 
+                  placeholder="Rodzaj"
+                  icon={AlignLeft}
                 />
               </div>
 
-              {/* TREŚĆ Z AKORDAMI NAD TEKSTEM */}
-              <div>
-                <label className="block font-bold text-blue-700 mb-2 flex items-center gap-2">
-                  <Music size={18} />
-                  Tekst z akordami (pełna wersja)
-                </label>
-                <textarea 
-                  id="chords-over-lyrics-editor"
-                  className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm text-sm font-mono" 
-                  rows={10}
-                  value={formData.lyrics_chords} 
-                  onChange={e => setFormData({ ...formData, lyrics_chords: e.target.value })} 
-                  placeholder="G   D/F#  C2&#10;Panie Jezu..."
-                />
-                <div className="text-xs text-gray-600 mt-2 bg-white/50 rounded-xl p-3 border border-gray-200/30">
-                  <b>Format:</b> Akordy w linii powyżej tekstu, np.:
-                  <pre className="mt-1 font-mono text-xs">G   D/F#  C2{'\n'}Panie Jezu Ty jesteś</pre>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* ZAŁĄCZNIKI */}
-          <div>
-            <div className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-              <FileText size={20} />
-              Załączniki
-            </div>
-            <div className="flex gap-3 items-center mb-3">
-              <input 
-                multiple 
-                ref={fileInput} 
-                type="file" 
-                style={{ display: 'none' }} 
-                onChange={handleFileChange}
+              {/* Tagi */}
+              <TagMultiSelect 
+                label="Tagi"
+                options={AVAILABLE_TAGS}
+                value={formData.tags}
+                onChange={val => setFormData({...formData, tags: val})}
               />
-              <button 
-                type="button" 
-                onClick={() => fileInput.current.click()} 
-                className="px-5 py-2 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl text-sm font-bold border border-gray-300/50 hover:from-gray-200 hover:to-gray-300 transition"
-              >
-                Wybierz pliki
-              </button>
-              <span className="text-xs text-gray-500">
-                {formData.attachments.length === 0 ? 'Nie zaznaczono żadnych plików' : `${formData.attachments.length} plik(ów)`}
-              </span>
             </div>
-            {Array.isArray(formData.attachments) && formData.attachments.length > 0 && (
-              <div className="space-y-2">
-                {formData.attachments.map((f, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-xl border border-gray-200/50 p-3"
-                  >
-                    {f.name?.endsWith(".mp3") ? (
-                      <Music size={18} className="text-blue-600" />
-                    ) : (
-                      <FileText size={18} className="text-purple-600" />
-                    )}
-                    <span className="font-semibold flex-1 text-sm">{f.name}</span>
-                    <span className="text-xs text-gray-500">
-                      {f.size > 1024 * 1024
-                        ? (f.size / 1024 / 1024).toFixed(1) + " MB"
-                        : (f.size / 1024).toFixed(0) + " KB"}
-                    </span>
-                    <button 
-                      type="button" 
-                      className="text-xs text-red-600 hover:underline font-medium" 
-                      onClick={() => removeFile(idx)}
-                    >
-                      Usuń
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
 
-          {/* LINK DO NAGRANIA */}
-          <div>
-            <div className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-              <Music size={20} />
-              Link do nagrania / Nuty
+          {activeTab === 'lyrics' && (
+            <div className="space-y-6 h-full">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full min-h-[450px]">
+                 {/* KOLUMNA 1: CZYSTY TEKST */}
+                 <div className="flex flex-col h-full">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tekst Pieśni (Lyrics)</label>
+                    <textarea 
+                      className="flex-1 w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition resize-none font-mono text-sm leading-relaxed"
+                      placeholder="Wpisz tekst tutaj..."
+                      value={formData.lyrics}
+                      onChange={e => setFormData({...formData, lyrics: e.target.value})}
+                    />
+                 </div>
+
+                 {/* KOLUMNA 2: CHWYTY / TAKTY (CHORDS_BARS) */}
+                 <div className="flex flex-col h-full">
+                    <div className="flex justify-between items-end mb-1">
+                       <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Chwyty / Takty (chords_bars)</label>
+                       <span className="text-[10px] text-gray-400">Kliknij przycisk poniżej, aby wstawić</span>
+                    </div>
+                    
+                    <textarea 
+                      ref={chordsTextareaRef}
+                      className="flex-1 w-full px-4 py-3 rounded-t-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 focus:ring-2 focus:ring-pink-500/20 outline-none transition resize-none font-mono text-sm leading-relaxed"
+                      placeholder="[INTRO] | C | G | Am | F |..."
+                      value={formData.chords_bars} // ZMIANA
+                      onChange={e => setFormData({...formData, chords_bars: e.target.value})} // ZMIANA
+                    />
+                    
+                    {/* PASEK NARZĘDZI DO WSTAWIANIA SEKCJI */}
+                    <div className="p-2 bg-gray-100 dark:bg-gray-800 border-x border-b border-gray-200 dark:border-gray-700 rounded-b-xl flex flex-wrap gap-2">
+                        {MUSIC_SECTIONS.map((section) => (
+                            <button
+                                key={section.label}
+                                onClick={() => insertAtCursor(section.template)}
+                                className="px-3 py-1.5 bg-white dark:bg-gray-700 hover:bg-pink-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold rounded-lg border border-gray-200 dark:border-gray-600 transition flex items-center gap-1"
+                            >
+                                <PlusCircle size={12} className="text-pink-500 dark:text-pink-400"/>
+                                {section.label}
+                            </button>
+                        ))}
+                    </div>
+
+                 </div>
+               </div>
             </div>
-            <input 
-              className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/60 backdrop-blur-sm text-sm" 
-              value={formData.sheet_music_url || ""} 
-              onChange={e => setFormData({ ...formData, sheet_music_url: e.target.value })} 
-              placeholder="https://... lub nazwa pliku PDF"
-            />
-          </div>
+          )}
 
-        </form>
+        </div>
 
         {/* FOOTER */}
-        <div className="flex justify-end gap-4 p-6 border-t border-gray-200/50 bg-gradient-to-r from-blue-50/30 to-purple-50/30">
+        <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-3xl flex justify-end gap-3">
           <button 
-            type="button" 
-            onClick={onCancel} 
-            className="px-6 py-3 bg-white/80 backdrop-blur-sm border border-gray-200/50 font-medium rounded-xl hover:bg-white transition"
+            onClick={onCancel}
+            className="px-6 py-3 rounded-xl font-bold text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition"
           >
             Anuluj
           </button>
           <button 
-            type="button"
-            onClick={handleSave}
-            className="px-10 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-blue-500/50 transition"
+            onClick={handleSubmit}
+            className="px-8 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-pink-600 to-orange-600 hover:shadow-lg hover:shadow-pink-500/30 transition transform hover:-translate-y-0.5"
           >
-            Zapisz
+            Zapisz Pieśń
           </button>
         </div>
+
       </div>
     </div>
   );

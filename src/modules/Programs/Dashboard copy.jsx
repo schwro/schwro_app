@@ -86,8 +86,8 @@ export default function Dashboard() {
   const SectionCard = ({ title, dataKey, fields }) => (
     <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 p-6 h-full hover:shadow-xl transition">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-bold text-lg bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">{title}</h3>
-        <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5">
+        <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 bg-clip-text text-transparent">{title}</h3>
+        <button className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5">
           + Dodaj Pole
         </button>
       </div>
@@ -96,7 +96,7 @@ export default function Dashboard() {
           <div key={field.key}>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{field.label}</label>
             <input 
-              className="w-full px-4 py-2.5 bg-white/50 backdrop-blur-sm border border-gray-200/50 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none text-sm transition"
+              className="w-full px-4 py-2.5 bg-white/50 backdrop-blur-sm border border-gray-200/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition"
               value={program[dataKey]?.[field.key] || ''}
               onChange={e => setProgram({
                 ...program,
@@ -110,22 +110,22 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="flex h-full bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <div className="flex h-full bg-gradient-to-br from-pink-50 via-orange-50 to-pink-50">
       {/* LEWA KOLUMNA - LISTA */}
       <div className="w-80 bg-white/40 backdrop-blur-xl border-r border-white/40 flex flex-col h-full">
         <div className="p-6 border-b border-white/40">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent mb-4">
             Lista programów
           </h2>
           <input 
             placeholder="Szukaj..." 
-            className="w-full px-4 py-2.5 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-xl mb-3 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+            className="w-full px-4 py-2.5 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-xl mb-3 text-sm focus:ring-2 focus:ring-pink-500/20 outline-none"
             value={filter}
             onChange={e => setFilter(e.target.value)}
           />
           <button 
             onClick={() => setSelectedId(null)}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 rounded-xl font-bold shadow-lg hover:shadow-blue-500/30 transition transform hover:-translate-y-0.5 text-sm flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-pink-600 to-orange-600 text-white py-2.5 rounded-xl font-bold shadow-lg hover:shadow-pink-500/30 transition transform hover:-translate-y-0.5 text-sm flex items-center justify-center gap-2"
           >
             <Plus size={16} /> Nowy Program
           </button>
@@ -147,11 +147,11 @@ export default function Dashboard() {
               onClick={() => setSelectedId(p.id)}
               className={`p-4 rounded-2xl border cursor-pointer transition group relative overflow-hidden ${
                 selectedId === p.id 
-                  ? 'bg-white border-blue-200 shadow-md ring-1 ring-blue-100' 
+                  ? 'bg-white border-pink-200 shadow-md ring-1 ring-pink-100' 
                   : 'bg-white/40 border-white/60 hover:bg-white/80 hover:shadow-sm'
               }`}
             >
-              <div className={`font-bold text-sm mb-1 ${selectedId === p.id ? 'text-blue-700' : 'text-gray-700'}`}>
+              <div className={`font-bold text-sm mb-1 ${selectedId === p.id ? 'text-pink-700' : 'text-gray-700'}`}>
                 {p.date 
                   ? new Date(p.date).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
                   : 'Brak daty'}
@@ -161,11 +161,11 @@ export default function Dashboard() {
               </div>
               
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition duration-200">
-                <button onClick={(e) => { e.stopPropagation(); handleDuplicate(p); }} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100 font-medium">Duplikuj</button>
+                <button onClick={(e) => { e.stopPropagation(); handleDuplicate(p); }} className="text-xs bg-pink-50 text-pink-600 px-2 py-1 rounded-lg hover:bg-pink-100 font-medium">Duplikuj</button>
                 <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-lg hover:bg-red-100 font-medium">Usuń</button>
               </div>
               
-              {selectedId === p.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>}
+              {selectedId === p.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-pink-500"></div>}
             </div>
           ))}
         </div>
@@ -180,7 +180,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">Program Nabożeństwa</h1>
               <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-gray-200/50 w-fit">
-                <Calendar size={16} className="text-blue-600" />
+                <Calendar size={16} className="text-pink-600" />
                 <input 
                   type="date" 
                   className="bg-transparent text-gray-700 font-medium outline-none text-sm"
@@ -210,7 +210,7 @@ export default function Dashboard() {
                   songs.forEach(s => songsMap[s.id] = s);
                   generatePDF(program, songsMap);
                 }} 
-                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-blue-500/30 flex items-center gap-2 transition transform hover:-translate-y-0.5"
+                className="bg-gradient-to-r from-pink-600 to-pink-700 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-pink-500/30 flex items-center gap-2 transition transform hover:-translate-y-0.5"
               >
                 <FileText size={18}/> <span className="hidden md:inline">PDF</span>
               </button>
@@ -231,12 +231,12 @@ export default function Dashboard() {
           <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 p-6 mb-8">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2">
-                <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+                <div className="w-1.5 h-6 bg-pink-600 rounded-full"></div>
                 Plan szczegółowy
               </h3>
               <button 
                 onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [] }]})}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm px-4 py-2 rounded-xl font-bold hover:shadow-lg transition"
+                className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-4 py-2 rounded-xl font-bold hover:shadow-lg transition"
               >
                 + Dodaj Element
               </button>
@@ -252,11 +252,11 @@ export default function Dashboard() {
               
               <div className="divide-y divide-gray-100">
                 {program.schedule.map((row, idx) => (
-                  <div key={row.id} className="grid grid-cols-12 gap-4 p-3 items-start hover:bg-blue-50/30 transition duration-150">
+                  <div key={row.id} className="grid grid-cols-12 gap-4 p-3 items-start hover:bg-pink-50/30 transition duration-150">
                     <div className="col-span-3">
                       <div className="relative">
                         <select
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 appearance-none focus:ring-2 focus:ring-blue-500/20 outline-none cursor-pointer"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 appearance-none focus:ring-2 focus:ring-pink-500/20 outline-none cursor-pointer"
                           value={row.element || ''}
                           onChange={e => {
                             const newSchedule = [...program.schedule];
@@ -274,7 +274,7 @@ export default function Dashboard() {
                     </div>
                     <div className="col-span-3">
                       <input 
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none"
                         placeholder="Jan Kowalski"
                         value={row.person || ''}
                         onChange={e => {
@@ -289,7 +289,7 @@ export default function Dashboard() {
                         <div className="space-y-2">
                           <div className="relative">
                             <select 
-                              className="w-full px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800 font-medium appearance-none focus:ring-2 focus:ring-blue-500/20 outline-none cursor-pointer"
+                              className="w-full px-3 py-2 bg-pink-50 border border-pink-100 rounded-lg text-sm text-pink-800 font-medium appearance-none focus:ring-2 focus:ring-pink-500/20 outline-none cursor-pointer"
                               onChange={e => {
                                 const id = parseInt(e.target.value);
                                 if(id && !row.songIds?.includes(id)) {
@@ -302,13 +302,13 @@ export default function Dashboard() {
                               <option value="">+ Wybierz pieśń...</option>
                               {songs.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
                             </select>
-                            <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-blue-400 pointer-events-none" />
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-pink-400 pointer-events-none" />
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {row.songIds?.map(sid => {
                               const s = songs.find(x => x.id === sid);
                               return s ? (
-                                <span key={sid} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-blue-100 text-blue-700 rounded-full text-xs font-medium shadow-sm">
+                                <span key={sid} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-pink-100 text-pink-700 rounded-full text-xs font-medium shadow-sm">
                                   {s.title}
                                   <button onClick={() => {
                                     const newSchedule = [...program.schedule];
@@ -322,7 +322,7 @@ export default function Dashboard() {
                         </div>
                       ) : (
                         <input 
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none"
                           value={row.details || ''}
                           onChange={e => {
                             const newSchedule = [...program.schedule];

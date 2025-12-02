@@ -66,8 +66,8 @@ ref.
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white/90 max-w-3xl w-full rounded-3xl shadow-2xl border border-white/20 flex flex-col relative max-h-[90vh] backdrop-blur-xl">
         {/* HEADER */}
-        <div className="flex justify-between items-center p-7 pb-2 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/80 to-purple-50/80">
-          <h2 className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{formData.id ? "Edytuj Pieśń" : "Dodaj Pieśń"}</h2>
+        <div className="flex justify-between items-center p-7 pb-2 border-b border-gray-200/50 bg-gradient-to-r from-pink-50/80 to-orange-50/80">
+          <h2 className="font-bold text-xl bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">{formData.id ? "Edytuj Pieśń" : "Dodaj Pieśń"}</h2>
           <button type="button" onClick={onCancel} className="p-2 hover:bg-white/60 rounded-xl transition"><X size={24} className="text-gray-600" /></button>
         </div>
         <form className="flex-1 overflow-y-auto" onSubmit={e => { e.preventDefault(); handleSave(); }}>
@@ -120,7 +120,7 @@ ref.
                 <div className="flex gap-2 mb-3 items-center">
                   <span className="text-xs py-1 px-2 bg-yellow-50 border rounded text-yellow-600 border-yellow-100">Akordy w taktach</span>
                   <button type="button" className="text-xs px-3 py-1 rounded-xl border-green-400 bg-green-100 text-green-900" onClick={()=>window.alert('Pomoc dla akordów z kreską taktową!')}>Pomoc</button>
-                  <button type="button" className="text-xs px-3 py-1 rounded-xl border border-blue-200 bg-blue-100 text-blue-800 font-bold" onClick={()=>{
+                  <button type="button" className="text-xs px-3 py-1 rounded-xl border border-pink-200 bg-pink-100 text-pink-800 font-bold" onClick={()=>{
                     setFormData({...formData, chords_bars: formData.chords_bars + " |"});
                   }}>[ Dodaj kreskę taktową ]</button>
                 </div>
@@ -155,8 +155,8 @@ ref.
                   placeholder="G   D/F#  C2  ...\nPanie Jezu..."
                 />
                 <div className="flex gap-2 mt-2">
-                  <button type="button" className="bg-blue-600 text-white font-bold rounded-xl px-4 py-2 text-xs" onClick={()=>insertSection('Zwrotka')}>+ Zwrotka</button>
-                  <button type="button" className="bg-purple-600 text-white font-bold rounded-xl px-4 py-2 text-xs" onClick={()=>insertSection('Refren')}>+ Refren</button>
+                  <button type="button" className="bg-pink-600 text-white font-bold rounded-xl px-4 py-2 text-xs" onClick={()=>insertSection('Zwrotka')}>+ Zwrotka</button>
+                  <button type="button" className="bg-orange-600 text-white font-bold rounded-xl px-4 py-2 text-xs" onClick={()=>insertSection('Refren')}>+ Refren</button>
                   <button type="button" className="bg-pink-500 text-white font-bold rounded-xl px-4 py-2 text-xs" onClick={()=>insertSection('Bridge')}>+ Bridge</button>
                   <button type="button" className="bg-green-600 text-white font-bold rounded-xl px-4 py-2 text-xs" onClick={()=>insertSection('Pre-chorus')}>+ Pre-chorus</button>
                 </div>
@@ -193,14 +193,14 @@ ref.
               <input className="w-full px-4 py-3 border border-gray-200/50 rounded-xl bg-white/70 backdrop-blur-sm" value={formData.tags.join(", ")} onChange={e => handleTags(e.target.value)} placeholder="uwielbienie, szybka, niedzielna, popularna" />
               <div className="flex flex-wrap gap-2 mt-1 text-xs">
                 {TAG_PRESETS.map(tag =>
-                  <span key={tag} onClick={()=>handleTags(formData.tags.concat([tag]).join(", "))} className="bg-blue-50 px-3 py-1 rounded-xl cursor-pointer text-blue-800 border border-blue-200/50 hover:bg-blue-100 font-medium">+{tag}</span>
+                  <span key={tag} onClick={()=>handleTags(formData.tags.concat([tag]).join(", "))} className="bg-pink-50 px-3 py-1 rounded-xl cursor-pointer text-pink-800 border border-pink-200/50 hover:bg-pink-100 font-medium">+{tag}</span>
                 )}
               </div>
             </div>
           </div>
           <div className="flex justify-end gap-4 px-10 pb-8">
             <button type="button" onClick={onCancel} className="px-8 py-2 text-gray-600 font-medium hover:bg-gray-100/70 rounded-xl transition">Anuluj</button>
-            <button type="submit" className="px-10 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-blue-500/50 transition">Zapisz</button>
+            <button type="submit" className="px-10 py-2 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-pink-500/50 transition">Zapisz</button>
           </div>
         </form>
       </div>

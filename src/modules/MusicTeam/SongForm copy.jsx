@@ -79,7 +79,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                <button 
                  key={key}
                  onClick={() => setTab(key)}
-                 className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${tab === key ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
+                 className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${tab === key ? 'border-pink-600 text-pink-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
                >
                  {t}
                </button>
@@ -96,7 +96,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
               <div>
                 <label className="block font-bold mb-1 text-sm text-gray-700">Tytuł pieśni *</label>
                 <input 
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all" 
                   value={formData.title} 
                   onChange={e => setFormData({...formData, title: e.target.value})} 
                   placeholder="Wpisz tytuł..."
@@ -133,7 +133,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                 <input className="w-full p-3 border border-gray-300 rounded-lg" value={formData.tags.join(', ')} onChange={e => setFormData({...formData, tags: e.target.value.split(',').map(t => t.trim())})} placeholder="np. uwielbienie, radość" />
                 <div className="flex gap-2 mt-3 flex-wrap">
                   {['uwielbienie', 'szybka', 'wolna'].map(tag => (
-                    <button key={tag} onClick={() => { if(!formData.tags.includes(tag)) setFormData({...formData, tags: [...formData.tags, tag]}) }} className="bg-gray-100 px-3 py-1 rounded-full text-xs font-medium text-gray-600 hover:bg-blue-100 hover:text-blue-600 transition">+{tag}</button>
+                    <button key={tag} onClick={() => { if(!formData.tags.includes(tag)) setFormData({...formData, tags: [...formData.tags, tag]}) }} className="bg-gray-100 px-3 py-1 rounded-full text-xs font-medium text-gray-600 hover:bg-pink-100 hover:text-pink-600 transition">+{tag}</button>
                   ))}
                 </div>
               </div>
@@ -158,7 +158,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                 </div>
 
                 {formData.chord_format === 'bars' && (
-                  <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 mb-4 border border-blue-100 flex gap-3">
+                  <div className="bg-pink-50 p-4 rounded-lg text-sm text-pink-800 mb-4 border border-pink-100 flex gap-3">
                     <HelpCircle className="shrink-0" size={20}/>
                     <div>
                       <strong>Wskazówki dla zapisu taktowego:</strong>
@@ -173,7 +173,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                 <div className="relative">
                   <textarea 
                     id="lyrics-editor"
-                    className="w-full p-4 border border-gray-300 rounded-lg font-mono text-sm leading-loose min-h-[400px] focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-inner"
+                    className="w-full p-4 border border-gray-300 rounded-lg font-mono text-sm leading-loose min-h-[400px] focus:ring-2 focus:ring-pink-500 outline-none bg-white shadow-inner"
                     placeholder={formData.chord_format === 'bars' ? "| G | C | D |\n\nzwr.\n| G | Em | C | D |" : "G       C\nPanie Jezu..."}
                     value={formData.lyrics_chords}
                     onChange={e => setFormData({...formData, lyrics_chords: e.target.value})}
@@ -214,7 +214,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                 <div className="mb-6">
                   <label className="block font-bold mb-2 text-xs text-gray-500 uppercase tracking-wide">Link do nut (PDF/URL)</label>
                   <input 
-                    className="w-full p-3 border border-gray-300 rounded-lg text-blue-600" 
+                    className="w-full p-3 border border-gray-300 rounded-lg text-pink-600" 
                     placeholder="https://drive.google.com/..." 
                     value={formData.sheet_music_url} 
                     onChange={e => setFormData({...formData, sheet_music_url: e.target.value})} 
@@ -235,7 +235,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
         {/* STOPKA */}
         <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
           <button onClick={onCancel} className="px-6 py-2 bg-white border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 rounded-lg transition shadow-sm">Anuluj</button>
-          <button onClick={handleSubmit} className="px-8 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-md transition flex items-center gap-2">
+          <button onClick={handleSubmit} className="px-8 py-2 bg-pink-600 text-white font-bold rounded-lg hover:bg-pink-700 shadow-md transition flex items-center gap-2">
             <Save size={18}/> Zapisz
           </button>
         </div>

@@ -35,7 +35,7 @@ export default function ProgramList() {
         {programs.map(program => (
           <div key={program.id} className="bg-white p-6 rounded-lg shadow flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-bold text-blue-900">
+              <h2 className="text-xl font-bold text-pink-900">
                 {new Date(program.date).toLocaleDateString('pl-PL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </h2>
               <p className="text-gray-500">Elementy: {program.schedule?.length || 0}</p>
@@ -43,7 +43,7 @@ export default function ProgramList() {
             
             <button 
               onClick={() => generatePDF(program, songsMap)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+              className="flex items-center gap-2 bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded"
             >
               <FileText size={18} /> PDF
             </button>

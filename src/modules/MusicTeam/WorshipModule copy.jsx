@@ -62,7 +62,7 @@ export default function WorshipModule() {
       <section>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">Członkowie Zespołu</h2>
-          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setShowMemberModal(true); }} className="bg-blue-600 text-white text-sm px-4 py-2 rounded font-medium hover:bg-blue-700 flex items-center gap-2"><Plus size={16}/> Dodaj członka</button>
+          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setShowMemberModal(true); }} className="bg-pink-600 text-white text-sm px-4 py-2 rounded font-medium hover:bg-pink-700 flex items-center gap-2"><Plus size={16}/> Dodaj członka</button>
         </div>
         
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -86,7 +86,7 @@ export default function WorshipModule() {
                   <td className="p-4"><span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">{m.status}</span></td>
                   <td className="p-4 text-gray-500">{m.phone}</td>
                   <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => { setMemberForm(m); setShowMemberModal(true); }} className="text-blue-600 hover:underline">Edytuj</button>
+                    <button onClick={() => { setMemberForm(m); setShowMemberModal(true); }} className="text-pink-600 hover:underline">Edytuj</button>
                     <button onClick={() => deleteMember(m.id)} className="text-red-500 hover:underline">Usuń</button>
                   </td>
                 </tr>
@@ -100,7 +100,7 @@ export default function WorshipModule() {
       <section>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">Baza Pieśni</h2>
-          <button onClick={() => { setSongForm({}); setShowSongModal(true); }} className="bg-blue-600 text-white text-sm px-4 py-2 rounded font-medium hover:bg-blue-700 flex items-center gap-2"><Plus size={16}/> Dodaj pieśń</button>
+          <button onClick={() => { setSongForm({}); setShowSongModal(true); }} className="bg-pink-600 text-white text-sm px-4 py-2 rounded font-medium hover:bg-pink-700 flex items-center gap-2"><Plus size={16}/> Dodaj pieśń</button>
         </div>
 
         <div className="bg-white p-4 mb-4 rounded border flex items-center gap-2">
@@ -125,9 +125,9 @@ export default function WorshipModule() {
                 <tr key={s.id} className="hover:bg-gray-50">
                   <td className="p-4 font-bold">{s.title}</td>
                   <td className="p-4">{s.category}</td>
-                  <td className="p-4 font-mono font-bold text-blue-600">{s.key}</td>
+                  <td className="p-4 font-mono font-bold text-pink-600">{s.key}</td>
                   <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => { setSongForm(s); setShowSongModal(true); }} className="text-blue-600 hover:underline">Edytuj</button>
+                    <button onClick={() => { setSongForm(s); setShowSongModal(true); }} className="text-pink-600 hover:underline">Edytuj</button>
                     <button onClick={() => deleteSong(s.id)} className="text-red-500 hover:underline">Usuń</button>
                   </td>
                 </tr>
@@ -148,7 +148,7 @@ export default function WorshipModule() {
               <input className="w-full p-2 border rounded" placeholder="Telefon" value={memberForm.phone} onChange={e => setMemberForm({...memberForm, phone: e.target.value})} />
               <div className="flex justify-end gap-2 mt-4">
                 <button onClick={() => setShowMemberModal(false)} className="px-4 py-2 border rounded">Anuluj</button>
-                <button onClick={saveMember} className="px-4 py-2 bg-blue-600 text-white rounded">Zapisz</button>
+                <button onClick={saveMember} className="px-4 py-2 bg-pink-600 text-white rounded">Zapisz</button>
               </div>
             </div>
           </div>

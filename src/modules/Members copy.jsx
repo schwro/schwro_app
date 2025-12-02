@@ -95,7 +95,7 @@ export default function Members() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Baza Członków</h1>
         <div className="flex gap-3">
-          <button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 flex items-center gap-2 shadow-sm">
+          <button onClick={() => { resetForm(); setShowModal(true); }} className="bg-pink-600 text-white px-4 py-2 rounded font-medium hover:bg-pink-700 flex items-center gap-2 shadow-sm">
             <Plus size={18} /> Dodaj Członka
           </button>
           <button onClick={handleExportCSV} className="bg-white text-gray-700 border border-gray-200 px-4 py-2 rounded font-medium hover:bg-gray-50 flex items-center gap-2">
@@ -109,7 +109,7 @@ export default function Members() {
         <div className="relative max-w-md w-full">
           <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
           <input 
-            className="w-full pl-10 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-200 outline-none" 
+            className="w-full pl-10 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-pink-200 outline-none" 
             placeholder="Szukaj..." 
             value={filter} onChange={e => setFilter(e.target.value)}
           />
@@ -117,13 +117,13 @@ export default function Members() {
         <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
           <button 
             onClick={() => setViewMode('table')} 
-            className={`p-2 rounded-md flex items-center gap-2 text-sm font-medium transition ${viewMode === 'table' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`p-2 rounded-md flex items-center gap-2 text-sm font-medium transition ${viewMode === 'table' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <List size={18} /> Lista
           </button>
           <button 
             onClick={() => setViewMode('cards')} 
-            className={`p-2 rounded-md flex items-center gap-2 text-sm font-medium transition ${viewMode === 'cards' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`p-2 rounded-md flex items-center gap-2 text-sm font-medium transition ${viewMode === 'cards' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <LayoutGrid size={18} /> Karty
           </button>
@@ -175,7 +175,7 @@ export default function Members() {
           {filteredMembers.map(m => (
             <div key={m.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition flex flex-col">
               <div className="flex justify-between items-start mb-4">
-                <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl font-bold uppercase">
+                <div className="h-12 w-12 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-xl font-bold uppercase">
                   {(m.first_name?.[0] || '')}{(m.last_name?.[0] || '')}
                 </div>
                 <span className={`px-2 py-1 rounded text-xs font-medium ${m.status === 'Członek' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
@@ -296,7 +296,7 @@ export default function Members() {
 
             <div className="p-6 border-t bg-gray-50 flex justify-end gap-3 sticky bottom-0">
               <button onClick={() => setShowModal(false)} className="px-6 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg">Anuluj</button>
-              <button onClick={handleSave} className="px-8 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">Zapisz</button>
+              <button onClick={handleSave} className="px-8 py-2 bg-pink-600 text-white font-bold rounded-lg hover:bg-pink-700">Zapisz</button>
             </div>
           </div>
         </div>

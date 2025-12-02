@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Save, FileText, Presentation, Copy, Trash2, Calendar, ChevronDown, GripVertical, Search, X, Check, ChevronUp, History, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Plus, Save, FileText, Presentation, Copy, Trash2, Calendar, ChevronDown, GripVertical, Search, X, Check, ChevronUp, History, ArrowUpDown, User, UserX } from 'lucide-react';
 import { generatePDF } from '../../lib/utils';
 import { generatePPT } from '../../lib/ppt';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -21,7 +21,7 @@ const PROGRAM_ELEMENTS = [
 
 const MUSICAL_KEYS = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
 
-// --- KOMPONENTY POMOCNICZE ---
+// --- POMOCNICZE KOMPONENTY ---
 
 const SectionCard = ({ title, dataKey, fields, program, setProgram }) => (
   <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 p-6 h-full hover:shadow-xl transition relative z-0">
@@ -100,7 +100,8 @@ const ElementSelector = ({ value, onChange, options }) => {
   );
 };
 
-const MultiSelect = ({ label, options, value, onChange }) => {
+// MultiSelect z obsługą absencji (blokowanie wyboru)
+const MultiSelect = ({ label, options, value, onChange, absentMembers = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
   const selectedItems = value ? value.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -115,7 +116,9 @@ const MultiSelect = ({ label, options, value, onChange }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const toggleSelection = (name) => {
+  const toggleSelection = (name, isAbsent) => {
+    if (isAbsent) return; // Blokada wyboru nieobecnych
+
     let newSelection;
     if (selectedItems.includes(name)) {
       newSelection = selectedItems.filter(i => i !== name);
@@ -156,14 +159,22 @@ const MultiSelect = ({ label, options, value, onChange }) => {
         <div className="absolute z-[100] mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
           {options.map((person) => {
             const isSelected = selectedItems.includes(person.full_name);
+            const isAbsent = absentMembers.includes(person.full_name);
+
             return (
               <div 
                 key={person.id}
-                className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between hover:bg-pink-50 transition ${isSelected ? 'bg-pink-50 text-pink-700 font-medium' : 'text-gray-700'}`}
-                onClick={() => toggleSelection(person.full_name)}
+                className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between transition 
+                  ${isAbsent ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : 'hover:bg-pink-50 text-gray-700'}
+                  ${isSelected ? 'bg-pink-50 text-pink-700 font-medium' : ''}
+                `}
+                onClick={() => toggleSelection(person.full_name, isAbsent)}
               >
-                <span>{person.full_name} <span className="text-xs text-gray-400 ml-1">({person.role})</span></span>
-                {isSelected && <Check size={16} />}
+                <span className={isAbsent ? 'line-through decoration-gray-400' : ''}>
+                  {person.full_name} <span className="text-xs ml-1 opacity-60">({person.role})</span>
+                </span>
+                {isSelected && !isAbsent && <Check size={16} />}
+                {isAbsent && <UserX size={16} className="text-red-300" />}
               </div>
             );
           })}
@@ -315,11 +326,7 @@ const SortableRow = ({ row, index, program, setProgram, songs }) => {
   };
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   const removeSong = (internalId) => {
@@ -436,14 +443,10 @@ export default function Dashboard() {
   const [songs, setSongs] = useState([]);
   const [worshipTeam, setWorshipTeam] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' (rosnąco) lub 'desc' (malejąco)
+  const [sortOrder, setSortOrder] = useState('asc');
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -470,7 +473,7 @@ export default function Dashboard() {
       produkcja: { naglosnienie: '', propresenter: '', social: '', host: '' },
       scena: { prowadzenie: '', czytanie: '', kazanie: '', modlitwa: '', wieczerza: '', ogloszenia: '' },
       szkolka: { mlodsza: '', srednia: '', starsza: '' },
-      zespol: { lider: '', piano: '', gitara_akustyczna: '', gitara_elektryczna: '', bas: '', wokale: '', cajon: '' }
+      zespol: { lider: '', piano: '', gitara_akustyczna: '', gitara_elektryczna: '', bas: '', wokale: '', cajon: '', notatki: '', absencja: '' }
     };
   }
 
@@ -552,6 +555,11 @@ export default function Dashboard() {
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   };
 
+  // Lista nieobecnych dla aktualnie edytowanego programu
+  const absentList = program.zespol?.absencja 
+    ? program.zespol.absencja.split(',').map(s => s.trim()).filter(Boolean) 
+    : [];
+
   const ProgramItem = ({ p }) => (
     <div 
       key={p.id}
@@ -582,6 +590,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-full bg-gradient-to-br from-pink-50 via-orange-50 to-pink-50">
+      {/* LEWA KOLUMNA - LISTA */}
       <div className="w-80 bg-white/40 backdrop-blur-xl border-r border-white/40 flex flex-col h-full">
         <div className="p-6 border-b border-white/40">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent mb-4">Lista programów</h2>
@@ -617,67 +626,70 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* PRAWA KOLUMNA - EDYCJA */}
       <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-        <div className="bg-white/60 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 p-8 min-h-full">
-          <div className="flex justify-between items-start mb-8 pb-6 border-b border-gray-200/50">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">Program Nabożeństwa</h1>
-              <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-gray-200/50 w-fit">
-                <Calendar size={16} className="text-pink-600" />
-                <input type="date" className="bg-transparent text-gray-700 font-medium outline-none text-sm" value={program.date} onChange={e => setProgram({...program, date: e.target.value})} />
+        <div className="max-w-7xl mx-auto space-y-8">
+          
+          {/* EDYCJA PROGRAMU */}
+          <div className="bg-white/60 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 p-8">
+            <div className="flex justify-between items-start mb-8 pb-6 border-b border-gray-200/50">
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">Program Nabożeństwa</h1>
+                <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-gray-200/50 w-fit">
+                  <Calendar size={16} className="text-pink-600" />
+                  <input type="date" className="bg-transparent text-gray-700 font-medium outline-none text-sm" value={program.date} onChange={e => setProgram({...program, date: e.target.value})} />
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button className="bg-white text-green-600 px-4 py-2.5 rounded-xl border border-green-100 font-bold hover:bg-green-50 flex items-center gap-2 transition shadow-sm" onClick={handleSave}><Save size={18}/> <span className="hidden md:inline">Zapisz</span></button>
+                <div className="h-10 w-px bg-gray-300 mx-1 self-center"></div>
+                <button onClick={() => { const songsMap = {}; songs.forEach(s => songsMap[s.id] = s); generatePDF(program, songsMap); }} className="bg-gradient-to-r from-pink-600 to-pink-700 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg transition"><FileText size={18}/> <span className="hidden md:inline">PDF</span></button>
+                <button onClick={() => { const songsMap = {}; songs.forEach(s => songsMap[s.id] = s); generatePPT(program, songsMap); }} className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg transition"><Presentation size={18}/> <span className="hidden md:inline">PPT</span></button>
               </div>
             </div>
-            <div className="flex gap-3">
-              <button className="bg-white text-green-600 px-4 py-2.5 rounded-xl border border-green-100 font-bold hover:bg-green-50 flex items-center gap-2 transition shadow-sm" onClick={handleSave}><Save size={18}/> <span className="hidden md:inline">Zapisz</span></button>
-              <div className="h-10 w-px bg-gray-300 mx-1 self-center"></div>
-             
 
-<button onClick={() => { 
-  const songsMap = {}; 
-  songs.forEach(s => songsMap[s.id] = s); 
-  generatePDF(program, songsMap); 
-}} className="bg-gradient-to-r from-pink-600 to-pink-700 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg transition">
-  <FileText size={18}/> <span className="hidden md:inline">PDF</span>
-</button>
-
-              <button onClick={() => { const songsMap = {}; songs.forEach(s => songsMap[s.id] = s); generatePPT(program, songsMap); }} className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg transition"><Presentation size={18}/> <span className="hidden md:inline">PPT</span></button>
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 p-6 mb-8 min-h-[500px]">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2"><div className="w-1.5 h-6 bg-pink-600 rounded-full"></div>Plan szczegółowy</h3>
+                <button onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [], selectedSongs: [] }]})} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-4 py-2 rounded-xl font-bold hover:shadow-lg transition">+ Dodaj Element</button>
+              </div>
+              <div className="bg-white/50 rounded-xl border border-gray-200/50 shadow-inner">
+                <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200/50 bg-gray-50/50 font-bold text-xs text-gray-500 uppercase tracking-wider"><div className="col-span-1"></div><div className="col-span-3">Element</div><div className="col-span-3">Osoba</div><div className="col-span-4">Szczegóły / Notatki</div><div className="col-span-1"></div></div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={program.schedule.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                    <div>{program.schedule.map((row, idx) => <SortableRow key={row.id} row={row} index={idx} program={program} setProgram={setProgram} songs={songs} />)}</div>
+                  </SortableContext>
+                </DndContext>
+              </div>
             </div>
-          </div>
 
-          <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 p-6 mb-8 min-h-[500px]">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2"><div className="w-1.5 h-6 bg-pink-600 rounded-full"></div>Plan szczegółowy</h3>
-              <button onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [], selectedSongs: [] }]})} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-4 py-2 rounded-xl font-bold hover:shadow-lg transition">+ Dodaj Element</button>
+            <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 p-6 mb-6 hover:shadow-xl transition relative z-50">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 bg-clip-text text-transparent">Zespół Uwielbienia</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[{ key: 'lider', label: 'Lider Uwielbienia' }, { key: 'piano', label: 'Piano' }, { key: 'gitara_akustyczna', label: 'Gitara Akustyczna' }, { key: 'gitara_elektryczna', label: 'Gitara Elektryczna' }, { key: 'bas', label: 'Gitara Basowa' }, { key: 'wokale', label: 'Wokale' }, { key: 'cajon', label: 'Cajon / Perkusja' }].map(field => (
+                  <MultiSelect 
+                    key={field.key} 
+                    label={field.label} 
+                    options={worshipTeam} 
+                    value={program.zespol?.[field.key] || ''} 
+                    onChange={(newValue) => setProgram(prev => ({ ...prev, zespol: { ...prev.zespol, [field.key]: newValue } }))} 
+                    absentMembers={absentList} // Przekazujemy listę nieobecnych
+                  />
+                ))}
+              </div>
             </div>
-            <div className="bg-white/50 rounded-xl border border-gray-200/50 shadow-inner">
-              <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200/50 bg-gray-50/50 font-bold text-xs text-gray-500 uppercase tracking-wider"><div className="col-span-1"></div><div className="col-span-3">Element</div><div className="col-span-3">Osoba</div><div className="col-span-4">Szczegóły / Notatki</div><div className="col-span-1"></div></div>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={program.schedule.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                  <div>{program.schedule.map((row, idx) => <SortableRow key={row.id} row={row} index={idx} program={program} setProgram={setProgram} songs={songs} />)}</div>
-                </SortableContext>
-              </DndContext>
-            </div>
-          </div>
 
-          <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 p-6 mb-6 hover:shadow-xl transition relative z-50">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 bg-clip-text text-transparent">Zespół Uwielbienia</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
+              <SectionCard title="Atmosfera Team" dataKey="atmosfera_team" program={program} setProgram={setProgram} fields={[{ key: 'przygotowanie', label: 'Przygotowanie:' }, { key: 'witanie', label: 'Witanie:' }]} />
+              <SectionCard title="Produkcja" dataKey="produkcja" program={program} setProgram={setProgram} fields={[{ key: 'naglosnienie', label: 'Nagłośnienie:' }, { key: 'propresenter', label: 'ProPresenter:' }, { key: 'social', label: 'Social Media:' }, { key: 'host', label: 'Host wydarzenia:' }]} />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[{ key: 'lider', label: 'Lider Uwielbienia' }, { key: 'piano', label: 'Piano' }, { key: 'gitara_akustyczna', label: 'Gitara Akustyczna' }, { key: 'gitara_elektryczna', label: 'Gitara Elektryczna' }, { key: 'bas', label: 'Gitara Basowa' }, { key: 'wokale', label: 'Wokale' }, { key: 'cajon', label: 'Cajon / Perkusja' }].map(field => (
-                <MultiSelect key={field.key} label={field.label} options={worshipTeam} value={program.zespol?.[field.key] || ''} onChange={(newValue) => setProgram(prev => ({ ...prev, zespol: { ...prev.zespol, [field.key]: newValue } }))} />
-              ))}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
+              <SectionCard title="Scena" dataKey="scena" program={program} setProgram={setProgram} fields={[{ key: 'prowadzenie', label: 'Prowadzenie:' }, { key: 'modlitwa', label: 'Modlitwa:' }, { key: 'kazanie', label: 'Kazanie:' }, { key: 'wieczerza', label: 'Wieczerza:' }, { key: 'ogloszenia', label: 'Ogłoszenia:' }]} />
+              <SectionCard title="Szkółka Niedzielna" dataKey="szkolka" program={program} setProgram={setProgram} fields={[{ key: 'mlodsza', label: 'Grupa Młodsza:' }, { key: 'srednia', label: 'Grupa Średnia:' }, { key: 'starsza', label: 'Grupa Starsza:' }]} />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
-            <SectionCard title="Atmosfera Team" dataKey="atmosfera_team" program={program} setProgram={setProgram} fields={[{ key: 'przygotowanie', label: 'Przygotowanie:' }, { key: 'witanie', label: 'Witanie:' }]} />
-            <SectionCard title="Produkcja" dataKey="produkcja" program={program} setProgram={setProgram} fields={[{ key: 'naglosnienie', label: 'Nagłośnienie:' }, { key: 'propresenter', label: 'ProPresenter:' }, { key: 'social', label: 'Social Media:' }, { key: 'host', label: 'Host wydarzenia:' }]} />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
-            <SectionCard title="Scena" dataKey="scena" program={program} setProgram={setProgram} fields={[{ key: 'prowadzenie', label: 'Prowadzenie:' }, { key: 'modlitwa', label: 'Modlitwa:' }, { key: 'kazanie', label: 'Kazanie:' }, { key: 'wieczerza', label: 'Wieczerza:' }, { key: 'ogloszenia', label: 'Ogłoszenia:' }]} />
-            <SectionCard title="Szkółka Niedzielna" dataKey="szkolka" program={program} setProgram={setProgram} fields={[{ key: 'mlodsza', label: 'Grupa Młodsza:' }, { key: 'srednia', label: 'Grupa Średnia:' }, { key: 'starsza', label: 'Grupa Starsza:' }]} />
           </div>
         </div>
       </div>

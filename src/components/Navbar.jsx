@@ -1,37 +1,76 @@
 import React from 'react';
+import { Bell, Sun, Moon, LogOut, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { LogOut, Bell, Settings } from 'lucide-react';
 
-export default function Navbar({ user }) {
+export default function Navbar({ user, darkMode, toggleTheme }) {
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    window.location.href = '/';
   };
 
   return (
-    <div className="h-16 bg-white/70 backdrop-blur-xl border-b border-gray-200/50 shadow-sm flex items-center justify-between px-6">
-      <div className="text-lg font-semibold text-gray-800">
-        {/* Opcjonalnie: nazwa strony/sekcji */}
-      </div>
+    <div className="h-16 bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700 flex items-center justify-between px-6 transition-colors duration-300">
+      
+      {/* Lewa strona (tytuł lub puste) */}
       <div className="flex items-center gap-4">
-        <button className="p-2 rounded-xl hover:bg-gray-100/80 transition">
-          <Bell size={20} className="text-gray-600" />
-        </button>
-        <button className="p-2 rounded-xl hover:bg-gray-100/80 transition">
-          <Settings size={20} className="text-gray-600" />
-        </button>
-        <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-gray-200/50">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-            {user?.email?.[0]?.toUpperCase() || 'U'}
-          </div>
-          <span className="text-sm font-medium text-gray-700">{user?.email || 'Admin'}</span>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition font-medium text-sm"
+        {/* Tu można dodać breadcrumbs */}
+      </div>
+
+      {/* Prawa strona */}
+      <div className="flex items-center gap-4">
+        
+        {/* Przełącznik Motywu */}
+        <button 
+          onClick={toggleTheme}
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+          title="Zmień motyw"
         >
-          <LogOut size={16} />
-          Wyloguj
+          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
         </button>
+
+        {/* Powiadomienia (Placeholder) */}
+        <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors relative">
+          <Bell size={20} />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+        </button>
+
+        <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
+        {/* Profil Użytkownika */}
+        <div className="flex items-center gap-3">
+          <div className="text-right hidden md:block">
+            <p className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">
+              {user?.email}
+            </p>
+            <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-1">Online</p>
+          </div>
+          
+          <div className="relative group">
+            <button className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-600 p-[2px] cursor-pointer shadow-md hover:shadow-lg transition-all">
+              <div className="w-full h-full rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
+                <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-orange-600 uppercase">
+                  {user?.email?.charAt(0) || 'U'}
+                </span>
+              </div>
+            </button>
+
+            {/* Dropdown Menu */}
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 z-50">
+              <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 mb-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">Konto</p>
+              </div>
+              <a href="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-700 hover:text-pink-600 transition-colors cursor-pointer">
+                <User size={16}/> Mój Profil
+              </a>
+              <button 
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+              >
+                <LogOut size={16}/> Wyloguj
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
