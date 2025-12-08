@@ -318,8 +318,9 @@ const ScheduleTable = ({ programs, team, onUpdateProgram }) => {
 // --- MAIN MODULE ---
 
 export default function AtmosferaTeamModule() {
+  const [activeTab, setActiveTab] = useState('schedule');
   const [team, setTeam] = useState([]);
-  const [programs, setPrograms] = useState([]); 
+  const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -417,19 +418,48 @@ export default function AtmosferaTeamModule() {
         </h1>
       </div>
 
+      {/* TAB NAVIGATION */}
+      <div className="flex gap-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+        <button
+          onClick={() => setActiveTab('schedule')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'schedule'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Calendar size={16} className="inline mr-2" />
+          Grafik
+        </button>
+        <button
+          onClick={() => setActiveTab('members')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'members'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <User size={16} className="inline mr-2" />
+          Członkowie
+        </button>
+      </div>
+
       {/* GRAFIK */}
+      {activeTab === 'schedule' && (
       <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[50] transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Grafik</h2>
         </div>
-        <ScheduleTable 
-          programs={programs} 
+        <ScheduleTable
+          programs={programs}
           team={team}
           onUpdateProgram={handleProgramUpdate}
         />
       </section>
+      )}
 
       {/* CZŁONKOWIE */}
+      {activeTab === 'members' && (
       <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[30] transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Członkowie ({team.length})</h2>
@@ -454,6 +484,7 @@ export default function AtmosferaTeamModule() {
           </table>
         </div>
       </section>
+      )}
 
       {/* MODAL CZŁONKA */}
       {showMemberModal && (

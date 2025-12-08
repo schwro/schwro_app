@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { 
-  Plus, Search, Trash2, X, FileText, Calendar, Check, UserX, 
+import {
+  Plus, Search, Trash2, X, FileText, Calendar, Check, UserX,
   ChevronUp, ChevronDown, Users, BookOpen, GraduationCap,
-  MapPin, Baby, User, Upload, UserPlus, Download, Link as LinkIcon, Edit
+  MapPin, Baby, Upload, UserPlus, Link as LinkIcon
 } from 'lucide-react';
 
 // --- POMOCNICZE KOMPONENTY (BEZ ZMIAN) ---
@@ -144,6 +144,7 @@ const ScheduleTable = ({ programs, teachers, groups, onUpdateProgram }) => {
 // --- GŁÓWNY MODUŁ ---
 
 export default function KidsModule() {
+  const [activeTab, setActiveTab] = useState('schedule');
   const [teachers, setTeachers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [students, setStudents] = useState([]);
@@ -205,14 +206,65 @@ export default function KidsModule() {
         <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Małe SchWro</h1>
       </div>
 
-      {/* 1. GRAFIK */}
-      <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
-        <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Grafik Nauczycieli</h2></div>
-        <ScheduleTable programs={programs} teachers={teachers} groups={groups} onUpdateProgram={handleProgramUpdate} />
-      </section>
+      {/* TABS */}
+      <div className="flex gap-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+        <button
+          onClick={() => setActiveTab('schedule')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'schedule'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Calendar size={16} className="inline mr-2" />
+          Grafik
+        </button>
+        <button
+          onClick={() => setActiveTab('groups')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'groups'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Users size={16} className="inline mr-2" />
+          Grupy
+        </button>
+        <button
+          onClick={() => setActiveTab('teachers')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'teachers'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <GraduationCap size={16} className="inline mr-2" />
+          Nauczyciele
+        </button>
+        <button
+          onClick={() => setActiveTab('students')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'students'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Baby size={16} className="inline mr-2" />
+          Uczniowie
+        </button>
+      </div>
 
-      {/* 2. GRUPY */}
-      <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+      {/* GRAFIK TAB */}
+      {activeTab === 'schedule' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Grafik Nauczycieli</h2></div>
+          <ScheduleTable programs={programs} teachers={teachers} groups={groups} onUpdateProgram={handleProgramUpdate} />
+        </section>
+      )}
+
+      {/* GRUPY TAB */}
+      {activeTab === 'groups' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Grupy Wiekowe</h2>
           <button onClick={() => { setGroupForm({ id: null, name: '', teacher_ids: [], room: '', age_range: '' }); setShowGroupModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj grupę</button>
@@ -243,10 +295,43 @@ export default function KidsModule() {
             );
           })}
         </div>
-      </section>
+        </section>
+      )}
 
-      {/* 3. UCZNIOWIE */}
-      <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+      {/* NAUCZYCIELE TAB */}
+      {activeTab === 'teachers' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Nauczyciele ({teachers.length})</h2>
+            <button onClick={() => { setTeacherForm({ id: null, full_name: '', role: 'Nauczyciel', email: '', phone: '' }); setShowTeacherModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj nauczyciela</button>
+          </div>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <table className="w-full text-left text-sm">
+              {/* USUNIĘTO STYLE BACKGROUND BLACK - TERAZ JEST CZYSTA KLASA */}
+              <thead className="text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Rola</th><th className="p-4">Email</th><th className="p-4 text-right">Akcje</th></tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                {teachers.map(t => (
+                  <tr key={t.id} className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                    <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{t.full_name}</td>
+                    <td className="p-4 text-gray-600 dark:text-gray-400">{t.role}</td>
+                    <td className="p-4 text-gray-600 dark:text-gray-400">{t.email}</td>
+                    <td className="p-4 text-right flex justify-end gap-2">
+                      <button onClick={() => { setTeacherForm(t); setShowTeacherModal(true); }} className="text-pink-600 dark:text-pink-400 font-medium">Edytuj</button>
+                      <button onClick={() => deleteTeacher(t.id)} className="text-red-500 dark:text-red-400 font-medium">Usuń</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* UCZNIOWIE TAB */}
+      {activeTab === 'students' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Wszyscy Uczniowie ({filteredStudents.length})</h2>
           <div className="flex gap-3 items-center">
@@ -280,36 +365,8 @@ export default function KidsModule() {
             </tbody>
           </table>
         </div>
-      </section>
-
-      {/* 4. NAUCZYCIELE */}
-      <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Nauczyciele ({teachers.length})</h2>
-          <button onClick={() => { setTeacherForm({ id: null, full_name: '', role: 'Nauczyciel', email: '', phone: '' }); setShowTeacherModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj nauczyciela</button>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <table className="w-full text-left text-sm">
-            {/* USUNIĘTO STYLE BACKGROUND BLACK - TERAZ JEST CZYSTA KLASA */}
-            <thead className="text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-              <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Rola</th><th className="p-4">Email</th><th className="p-4 text-right">Akcje</th></tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-              {teachers.map(t => (
-                <tr key={t.id} className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-                  <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{t.full_name}</td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{t.role}</td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{t.email}</td>
-                  <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => { setTeacherForm(t); setShowTeacherModal(true); }} className="text-pink-600 dark:text-pink-400 font-medium">Edytuj</button>
-                    <button onClick={() => deleteTeacher(t.id)} className="text-red-500 dark:text-red-400 font-medium">Usuń</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* MODALE - BEZ ZMIAN */}
       {showGroupModal && (

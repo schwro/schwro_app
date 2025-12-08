@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar } from 'lucide-react';
+import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Sidebar() {
@@ -49,7 +49,8 @@ export default function Sidebar() {
     { path: '/media', icon: Video, label: 'MediaTeam', show: visibleModules.media },
     { path: '/atmosfera', icon: HeartHandshake, label: 'Atmosfera Team', show: visibleModules.atmosfera },
     { path: '/kids', icon: Baby, label: 'Małe SchWro', show: visibleModules.kids },
-    { path: '/groups', icon: UserCircle, label: 'Grupy domowe', show: visibleModules.groups },
+    { path: '/home-groups', icon: UserCircle, label: 'Grupy domowe', show: visibleModules.groups },
+    { path: '/finance', icon: DollarSign, label: 'Finanse', show: true },
   ];
 
   return (

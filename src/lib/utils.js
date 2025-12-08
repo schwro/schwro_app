@@ -159,12 +159,15 @@ const getPDFHtmlContent = (program, songsMap) => {
     const filledFields = fields.filter(f => f.value?.trim());
     if (filledFields.length === 0) return '';
 
+    // Wszystkie sekcje służb w 3 kolumnach
+    const columns = filledFields.length === 1 ? '1fr' : (filledFields.length === 2 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)');
+
     return `
       <div style="page-break-inside: avoid; margin-bottom: 24px; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border: 1px solid ${colors.border}; border-top: 4px solid ${colors.sectionAccent};">
         <h3 style="font-family: 'Roboto', sans-serif; font-size: 13px; font-weight: 700; color: ${colors.textMuted}; margin-top: 0; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px;">
           ${title}
         </h3>
-        <div style="display: grid; grid-template-columns: ${filledFields.length === 1 ? '1fr' : 'repeat(2, 1fr)'}; gap: 20px;">
+        <div style="display: grid; grid-template-columns: ${columns}; gap: 20px;">
           ${filledFields.map(field => `
             <div>
               <div style="font-family: 'Roboto', sans-serif; font-size: 11px; font-weight: 600; color: ${colors.sectionAccent}; margin-bottom: 4px;">
@@ -241,24 +244,24 @@ const getPDFHtmlContent = (program, songsMap) => {
             </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
           <!-- Lyrics Card -->
           <div>
             <div style="background: white; border: 1px solid ${colors.border}; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden;">
-                <div style="background: ${colors.bgGray}; padding: 12px 16px; border-bottom: 1px solid ${colors.border};">
-                    <h3 style="font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 700; color: ${colors.textMuted}; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Tekst</h3>
+                <div style="background: ${colors.bgGray}; padding: 10px 14px; border-bottom: 1px solid ${colors.border};">
+                    <h3 style="font-family: 'Roboto', sans-serif; font-size: 11px; font-weight: 700; color: ${colors.textMuted}; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Tekst</h3>
                 </div>
-                <div style="font-family: 'Roboto', sans-serif; font-size: 12px; line-height: 1.5; color: ${colors.textMain}; white-space: pre-wrap; padding: 20px; min-height: 300px;">${(song.lyrics || '').trim() || '<span style="color:#9ca3af; font-style:italic;">Brak tekstu</span>'}</div>
+                <div style="font-family: 'Roboto', sans-serif; font-size: 11px; line-height: 1.4; color: ${colors.textMain}; white-space: pre-wrap; padding: 14px;">${(song.lyrics || '').trim() || '<span style="color:#9ca3af; font-style:italic;">Brak tekstu</span>'}</div>
             </div>
           </div>
 
           <!-- Chords Card -->
           <div>
             <div style="background: white; border: 1px solid ${colors.border}; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden;">
-                <div style="background: ${colors.primaryLight}; padding: 12px 16px; border-bottom: 1px solid ${colors.primaryBorder};">
-                    <h3 style="font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 700; color: ${colors.primary}; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Akordy</h3>
+                <div style="background: ${colors.primaryLight}; padding: 10px 14px; border-bottom: 1px solid ${colors.primaryBorder};">
+                    <h3 style="font-family: 'Roboto', sans-serif; font-size: 11px; font-weight: 700; color: ${colors.primary}; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Akordy</h3>
                 </div>
-                <div style="padding: 20px; font-size: 12px; line-height: 1.5; color: ${colors.textMain}; white-space: pre-wrap; font-family: 'Roboto', sans-serif; font-weight: 600; min-height: 300px;">${formatChordsText((song.finalChords || '').trim())}</div>
+                <div style="padding: 14px; font-size: 11px; line-height: 1.4; color: ${colors.textMain}; white-space: pre-wrap; font-family: 'Roboto', sans-serif; font-weight: 600;">${formatChordsText((song.finalChords || '').trim())}</div>
             </div>
           </div>
         </div>
@@ -295,39 +298,48 @@ const getPDFHtmlContent = (program, songsMap) => {
         .container { max-width: 180mm; margin: 0 auto; padding: 0; background: white; padding-bottom: 50px; }
         
         /* Header */
-        .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-end; 
-            margin-bottom: 40px; 
-            padding-bottom: 24px; 
-            border-bottom: 2px solid ${colors.border}; 
+        .header {
+            margin-bottom: 60px;
+            padding-bottom: 0;
+            border-bottom: none;
         }
-        .header-content h1 { 
-            font-family: 'Roboto', sans-serif; 
-            font-size: 36px; 
-            font-weight: 800; 
-            color: ${colors.textMain}; 
-            margin-bottom: 4px; 
-            letter-spacing: -1px; 
-            line-height: 1;
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+        .header-content {
+            flex: 1;
         }
         .header-content .subtitle {
-            font-size: 14px;
+            font-size: 11px;
             color: ${colors.textMuted};
-            font-weight: 500;
-            letter-spacing: 0.5px;
+            font-weight: 600;
+            letter-spacing: 2px;
             text-transform: uppercase;
+            margin-bottom: 12px;
         }
-        .date-badge { 
-            background-color: ${colors.primaryLight}; 
-            color: ${colors.primary}; 
-            font-family: 'Roboto', sans-serif; 
-            font-size: 14px; 
-            font-weight: 700; 
-            padding: 8px 16px;
+        .header-content h1 {
+            font-family: 'Roboto', sans-serif;
+            font-size: 36px;
+            font-weight: 900;
+            color: ${colors.textMain};
+            margin: 0;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+        .date-badge {
+            background-color: ${colors.primaryLight};
+            color: ${colors.primary};
+            font-family: 'Roboto', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            padding: 10px 24px;
             border-radius: 8px;
-            border: 1px solid ${colors.primaryBorder};
+            border: 2px solid ${colors.primaryBorder};
+            white-space: nowrap;
+            align-self: flex-end;
         }
 
 
@@ -363,11 +375,13 @@ const getPDFHtmlContent = (program, songsMap) => {
         <!-- STRONA 1 -->
         <div class="page-1">
           <div class="header">
-            <div class="header-content">
-                <div class="subtitle">IT Excellence • Church Manager</div>
-                <h1>Program nabożeństwa</h1>
+            <div class="header-top">
+                <div class="header-content">
+                    <div class="subtitle">App SchWro Południe</div>
+                    <h1>Program nabożeństwa</h1>
+                </div>
+                <div class="date-badge">${formatDateFull(program.date)}</div>
             </div>
-            <div class="date-badge">${formatDateFull(program.date)}</div>
           </div>
           ${renderScheduleTable()}
         </div>
@@ -399,7 +413,13 @@ export const generatePDF = async (program, songsMap) => {
 
   const page1Div = doc.querySelector('.page-1');
   const sectionsDiv = doc.querySelector('.sections-wrapper');
-  const songPages = doc.querySelectorAll('[style*="page-break-before"]');
+
+  // Znajdź tylko niepuste kontenery pieśni (div z page-break-before i treścią)
+  const allSongDivs = doc.querySelectorAll('[style*="page-break-before"]');
+  const songPages = Array.from(allSongDivs).filter(div => {
+    const text = div.textContent?.trim();
+    return text && text.length > 50; // Minimalna długość treści pieśni
+  });
 
   const pdf = new jsPDF('p', 'mm', 'a4');
   const a4Width = 210;
@@ -409,9 +429,28 @@ export const generatePDF = async (program, songsMap) => {
   const renderSection = async (element) => {
     if (!element) return;
 
+    // Sprawdź czy element ma jakąś treść (nie jest pusty)
+    const textContent = element.textContent?.trim();
+    if (!textContent || textContent.length === 0) {
+      console.log('Pomijam pusty element');
+      return;
+    }
+
     const container = document.createElement('div');
-    container.innerHTML = element.innerHTML;
-    
+
+    // Skopiuj pełny HTML razem ze stylami
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = htmlContent;
+    const styleTag = wrapper.querySelector('style');
+
+    if (styleTag) {
+      container.appendChild(styleTag.cloneNode(true));
+    }
+
+    const contentDiv = document.createElement('div');
+    contentDiv.innerHTML = element.innerHTML;
+    container.appendChild(contentDiv);
+
     // STYLIZACJA KONTENERA - FIX DARK MODE & FONT
     container.style.position = 'absolute';
     container.style.left = '-10000px';
@@ -420,7 +459,7 @@ export const generatePDF = async (program, songsMap) => {
     container.style.color = '#1e293b';
     container.style.padding = '20px';
     container.style.fontFamily = "'Roboto', sans-serif";
-    
+
     document.body.appendChild(container);
 
     try {
@@ -441,6 +480,12 @@ export const generatePDF = async (program, songsMap) => {
 
       const imgData = canvas.toDataURL('image/jpeg', 0.85);
       const imgHeight = (canvas.height * a4Width) / canvas.width;
+
+      // Sprawdź czy wysokość nie jest zbyt mała (pusta strona)
+      if (imgHeight < 50) {
+        console.log('Pomijam stronę - zbyt mała wysokość');
+        return;
+      }
 
       if (pageNumber > 1) pdf.addPage();
 
@@ -466,9 +511,16 @@ export const generatePDF = async (program, songsMap) => {
     if (page1Div) await renderSection(page1Div);
     if (sectionsDiv) await renderSection(sectionsDiv);
 
+    // Renderuj wszystkie pieśni razem, każda na osobnej stronie PDF
     if (songPages.length > 0) {
       for (const songPage of songPages) {
-        await renderSection(songPage);
+        // Sprawdź czy pieśń ma jakąkolwiek treść przed renderowaniem
+        const hasContent = songPage.textContent?.trim().length > 0;
+        if (hasContent) {
+          await renderSection(songPage);
+        } else {
+          console.log('Pomijam pustą pieśń');
+        }
       }
     }
 
@@ -550,7 +602,13 @@ export const savePDFToSupabase = async (program, songsMap) => {
 
     const page1Div = doc.querySelector('.page-1');
     const sectionsDiv = doc.querySelector('.sections-wrapper');
-    const songPages = doc.querySelectorAll('[style*="page-break-before"]');
+
+    // Znajdź tylko niepuste kontenery pieśni (div z page-break-before i treścią)
+    const allSongDivs = doc.querySelectorAll('[style*="page-break-before"]');
+    const songPages = Array.from(allSongDivs).filter(div => {
+      const text = div.textContent?.trim();
+      return text && text.length > 50; // Minimalna długość treści pieśni
+    });
 
     const pdf = new jsPDF('p', 'mm', 'a4');
     const a4Width = 210;
@@ -560,9 +618,28 @@ export const savePDFToSupabase = async (program, songsMap) => {
     const renderSection = async (element) => {
       if (!element) return;
 
+      // Sprawdź czy element ma jakąś treść (nie jest pusty)
+      const textContent = element.textContent?.trim();
+      if (!textContent || textContent.length === 0) {
+        console.log('Pomijam pusty element');
+        return;
+      }
+
       const container = document.createElement('div');
-      container.innerHTML = element.innerHTML;
-      
+
+      // Skopiuj pełny HTML razem ze stylami
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = htmlContent;
+      const styleTag = wrapper.querySelector('style');
+
+      if (styleTag) {
+        container.appendChild(styleTag.cloneNode(true));
+      }
+
+      const contentDiv = document.createElement('div');
+      contentDiv.innerHTML = element.innerHTML;
+      container.appendChild(contentDiv);
+
       // FIX DARK MODE
       container.style.position = 'absolute';
       container.style.left = '-10000px';
@@ -593,6 +670,12 @@ export const savePDFToSupabase = async (program, songsMap) => {
         const imgData = canvas.toDataURL('image/jpeg', 0.85);
         const imgHeight = (canvas.height * a4Width) / canvas.width;
 
+        // Sprawdź czy wysokość nie jest zbyt mała (pusta strona)
+        if (imgHeight < 50) {
+          console.log('Pomijam stronę - zbyt mała wysokość');
+          return;
+        }
+
         if (pageNumber > 1) pdf.addPage();
 
         let heightLeft = imgHeight;
@@ -616,9 +699,16 @@ export const savePDFToSupabase = async (program, songsMap) => {
     if (page1Div) await renderSection(page1Div);
     if (sectionsDiv) await renderSection(sectionsDiv);
 
+    // Renderuj wszystkie pieśni razem, każda na osobnej stronie PDF
     if (songPages.length > 0) {
       for (const songPage of songPages) {
-        await renderSection(songPage);
+        // Sprawdź czy pieśń ma jakąkolwiek treść przed renderowaniem
+        const hasContent = songPage.textContent?.trim().length > 0;
+        if (hasContent) {
+          await renderSection(songPage);
+        } else {
+          console.log('Pomijam pustą pieśń');
+        }
       }
     }
 

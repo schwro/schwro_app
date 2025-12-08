@@ -747,49 +747,209 @@ export default function Dashboard() {
     fetchPrograms();
   };
 
+  // Funkcja generująca HTML emaila z programem
+  const generateEmailHTML = (program, songsMap) => {
+    const formatDateFull = (dateString) => {
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const date = new Date(dateString);
+      const formatted = date.toLocaleDateString('pl-PL', options);
+      return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    };
+
+    const renderScheduleRows = () => {
+      return program.schedule?.map((row) => {
+        let detailsHTML = '';
+
+        if ((row.element || '').toLowerCase().includes('uwielbienie') && row.selectedSongs?.length > 0) {
+          // Renderuj pieśni jako listę (jedna pod drugą)
+          const songsHTML = row.selectedSongs.map((s, idx) => {
+            const song = songsMap[s.songId];
+            if (!song) return '';
+            return `
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: ${idx < row.selectedSongs.length - 1 ? '6px' : '0'};">
+                <span style="display: inline-block; width: 20px; height: 20px; background: linear-gradient(135deg, #db2777, #ea580c); color: white; border-radius: 50%; text-align: center; line-height: 20px; font-size: 10px; font-weight: 700;">${idx + 1}</span>
+                <span style="color: #374151; font-weight: 500;">${song.title}</span>
+                <span style="background: #fce7f3; color: #db2777; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid #fbcfe8;">${s.key}</span>
+              </div>
+            `;
+          }).filter(Boolean).join('');
+          detailsHTML = songsHTML;
+        } else {
+          detailsHTML = `<span style="color: #6b7280;">${row.details || '-'}</span>`;
+        }
+
+        return `
+          <tr style="border-bottom: 1px solid #fecdd3;">
+            <td style="padding: 12px; font-weight: 600; color: #be123c; vertical-align: top;">${row.element || '-'}</td>
+            <td style="padding: 12px; color: #4b5563; vertical-align: top;">${row.person || '-'}</td>
+            <td style="padding: 12px; font-size: 14px; vertical-align: top;">${detailsHTML}</td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="3" style="padding: 20px; text-align: center; color: #9ca3af;">Brak elementów</td></tr>';
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html lang="pl">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Program Nabożeństwa</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #fce7f3 0%, #fed7aa 100%); min-height: 100vh;">
+
+        <!-- Container -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #fce7f3 0%, #fed7aa 100%); padding: 40px 20px;">
+          <tr>
+            <td align="center">
+
+              <!-- Main Content Card -->
+              <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); overflow: hidden; max-width: 100%;">
+
+                <!-- Header with Gradient -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #db2777 0%, #ea580c 100%); padding: 40px 30px; text-align: center;">
+                    <h1 style="margin: 0 0 8px 0; color: white; font-size: 32px; font-weight: 800; letter-spacing: -0.5px;">Program Nabożeństwa</h1>
+                    <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px); padding: 8px 20px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.3);">
+                      <p style="margin: 0; color: white; font-size: 16px; font-weight: 700;">${formatDateFull(program.date)}</p>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Content -->
+                <tr>
+                  <td style="padding: 40px 30px;">
+
+                    <!-- Greeting -->
+                    <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+                      Cześć! 👋
+                    </p>
+                    <p style="margin: 0 0 32px 0; color: #6b7280; font-size: 15px; line-height: 1.6;">
+                      Poniżej znajduje się szczegółowy program nabożeństwa. Pełna wersja PDF jest dostępna w załączniku.
+                    </p>
+
+                    <!-- Schedule Title -->
+                    <div style="margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #db2777;">
+                      <h2 style="margin: 0; color: #1f2937; font-size: 22px; font-weight: 700;">📋 Plan Szczegółowy</h2>
+                    </div>
+
+                    <!-- Schedule Table -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border: 1px solid #fecdd3; border-radius: 12px; overflow: hidden; margin-bottom: 32px;">
+                      <thead>
+                        <tr style="background: linear-gradient(135deg, #fce7f3 0%, #fed7aa 50%, #fce7f3 100%);">
+                          <th style="padding: 12px; text-align: left; font-size: 11px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #fda4af;">Element</th>
+                          <th style="padding: 12px; text-align: left; font-size: 11px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #fda4af;">Osoba</th>
+                          <th style="padding: 12px; text-align: left; font-size: 11px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #fda4af;">Szczegóły</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${renderScheduleRows()}
+                      </tbody>
+                    </table>
+
+                    <!-- Attachment Info -->
+                    <div style="background: linear-gradient(135deg, #fef3c7 0%, #fce7f3 100%); border-left: 4px solid #f59e0b; padding: 16px 20px; border-radius: 12px; margin-bottom: 32px;">
+                      <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">
+                        📎 <strong>Pełny program w załączniku PDF</strong>
+                      </p>
+                      <p style="margin: 8px 0 0 0; color: #b45309; font-size: 13px;">
+                        Szczegółowe informacje, pieśni z akordami oraz podział zespołów znajdziesz w załączonym pliku PDF.
+                      </p>
+                    </div>
+
+                    <!-- Footer Message -->
+                    <p style="margin: 0 0 8px 0; color: #374151; font-size: 15px;">
+                      Pozdrawiam ciepło,
+                    </p>
+                    <p style="margin: 0; color: #db2777; font-size: 16px; font-weight: 700;">
+                      Zespół Uwielbienia
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background: #f9fafb; padding: 24px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="margin: 0 0 4px 0; color: #9ca3af; font-size: 12px;">
+                      Wygenerowano w <strong style="background: linear-gradient(135deg, #db2777, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Church Manager</strong>
+                    </p>
+                    <p style="margin: 0; color: #d1d5db; font-size: 11px;">
+                      IT Excellence • SchWro Południe
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+
+            </td>
+          </tr>
+        </table>
+
+      </body>
+      </html>
+    `;
+  };
+
   // OBSŁUGA WYSYŁKI MAILA (SUPABASE EDGE FUNCTION)
   const handleSendEmail = async () => {
+    if (!program || !program.id) {
+      alert('Najpierw zapisz program przed wysłaniem maila.');
+      return;
+    }
+
     if (!confirm('Czy na pewno chcesz wysłać program do wszystkich osób z listy?')) return;
 
     setIsSending(true);
 
     try {
       const emails = getAllRecipients(program, worshipTeam);
-      
+
       if (emails.length === 0) {
         alert('Brak adresów e-mail przypisanych do osób w programie. Upewnij się, że członkowie zespołu mają wpisane adresy e-mail w bazie.');
         setIsSending(false);
         return;
       }
 
+      // Pobierz świeże dane piosenek z bazy
+      const { data: allSongsData } = await supabase.from('songs').select('*');
       const songsMap = {};
-      songs.forEach(s => songsMap[s.id] = s);
-      
-      // Generowanie PDF do Base64 (bez nagłówka data:...)
-      // Wymaga dodania generatePDFBase64 do utils.js
-      const handleDownloadPDF = async () => {
-        try {
-          const fileName = await generatePDFAndDownload(program, songsMap);
-          console.log(`✅ PDF zapisany: ${fileName}`);
-        } catch (error) {
-          console.error('❌ Błąd przy pobieraniu PDF:', error);
-          alert('Nie udało się wygenerować PDF');
-        }
-      };
+      (allSongsData || []).forEach(s => { songsMap[s.id] = s; });
+
+      // Pobierz PDF z Supabase Storage
+      const dateStr = program.date.split('T')[0];
+      const fileName = `Program-${dateStr}.pdf`;
+      const filePath = `${program.id}/${fileName}`;
+
+      // Sprawdź czy plik istnieje
+      const { data: fileExists } = await supabase
+        .storage
+        .from('programs')
+        .list(program.id.toString(), { search: fileName });
+
+      if (!fileExists || fileExists.length === 0) {
+        alert('Nie znaleziono PDF w bazie. Najpierw wygeneruj PDF używając przycisku "PDF".');
+        setIsSending(false);
+        return;
+      }
+
+      // Generuj HTML emaila z programem
+      const htmlBody = generateEmailHTML(program, songsMap);
+
+      console.log('Wysyłanie maila z załącznikiem:', filePath);
 
       const { data, error } = await supabase.functions.invoke('send-program-email', {
         body: {
           emailTo: emails,
-          subject: `Program Nabożeństwa: ${new Date(program.date).toLocaleDateString('pl-PL')}`,
-          htmlBody: `<p>Cześć,</p><p>W załączniku przesyłam program nabożeństwa na dzień <strong>${new Date(program.date).toLocaleDateString('pl-PL')}</strong>.</p><p>Pozdrawiam,<br>Lider</p>`,
-          pdfBase64: pdfBase64,
-          filename: `Program_${program.date}.pdf`
+          subject: `📅 Program Nabożeństwa: ${new Date(program.date).toLocaleDateString('pl-PL')}`,
+          htmlBody: htmlBody,
+          filePath: filePath,
+          filename: fileName
         }
       });
 
       if (error) throw error;
 
-      alert(`Wysłano e-mail do ${emails.length} osób!`);
+      alert(`✅ Wysłano e-mail do ${emails.length} osób!`);
 
     } catch (error) {
       console.error('Błąd wysyłki:', error);
@@ -924,6 +1084,15 @@ export default function Dashboard() {
                 />
               </div>
               <div className="flex gap-3">
+              <button
+                onClick={handleSendEmail}
+                disabled={isSending}
+                className="flex items-center gap-2 px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 font-medium text-sm disabled:opacity-50"
+                title="Wyślij program przez e-mail"
+              >
+                {isSending ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
+                Mail
+              </button>
               <button
                 onClick={handleSaveAndUploadPDF}
                 disabled={isLoading}

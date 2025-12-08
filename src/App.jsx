@@ -11,6 +11,8 @@ import WorshipModule from './modules/MusicTeam/WorshipModule';
 import MediaTeamModule from './modules/MediaTeamModule';
 import AtmosferaTeamModule from './modules/AtmosferaTeamModule'; // NOWY MODUŁ
 import KidsModule from './modules/Kids/KidsModule';
+import HomeGroupsModule from './modules/HomeGroups/HomeGroupsModule';
+import FinanceModule from './modules/FinanceModule';
 import GlobalSettings from './modules/Settings/GlobalSettings';
 import UserSettings from './modules/Settings/UserSettings';
 import CalendarModule from './modules/CalendarModule'; // <-- Import
@@ -86,6 +88,8 @@ export default function App() {
               <Route path="/media" element={<MediaTeamModule />} />
               <Route path="/atmosfera" element={<AtmosferaTeamModule />} /> {/* NOWY ROUTE */}
               <Route path="/kids" element={<KidsModule />} />
+              <Route path="/home-groups" element={<HomeGroupsModule />} />
+              <Route path="/finance" element={<FinanceModule />} />
               <Route path="/settings" element={<GlobalSettings />} />
               <Route path="/profile" element={<UserSettings />} />
               <Route path="/calendar" element={<CalendarModule />} /> {/* <-- NOWE */}

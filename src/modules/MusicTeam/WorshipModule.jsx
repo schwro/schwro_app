@@ -675,6 +675,7 @@ function SongDetailsModal({ song, onClose, onEdit }) {
 // --- GŁÓWNY MODUŁ ---
 
 export default function WorshipModule() {
+  const [activeTab, setActiveTab] = useState('schedule');
   const [team, setTeam] = useState([]);
   const [songs, setSongs] = useState([]);
   const [programs, setPrograms] = useState([]);
@@ -765,19 +766,59 @@ export default function WorshipModule() {
         <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Grupa Uwielbienia</h1>
       </div>
 
+      {/* TAB NAVIGATION */}
+      <div className="flex gap-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+        <button
+          onClick={() => setActiveTab('schedule')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'schedule'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Calendar size={16} className="inline mr-2" />
+          Grafik
+        </button>
+        <button
+          onClick={() => setActiveTab('songs')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'songs'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Music size={16} className="inline mr-2" />
+          Baza Pieśni
+        </button>
+        <button
+          onClick={() => setActiveTab('members')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'members'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <User size={16} className="inline mr-2" />
+          Członkowie
+        </button>
+      </div>
+
       {/* SEKCJA 1: GRAFIK ZESPOŁU */}
+      {activeTab === 'schedule' && (
       <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[50] transition-colors">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Grafik Zespołu</h2>
         </div>
-        <ScheduleTable 
-          programs={programs} 
+        <ScheduleTable
+          programs={programs}
           worshipTeam={team}
           onUpdateProgram={handleProgramUpdate}
         />
       </section>
+      )}
 
       {/* SEKCJA 2: BAZA PIEŚNI */}
+      {activeTab === 'songs' && (
       <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[40] transition-colors">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Baza Pieśni</h2>
@@ -835,8 +876,10 @@ export default function WorshipModule() {
           </table>
         </div>
       </section>
+      )}
 
       {/* SEKCJA 3: CZŁONKOWIE ZESPOŁU */}
+      {activeTab === 'members' && (
       <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[30] transition-colors">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Członkowie Zespołu</h2>
@@ -872,6 +915,7 @@ export default function WorshipModule() {
           </table>
         </div>
       </section>
+      )}
 
       {/* Modale */}
       {showMemberModal && (

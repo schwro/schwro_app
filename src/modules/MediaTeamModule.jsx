@@ -571,9 +571,10 @@ const ScheduleTable = ({ programs, mediaTeam, onUpdateProgram }) => {
 };
 
 export default function MediaTeamModule() {
+  const [activeTab, setActiveTab] = useState('schedule');
   const [team, setTeam] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [programs, setPrograms] = useState([]); 
+  const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
@@ -886,19 +887,59 @@ export default function MediaTeamModule() {
         <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zespół Medialny</h1>
       </div>
 
+      {/* TAB NAVIGATION */}
+      <div className="flex gap-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+        <button
+          onClick={() => setActiveTab('schedule')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'schedule'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Calendar size={16} className="inline mr-2" />
+          Grafik
+        </button>
+        <button
+          onClick={() => setActiveTab('tasks')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'tasks'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <CheckSquare size={16} className="inline mr-2" />
+          Zadania
+        </button>
+        <button
+          onClick={() => setActiveTab('members')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'members'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <User size={16} className="inline mr-2" />
+          Członkowie
+        </button>
+      </div>
+
       {/* SEKCJA 1: GRAFIK MEDIA TEAM */}
+      {activeTab === 'schedule' && (
       <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[50] transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Grafik Media Team</h2>
         </div>
-        <ScheduleTable 
-          programs={programs} 
+        <ScheduleTable
+          programs={programs}
           mediaTeam={team}
           onUpdateProgram={handleProgramUpdate}
         />
       </section>
+      )}
 
       {/* SEKCJA 2: ZADANIA */}
+      {activeTab === 'tasks' && (
       <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[40] transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zadania ({filteredTasks.length})</h2>
@@ -994,8 +1035,10 @@ export default function MediaTeamModule() {
           </div>
         )}
       </section>
+      )}
 
       {/* SEKCJA 3: CZŁONKOWIE */}
+      {activeTab === 'members' && (
       <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[30] transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Członkowie ({team.length})</h2>
@@ -1020,6 +1063,7 @@ export default function MediaTeamModule() {
           </table>
         </div>
       </section>
+      )}
 
       {/* MODAL ZADANIA */}
       {showTaskModal && (
