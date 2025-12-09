@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Check, ChevronDown, Music, Hash, AlignLeft, FileText, Upload, PlusCircle } from 'lucide-react';
+import { X, PlusCircle } from 'lucide-react';
+import CustomSelect from '../../components/CustomSelect';
 
 // --- STAŁE DANYCH ---
 const KEYS = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
@@ -18,61 +19,7 @@ const MUSIC_SECTIONS = [
   { label: 'Pusty Takt', template: '|      |      |      |      |' },
 ];
 
-// --- KOMPONENTY POMOCNICZE (Customowe Selecty) ---
-
-const CustomSelect = ({ label, options, value, onChange, placeholder, icon: Icon }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  return (
-    <div ref={wrapperRef} className="relative w-full">
-      {label && <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{label}</label>}
-      <div 
-        onClick={() => setIsOpen(!isOpen)} 
-        className={`w-full px-4 py-3 rounded-xl border cursor-pointer flex justify-between items-center transition
-          bg-white dark:bg-gray-800 
-          border-gray-200 dark:border-gray-700 
-          text-gray-800 dark:text-gray-200
-          hover:border-pink-400 dark:hover:border-pink-500
-          ${isOpen ? 'ring-2 ring-pink-500/20 border-pink-500' : ''}
-        `}
-      >
-        <div className="flex items-center gap-2 overflow-hidden">
-          {Icon && <Icon size={16} className="text-gray-400 dark:text-gray-500 shrink-0"/>}
-          <span className={!value ? "text-gray-400 dark:text-gray-500" : ""}>
-            {value || placeholder || "Wybierz..."}
-          </span>
-        </div>
-        <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
-          {options.map((opt) => (
-            <div 
-              key={opt} 
-              onClick={() => { onChange(opt); setIsOpen(false); }} 
-              className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition
-                ${value === opt ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}
-              `}
-            >
-              {opt}
-              {value === opt && <Check size={14} />}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+// --- KOMPONENTY POMOCNICZE ---
 
 const TagMultiSelect = ({ label, options, value = [], onChange }) => {
   const [isOpen, setIsOpen] = useState(false);

@@ -126,8 +126,8 @@ const CustomDatePicker = ({ value, onChange }) => {
         </span>
       </div>
 
-      {isOpen && createPortal(
-        <div 
+      {isOpen && coords.width > 0 && createPortal(
+        <div
             id="datepicker-portal"
             className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 w-[280px]"
             style={{ top: coords.top, left: coords.left }}
@@ -225,8 +225,8 @@ const ElementSelector = ({ value, onChange, options }) => {
         />
       </div>
 
-      {isOpen && createPortal(
-        <div 
+      {isOpen && coords.width > 0 && createPortal(
+        <div
             id="element-selector-portal"
             className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
             style={{ top: coords.top, left: coords.left, width: coords.width }}
@@ -305,8 +305,8 @@ const MultiSelect = ({ label, options, value, onChange, absentMembers = [] }) =>
         </div>
       </div>
 
-      {isOpen && createPortal(
-        <div 
+      {isOpen && coords.width > 0 && createPortal(
+        <div
             id={`multiselect-portal-${label}`}
             className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
             style={{ top: coords.top, left: coords.left, width: coords.width }}

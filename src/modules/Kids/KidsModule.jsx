@@ -1,41 +1,177 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import {
   Plus, Search, Trash2, X, FileText, Calendar, Check, UserX,
   ChevronUp, ChevronDown, Users, BookOpen, GraduationCap,
-  MapPin, Baby, Upload, UserPlus, Link as LinkIcon
+  MapPin, Baby, Upload, UserPlus, Link as LinkIcon, DollarSign, ChevronLeft, ChevronRight, Tag
 } from 'lucide-react';
+import FinanceTab from '../shared/FinanceTab';
+import CustomSelect from '../../components/CustomSelect';
+import { useUserRole } from '../../hooks/useUserRole';
+import { hasTabAccess } from '../../utils/tabPermissions';
 
-// --- POMOCNICZE KOMPONENTY (BEZ ZMIAN) ---
-const CustomSelect = ({ options, value, onChange, placeholder, icon: Icon }) => {
+// Hook to calculate dropdown position
+function useDropdownPosition(triggerRef, isOpen) {
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const updatePosition = () => {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setCoords({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX,
+          width: rect.width
+        });
+      };
+
+      updatePosition();
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+
+      return () => {
+        window.removeEventListener('resize', updatePosition);
+        window.removeEventListener('scroll', updatePosition, true);
+      };
+    }
+  }, [isOpen, triggerRef]);
+
+  return coords;
+}
+
+// Custom Date Picker Component
+const CustomDatePicker = ({ label, value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef(null);
-  useEffect(() => { function h(e) { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setIsOpen(false); } document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
-  const selectedLabel = options.find(o => String(o.value) === String(value))?.label;
+  const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
+  const triggerRef = useRef(null);
+  const coords = useDropdownPosition(triggerRef, isOpen);
+
+  useEffect(() => {
+    if (value) setViewDate(new Date(value));
+  }, [value]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleClickOutside(event) {
+      if (triggerRef.current && !triggerRef.current.contains(event.target)) {
+        if (!event.target.closest('.portal-datepicker')) {
+          setIsOpen(false);
+        }
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  const handlePrevMonth = (e) => {
+    e.stopPropagation();
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = (e) => {
+    e.stopPropagation();
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+  };
+
+  const handleDayClick = (day) => {
+    const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+    const year = newDate.getFullYear();
+    const month = String(newDate.getMonth() + 1).padStart(2, '0');
+    const d = String(newDate.getDate()).padStart(2, '0');
+    onChange(`${year}-${month}-${d}`);
+    setIsOpen(false);
+  };
+
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year, month) => {
+    const day = new Date(year, month, 1).getDay();
+    return day === 0 ? 6 : day - 1;
+  };
+
+  const daysInMonth = getDaysInMonth(viewDate.getFullYear(), viewDate.getMonth());
+  const startDay = getFirstDayOfMonth(viewDate.getFullYear(), viewDate.getMonth());
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const blanks = Array.from({ length: startDay }, (_, i) => i);
+
+  const monthName = viewDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+  const displayValue = value ? new Date(value).toLocaleDateString('pl-PL') : '';
+
   return (
-    <div ref={wrapperRef} className="relative w-full">
-      <div onClick={() => setIsOpen(!isOpen)} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 cursor-pointer flex justify-between items-center hover:border-pink-400 transition text-sm">
-        <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200 overflow-hidden">
-          {Icon && <Icon size={16} className="text-gray-400 dark:text-gray-500 shrink-0"/>}
-          <span className={`truncate ${!selectedLabel ? 'text-gray-400 dark:text-gray-500' : ''}`}>{selectedLabel || placeholder || 'Wybierz...'}</span>
+    <div className="relative w-full">
+      {label && <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{label}</label>}
+      <div
+        ref={triggerRef}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full px-4 py-3 border rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm cursor-pointer flex justify-between items-center transition-all
+          ${isOpen
+            ? 'border-pink-500 ring-2 ring-pink-500/20 dark:border-pink-400'
+            : 'border-gray-200/50 dark:border-gray-700/50 hover:border-pink-300 dark:hover:border-pink-600'
+          }
+        `}
+      >
+        <div className="flex items-center gap-2 text-sm">
+          <Calendar size={16} className="text-gray-400" />
+          <span className={displayValue ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}>
+            {displayValue || 'Wybierz datę'}
+          </span>
         </div>
-        <ChevronDown size={16} className={`text-gray-400 dark:text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}/>
       </div>
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
-          {options.map((opt) => (
-            <div key={opt.value} onClick={() => { onChange(opt.value); setIsOpen(false); }} className={`p-3 text-sm cursor-pointer hover:bg-pink-50 dark:hover:bg-gray-800 transition flex items-center justify-between ${String(value) === String(opt.value) ? 'bg-pink-50 dark:bg-gray-800 text-pink-600 dark:text-pink-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}>
-              {opt.label}
-              {String(value) === String(opt.value) && <Check size={14}/>}
-            </div>
-          ))}
-          {options.length === 0 && <div className="p-3 text-gray-400 text-xs text-center">Brak opcji</div>}
-        </div>
+
+      {isOpen && coords.width > 0 && createPortal(
+        <div
+          className="portal-datepicker fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100"
+          style={{
+            top: coords.top,
+            left: coords.left,
+            width: '280px'
+          }}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-400"><ChevronLeft size={18}/></button>
+            <span className="text-sm font-bold text-gray-800 dark:text-gray-200 capitalize">{monthName}</span>
+            <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-400"><ChevronRight size={18}/></button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'].map(d => (
+              <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase">{d}</div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {blanks.map(b => <div key={`blank-${b}`} />)}
+            {days.map(day => {
+              const currentDayStr = `${viewDate.getFullYear()}-${String(viewDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+              const isSelected = value === currentDayStr;
+              const isToday = new Date().toDateString() === new Date(viewDate.getFullYear(), viewDate.getMonth(), day).toDateString();
+
+              return (
+                <button
+                  key={day}
+                  onClick={() => handleDayClick(day)}
+                  className={`h-8 w-8 rounded-lg text-xs font-medium transition flex items-center justify-center
+                    ${isSelected
+                      ? 'bg-pink-600 text-white shadow-md shadow-pink-500/30'
+                      : isToday
+                        ? 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 border border-pink-100 dark:border-pink-800'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }
+                  `}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 };
 
+// --- POMOCNICZE KOMPONENTY (BEZ ZMIAN) ---
 const TeacherMultiSelect = ({ teachers, selectedIds, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
@@ -144,6 +280,7 @@ const ScheduleTable = ({ programs, teachers, groups, onUpdateProgram }) => {
 // --- GŁÓWNY MODUŁ ---
 
 export default function KidsModule() {
+  const { userRole } = useUserRole();
   const [activeTab, setActiveTab] = useState('schedule');
   const [teachers, setTeachers] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -164,7 +301,163 @@ export default function KidsModule() {
   const [currentGroup, setCurrentGroup] = useState(null);
   const [attachStudentId, setAddStudentId] = useState('');
 
+  // Finance data
+  const [budgetItems, setBudgetItems] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [expenseForm, setExpenseForm] = useState({
+    payment_date: '',
+    amount: '',
+    contractor: '',
+    category: 'małe schWro',
+    description: '',
+    detailed_description: '',
+    responsible_person: '',
+    documents: [],
+    tags: [],
+    ministry: 'małe schWro'
+  });
+
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    if (activeTab === 'finances') {
+      fetchFinanceData();
+    }
+  }, [activeTab]);
+
+  const fetchFinanceData = async () => {
+    const currentYear = new Date().getFullYear();
+    const ministryName = 'małe schWro';
+
+    try {
+      const { data: budget, error: budgetError } = await supabase
+        .from('budget_items')
+        .select('*')
+        .eq('ministry', ministryName)
+        .eq('year', currentYear)
+        .order('id', { ascending: true });
+
+      if (budgetError) throw budgetError;
+      setBudgetItems(budget || []);
+
+      const { data: exp, error: expError } = await supabase
+        .from('expense_transactions')
+        .select('*')
+        .eq('ministry', ministryName)
+        .gte('payment_date', `${currentYear}-01-01`)
+        .lte('payment_date', `${currentYear}-12-31`)
+        .order('payment_date', { ascending: false });
+
+      if (expError) throw expError;
+      setExpenses(exp || []);
+    } catch (error) {
+      console.error('Error fetching finance data:', error);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setUploadingFile(true);
+    try {
+      const uploadedDocs = [];
+
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `expense_documents/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('finance')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('finance').getPublicUrl(filePath);
+
+        uploadedDocs.push({
+          name: file.name,
+          url: data.publicUrl,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+
+      setExpenseForm({
+        ...expenseForm,
+        documents: [...expenseForm.documents, ...uploadedDocs]
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Błąd przesyłania pliku: ' + error.message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const removeDocument = (index) => {
+    setExpenseForm({
+      ...expenseForm,
+      documents: expenseForm.documents.filter((_, i) => i !== index)
+    });
+  };
+
+  const addTag = () => {
+    if (newTag.trim() && !expenseForm.tags.includes(newTag.trim())) {
+      setExpenseForm({ ...expenseForm, tags: [...expenseForm.tags, newTag.trim()] });
+      setNewTag('');
+    }
+  };
+
+  const removeTag = (tag) => {
+    setExpenseForm({ ...expenseForm, tags: expenseForm.tags.filter(t => t !== tag) });
+  };
+
+  const saveExpense = async () => {
+    if (!expenseForm.payment_date || !expenseForm.amount || !expenseForm.contractor || !expenseForm.description || !expenseForm.responsible_person) {
+      alert('Wypełnij wymagane pola');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('expense_transactions').insert([{
+        payment_date: expenseForm.payment_date,
+        amount: parseFloat(expenseForm.amount),
+        contractor: expenseForm.contractor,
+        category: expenseForm.category,
+        description: expenseForm.description,
+        detailed_description: expenseForm.detailed_description,
+        responsible_person: expenseForm.responsible_person,
+        documents: expenseForm.documents,
+        tags: expenseForm.tags,
+        ministry: expenseForm.ministry
+      }]);
+
+      if (error) throw error;
+
+      setShowExpenseModal(false);
+      const ministryName = expenseForm.ministry;
+      setExpenseForm({
+        payment_date: '',
+        amount: '',
+        contractor: '',
+        category: ministryName,
+        description: '',
+        detailed_description: '',
+        responsible_person: '',
+        documents: [],
+        tags: [],
+        ministry: ministryName
+      });
+      fetchFinanceData();
+    } catch (error) {
+      console.error('Error saving expense:', error);
+      alert('Błąd zapisywania: ' + error.message);
+    }
+  };
 
   async function fetchData() {
     setLoading(true);
@@ -187,8 +480,8 @@ export default function KidsModule() {
   const openEditStudent = (s) => { setGlobalStudentForm({ id: s.id, full_name: s.full_name, birth_year: s.birth_year, parent_info: s.parent_info, notes: s.notes, group_id: s.group_id }); setShowGlobalStudentModal(true); };
   const attachStudentToGroup = async () => { if (!attachStudentId) return alert('Wybierz ucznia'); await supabase.from('kids_students').update({ group_id: currentGroup.id }).eq('id', attachStudentId); setAddStudentId(''); fetchData(); };
   const detachStudentFromGroup = async (studentId) => { await supabase.from('kids_students').update({ group_id: null }).eq('id', studentId); fetchData(); };
-  const handleFileUpload = async (file) => { if (!file) return null; const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${file.name.split('.').pop()}`; const { error } = await supabase.storage.from('kids-materials').upload(fileName, file); if (error) throw error; const { data } = supabase.storage.from('kids-materials').getPublicUrl(fileName); return { url: data.publicUrl, name: file.name }; };
-  const addMaterial = async () => { if (!materialForm.title) return alert('Podaj nazwę'); setUploading(true); try { let attachmentData = null; if (materialForm.attachment) attachmentData = await handleFileUpload(materialForm.attachment); const newMaterial = { id: Date.now(), title: materialForm.title, type: materialForm.type, date: new Date().toISOString(), attachmentUrl: attachmentData?.url || null, attachmentName: attachmentData?.name || null }; const updatedMaterials = [...(currentGroup.materials || []), newMaterial]; await supabase.from('kids_groups').update({ materials: updatedMaterials }).eq('id', currentGroup.id); setMaterialForm({ title: '', type: 'Lekcja', attachment: null }); fetchData(); } catch (err) { alert(err.message); } finally { setUploading(false); } };
+  const handleMaterialFileUpload = async (file) => { if (!file) return null; const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${file.name.split('.').pop()}`; const { error } = await supabase.storage.from('kids-materials').upload(fileName, file); if (error) throw error; const { data } = supabase.storage.from('kids-materials').getPublicUrl(fileName); return { url: data.publicUrl, name: file.name }; };
+  const addMaterial = async () => { if (!materialForm.title) return alert('Podaj nazwę'); setUploading(true); try { let attachmentData = null; if (materialForm.attachment) attachmentData = await handleMaterialFileUpload(materialForm.attachment); const newMaterial = { id: Date.now(), title: materialForm.title, type: materialForm.type, date: new Date().toISOString(), attachmentUrl: attachmentData?.url || null, attachmentName: attachmentData?.name || null }; const updatedMaterials = [...(currentGroup.materials || []), newMaterial]; await supabase.from('kids_groups').update({ materials: updatedMaterials }).eq('id', currentGroup.id); setMaterialForm({ title: '', type: 'Lekcja', attachment: null }); fetchData(); } catch (err) { alert(err.message); } finally { setUploading(false); } };
   const deleteMaterial = async (mid) => { if(!confirm('Usunąć?')) return; const um = currentGroup.materials.filter(m => m.id !== mid); await supabase.from('kids_groups').update({ materials: um }).eq('id', currentGroup.id); fetchData(); };
   const handleProgramUpdate = async (id, updates) => { setPrograms(prev => prev.map(p => p.id === id ? { ...p, ...updates, szkolka: { ...p.szkolka, ...updates.szkolka } } : p)); await supabase.from('programs').update(updates).eq('id', id); };
   const filteredStudents = students.filter(s => s.full_name.toLowerCase().includes(studentFilter.toLowerCase()));
@@ -207,7 +500,7 @@ export default function KidsModule() {
       </div>
 
       {/* TABS */}
-      <div className="flex gap-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
         <button
           onClick={() => setActiveTab('schedule')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
@@ -230,17 +523,19 @@ export default function KidsModule() {
           <Users size={16} className="inline mr-2" />
           Grupy
         </button>
-        <button
-          onClick={() => setActiveTab('teachers')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'teachers'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <GraduationCap size={16} className="inline mr-2" />
-          Nauczyciele
-        </button>
+        {hasTabAccess('kids', 'teachers', userRole) && (
+          <button
+            onClick={() => setActiveTab('teachers')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'teachers'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <GraduationCap size={16} className="inline mr-2" />
+            Nauczyciele
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('students')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
@@ -252,6 +547,19 @@ export default function KidsModule() {
           <Baby size={16} className="inline mr-2" />
           Uczniowie
         </button>
+        {hasTabAccess('kids', 'finances', userRole) && (
+          <button
+            onClick={() => setActiveTab('finances')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'finances'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <DollarSign size={16} className="inline mr-2" />
+            Finanse
+          </button>
+        )}
       </div>
 
       {/* GRAFIK TAB */}
@@ -368,6 +676,17 @@ export default function KidsModule() {
         </section>
       )}
 
+      {/* FINANCES TAB */}
+      {activeTab === 'finances' && (
+        <FinanceTab
+          ministry="małe schWro"
+          budgetItems={budgetItems}
+          expenses={expenses}
+          onAddExpense={() => setShowExpenseModal(true)}
+          onRefresh={fetchFinanceData}
+        />
+      )}
+
       {/* MODALE - BEZ ZMIAN */}
       {showGroupModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
@@ -456,6 +775,174 @@ export default function KidsModule() {
                   <div className="flex gap-2">{m.attachmentUrl && <a href={m.attachmentUrl} target="_blank" rel="noreferrer" className="text-orange-600 hover:bg-orange-50 p-2 rounded-lg"><LinkIcon size={18}/></a>}<button onClick={() => deleteMaterial(m.id)} className="text-red-400 hover:bg-red-50 p-2 rounded-lg"><Trash2 size={18}/></button></div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Add Expense */}
+      {showExpenseModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl p-6 border border-white/20 dark:border-gray-700 my-8">
+            <div className="flex justify-between mb-6">
+              <h3 className="font-bold text-xl text-gray-800 dark:text-white">Nowy wydatek - {expenseForm.ministry}</h3>
+              <button onClick={() => setShowExpenseModal(false)} className="text-gray-500 dark:text-gray-400">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              {/* Wiersz 1: Data i Kwota */}
+              <div className="grid grid-cols-2 gap-4">
+                <CustomDatePicker
+                  label="Data dokumentu"
+                  value={expenseForm.payment_date}
+                  onChange={(val) => setExpenseForm({...expenseForm, payment_date: val})}
+                />
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kwota (PLN)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {/* Wiersz 2: Kontrahent i Osoba odpowiedzialna */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kontrahent</label>
+                  <input
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.contractor}
+                    onChange={(e) => setExpenseForm({...expenseForm, contractor: e.target.value})}
+                    placeholder="Nazwa firmy/osoby"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Osoba odpowiedzialna</label>
+                  <input
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.responsible_person}
+                    onChange={(e) => setExpenseForm({...expenseForm, responsible_person: e.target.value})}
+                    placeholder="Imię i nazwisko"
+                  />
+                </div>
+              </div>
+
+              {/* Wiersz 3: Pozycja budżetowa (pełna szerokość) */}
+              <div>
+                <CustomSelect
+                  label="Pozycja budżetowa (opis kosztu)"
+                  value={expenseForm.description}
+                  onChange={(value) => setExpenseForm({...expenseForm, description: value})}
+                  options={[
+                    { value: '', label: 'Wybierz pozycję' },
+                    ...budgetItems.map(item => ({
+                      value: item.description,
+                      label: item.description
+                    }))
+                  ]}
+                  placeholder="Wybierz pozycję"
+                />
+              </div>
+
+              {/* Wiersz 4: Szczegółowy opis (pełna szerokość) */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Szczegółowy opis</label>
+                <textarea
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
+                  rows={2}
+                  value={expenseForm.detailed_description}
+                  onChange={(e) => setExpenseForm({...expenseForm, detailed_description: e.target.value})}
+                  placeholder="Dodatkowe informacje o wydatku..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Załączniki (opcjonalnie)</label>
+                <div className="space-y-2">
+                  <label className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white cursor-pointer hover:border-pink-300 dark:hover:border-pink-600 transition flex items-center gap-2">
+                    <Upload size={18} className="text-gray-400" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {uploadingFile ? 'Przesyłanie...' : 'Dodaj plik(i)'}
+                    </span>
+                    <input
+                      type="file"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                      disabled={uploadingFile}
+                      multiple
+                    />
+                  </label>
+                  {expenseForm.documents && expenseForm.documents.length > 0 && (
+                    <div className="space-y-2">
+                      {expenseForm.documents.map((doc, idx) => (
+                        <div key={idx} className="flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                          <span className="text-xs text-green-700 dark:text-green-300 flex items-center gap-1 truncate">
+                            <FileText size={14} />
+                            {doc.name}
+                          </span>
+                          <button
+                            onClick={() => removeDocument(idx)}
+                            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 ml-2 flex-shrink-0"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Tagi</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Dodaj tag"
+                    onKeyPress={(e) => e.key === 'Enter' && addTag()}
+                  />
+                  <button
+                    onClick={addTag}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {expenseForm.tags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300 rounded-lg text-xs flex items-center gap-1"
+                    >
+                      <Tag size={12} />
+                      {tag}
+                      <button onClick={() => removeTag(tag)}>
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowExpenseModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  Anuluj
+                </button>
+                <button
+                  onClick={saveExpense}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition font-medium"
+                >
+                  Zapisz
+                </button>
+              </div>
             </div>
           </div>
         </div>

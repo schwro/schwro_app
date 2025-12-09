@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { 
-  Calendar as CalIcon, ChevronLeft, ChevronRight, 
-  Plus, CheckCircle, Clock, Video, Music, X, Save, 
-  Users, HeartHandshake, Home, Baby, GripVertical, Trash2, 
-  ChevronDown, MapPin, AlignLeft, Search, Check, UserX, 
+import {
+  Calendar as CalIcon, ChevronLeft, ChevronRight,
+  Plus, CheckCircle, Clock, Video, Music, X, Save,
+  Users, HeartHandshake, Home, Baby, GripVertical, Trash2,
+  ChevronDown, MapPin, AlignLeft, Search, Check, UserX,
   FileText, LayoutGrid, List, LayoutList, Columns
 } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import CustomSelect from '../components/CustomSelect';
 
 // --- KONFIGURACJA ZESPOŁÓW I DANYCH ---
 
@@ -45,34 +46,6 @@ function useDropdownPosition(triggerRef, isOpen) {
   return coords;
 }
 
-const CustomSelect = ({ value, onChange, options, placeholder = "Wybierz...", icon: Icon, compact = false }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef(null);
-  const coords = useDropdownPosition(triggerRef, isOpen);
-  const selectedLabel = options.find(o => o.value === value)?.label || value;
-
-  return (
-    <div className="relative w-full">
-      <div ref={triggerRef} onClick={() => setIsOpen(!isOpen)} className={`w-full ${compact ? 'px-2 py-1 text-xs h-[26px]' : 'px-3 py-2'} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex justify-between items-center cursor-pointer hover:border-pink-400 transition`}>
-        <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200 truncate">
-          {Icon && <Icon size={16} className="text-gray-400" />}
-          <span className={!value ? 'text-gray-400' : ''}>{selectedLabel || placeholder}</span>
-        </div>
-        <ChevronDown size={compact ? 12 : 16} className="text-gray-400" />
-      </div>
-      {isOpen && createPortal(
-        <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100" style={{ top: coords.top, left: coords.left, width: coords.width, minWidth: '120px' }}>
-          {options.map(opt => (
-            <div key={opt.value || opt} onClick={() => { onChange(opt.value || opt); setIsOpen(false); }} className="px-3 py-2 hover:bg-pink-50 dark:hover:bg-pink-900/20 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
-              {opt.label || opt}
-            </div>
-          ))}
-        </div>, document.body
-      )}
-    </div>
-  );
-};
-
 const CustomDatePicker = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
@@ -101,7 +74,7 @@ const CustomDatePicker = ({ value, onChange }) => {
           {value ? new Date(value).toLocaleDateString('pl-PL') : 'Wybierz datę'}
         </span>
       </div>
-      {isOpen && createPortal(
+      {isOpen && coords.width > 0 && createPortal(
         <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100 w-[280px]" style={{ top: coords.top, left: coords.left }}>
            <div className="flex justify-between items-center mb-4">
              <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() - 1))); }} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft size={18} /></button>
@@ -154,7 +127,7 @@ const MultiSelect = ({ label, options, value, onChange }) => {
         )}
         <div className="ml-auto"><ChevronDown size={16} className="text-gray-400" /></div>
       </div>
-      {isOpen && createPortal(
+      {isOpen && coords.width > 0 && createPortal(
         <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar" style={{ top: coords.top, left: coords.left, width: coords.width }}>
           {(!options || options.length === 0) ? (
              <div className="p-3 text-center text-gray-400 text-xs">Brak osób w bazie</div>

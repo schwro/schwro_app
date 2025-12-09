@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { 
-  Plus, Search, Trash2, Edit2, X, User, 
-  Mail, Phone, CheckCircle, XCircle, 
-  ChevronDown, MapPin, Users, Home
+import {
+  Plus, Search, Trash2, Edit2, X, User,
+  Mail, Phone, CheckCircle, XCircle,
+  MapPin, Users, Home
 } from 'lucide-react';
+import CustomSelect from '../components/CustomSelect';
 
 // --- STAŁE DANE ---
 
@@ -23,66 +24,6 @@ const STATUS_OPTIONS = [
   "Gość",
   "Urlop"
 ];
-
-// --- KOMPONENTY POMOCNICZE (Custom UI) ---
-
-const CustomSelect = ({ label, value, onChange, options, placeholder = "Wybierz..." }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  return (
-    <div className="relative" ref={wrapperRef}>
-      {label && <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{label}</label>}
-      
-      <div 
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3 border rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm cursor-pointer flex justify-between items-center transition-all
-          ${isOpen 
-            ? 'border-pink-500 ring-2 ring-pink-500/20 dark:border-pink-400' 
-            : 'border-gray-200/50 dark:border-gray-700/50 hover:border-pink-300 dark:hover:border-pink-600'
-          }
-        `}
-      >
-        <span className={value ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}>
-          {value || placeholder}
-        </span>
-        <ChevronDown size={16} className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100 custom-scrollbar">
-          {options.map((option) => (
-            <div 
-              key={option}
-              className={`px-4 py-2.5 text-sm cursor-pointer transition
-                ${value === option 
-                  ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 font-medium' 
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                }
-              `}
-              onClick={() => {
-                onChange(option);
-                setIsOpen(false);
-              }}
-            >
-              {option}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // --- GŁÓWNY KOMPONENT ---
 

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DollarSign, TrendingUp, Receipt, Calendar, Plus, Upload, Tag, X, FileText, Trash2, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
+import CustomSelect from '../components/CustomSelect';
 
-// Hook do obliczania pozycji dropdowna
+// Hook to calculate dropdown position
 function useDropdownPosition(triggerRef, isOpen) {
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
@@ -19,100 +20,18 @@ function useDropdownPosition(triggerRef, isOpen) {
       };
 
       updatePosition();
-      window.addEventListener('resize', updatePosition);
       window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
 
       return () => {
         window.removeEventListener('resize', updatePosition);
         window.removeEventListener('scroll', updatePosition, true);
       };
     }
-  }, [isOpen]);
+  }, [isOpen, triggerRef]);
 
   return coords;
 }
-// Custom Select Component
-const CustomSelect = ({ label, value, onChange, options, placeholder = "Wybierz..." }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef(null);
-  const coords = useDropdownPosition(triggerRef, isOpen);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    function handleClickOutside(event) {
-      if (triggerRef.current && !triggerRef.current.contains(event.target)) {
-        if (!event.target.closest('.portal-select')) {
-          setIsOpen(false);
-        }
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
-  const getValue = (opt) => (typeof opt === 'object' ? opt.value : opt);
-  const getLabel = (opt) => (typeof opt === 'object' ? opt.label : opt);
-
-  const displayValue = () => {
-    if (value === null || value === undefined || value === '') return placeholder;
-    const selectedOpt = options.find(opt => getValue(opt) === value);
-    return selectedOpt ? getLabel(selectedOpt) : placeholder;
-  };
-
-  return (
-    <div className="relative w-full">
-      {label && <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{label}</label>}
-      <div
-        ref={triggerRef}
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3 border rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm cursor-pointer flex justify-between items-center transition-all text-sm
-          ${isOpen
-            ? 'border-pink-500 ring-2 ring-pink-500/20 dark:border-pink-400'
-            : 'border-gray-200/50 dark:border-gray-700/50 hover:border-pink-300 dark:hover:border-pink-600'
-          }
-          ${value ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}
-        `}
-      >
-        <span>{displayValue()}</span>
-        <ChevronDown size={16} className="text-gray-400" />
-      </div>
-
-      {isOpen && createPortal(
-        <div
-          className="portal-select fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
-          style={{
-            top: coords.top,
-            left: coords.left,
-            width: coords.width || '200px'
-          }}
-        >
-          {options.map((opt, idx) => {
-            const optVal = getValue(opt);
-            const isActive = optVal === value;
-            return (
-              <div
-                key={idx}
-                className={`px-4 py-2.5 text-sm cursor-pointer transition
-                  ${isActive
-                    ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 font-medium'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                  }
-                `}
-                onClick={() => {
-                  onChange(optVal);
-                  setIsOpen(false);
-                }}
-              >
-                {getLabel(opt)}
-              </div>
-            );
-          })}
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-};
 
 // Custom Date Picker Component
 const CustomDatePicker = ({ label, value, onChange }) => {
@@ -192,7 +111,7 @@ const CustomDatePicker = ({ label, value, onChange }) => {
         </div>
       </div>
 
-      {isOpen && createPortal(
+      {isOpen && coords.width > 0 && createPortal(
         <div
           className="portal-datepicker fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100"
           style={{
@@ -326,7 +245,7 @@ const FinanceModule = () => {
 
   // Fetch expense transactions
   useEffect(() => {
-    if (activeTab === 'expenses') {
+    if (activeTab === 'expenses' || activeTab === 'budget') {
       fetchExpenseTransactions();
     }
   }, [activeTab, selectedYear]);
@@ -633,9 +552,9 @@ const FinanceModule = () => {
     setForm({ ...form, tags: form.tags.filter(t => t !== tag) });
   };
 
-  const calculateRealization = (category) => {
+  const calculateRealization = (category, description) => {
     const total = expenseTransactions
-      .filter(exp => exp.category === category)
+      .filter(exp => exp.category === category && exp.description === description)
       .reduce((sum, exp) => sum + (exp.amount || 0), 0);
     return total;
   };
@@ -677,7 +596,7 @@ const FinanceModule = () => {
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i);
 
   // Get unique categories from budget items for expense category dropdown
-  const budgetCategories = budgetItems.map(item => ({ value: item.category, label: item.category }));
+  const budgetCategories = [...new Set(budgetItems.map(item => item.category))].map(cat => ({ value: cat, label: cat }));
 
   return (
     <div className="space-y-8">
@@ -793,8 +712,13 @@ const FinanceModule = () => {
                       let categoryTotalRealization = 0;
                       let categoryTotalRemaining = 0;
 
+                      // Calculate total rowspan including expanded rows
+                      const totalRowSpan = items.reduce((sum, item) => {
+                        return sum + 1 + (expandedBudgetItems[`${item.id}`] ? 1 : 0);
+                      }, 0);
+
                       items.forEach((item, itemIndex) => {
-                        const realization = calculateRealization(item.category);
+                        const realization = calculateRealization(item.category, item.description);
                         const percentage = item.planned_amount > 0 ? (realization / item.planned_amount) * 100 : 0;
                         const remaining = item.planned_amount - realization;
 
@@ -809,8 +733,8 @@ const FinanceModule = () => {
                           >
                             {itemIndex === 0 && (
                               <td
-                                className="py-4 px-4 text-gray-900 dark:text-white font-bold bg-pink-50 dark:bg-pink-900/20"
-                                rowSpan={items.length}
+                                className="py-4 px-4 text-gray-900 dark:text-white font-bold"
+                                rowSpan={totalRowSpan}
                               >
                                 {item.category}
                               </td>
@@ -822,7 +746,7 @@ const FinanceModule = () => {
                             <td
                               className="py-4 px-4 text-right text-gray-900 dark:text-white font-medium cursor-pointer hover:text-pink-600 dark:hover:text-pink-400 transition"
                               onClick={() => {
-                                const key = `${item.category}`;
+                                const key = `${item.id}`;
                                 setExpandedBudgetItems(prev => ({
                                   ...prev,
                                   [key]: !prev[key]
@@ -830,7 +754,7 @@ const FinanceModule = () => {
                               }}
                             >
                               {realization.toLocaleString('pl-PL')} zł
-                              {expandedBudgetItems[`${item.category}`] ?
+                              {expandedBudgetItems[`${item.id}`] ?
                                 <ChevronUp size={16} className="inline ml-1" /> :
                                 <ChevronDown size={16} className="inline ml-1" />
                               }
@@ -876,9 +800,9 @@ const FinanceModule = () => {
                         );
 
                         // Add expandable expense list row
-                        if (expandedBudgetItems[`${item.category}`]) {
+                        if (expandedBudgetItems[`${item.id}`]) {
                           const categoryExpenses = expenseTransactions.filter(
-                            (exp) => exp.category === item.category
+                            (exp) => exp.category === item.category && exp.description === item.description
                           );
 
                           rows.push(
@@ -887,7 +811,7 @@ const FinanceModule = () => {
                                 {categoryExpenses.length > 0 ? (
                                   <div className="space-y-2">
                                     <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                                      Wydatki w kategorii "{item.category}":
+                                      Wydatki: {item.category} - {item.description}
                                     </p>
                                     <div className="space-y-1">
                                       {categoryExpenses.map((expense) => (
@@ -930,7 +854,7 @@ const FinanceModule = () => {
                                   </div>
                                 ) : (
                                   <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
-                                    Brak wydatków w tej kategorii
+                                    Brak wydatków w tej pozycji budżetu
                                   </p>
                                 )}
                               </td>
@@ -1518,7 +1442,7 @@ const FinanceModule = () => {
       {/* MODAL: Expense */}
       {showExpenseModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-2xl p-6 border border-white/20 dark:border-gray-700 my-8">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl p-6 border border-white/20 dark:border-gray-700 my-8">
             <div className="flex justify-between mb-6">
               <h3 className="font-bold text-xl text-gray-800 dark:text-white">Nowy wydatek</h3>
               <button onClick={() => setShowExpenseModal(false)} className="text-gray-500 dark:text-gray-400">
@@ -1526,65 +1450,78 @@ const FinanceModule = () => {
               </button>
             </div>
             <div className="space-y-4">
-              <CustomDatePicker
-                label="Data dokumentu"
-                value={expenseForm.payment_date}
-                onChange={(val) => setExpenseForm({...expenseForm, payment_date: val})}
-              />
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kwota (PLN)</label>
-                <input
-                  type="number"
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  value={expenseForm.amount}
-                  onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
-                  placeholder="0.00"
+              {/* Wiersz 1: Data i Kwota */}
+              <div className="grid grid-cols-2 gap-4">
+                <CustomDatePicker
+                  label="Data dokumentu"
+                  value={expenseForm.payment_date}
+                  onChange={(val) => setExpenseForm({...expenseForm, payment_date: val})}
                 />
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kwota (PLN)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kontrahent</label>
-                <input
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  value={expenseForm.contractor}
-                  onChange={(e) => setExpenseForm({...expenseForm, contractor: e.target.value})}
-                  placeholder="Nazwa firmy/osoby"
-                />
+
+              {/* Wiersz 2: Kontrahent i Osoba odpowiedzialna */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kontrahent</label>
+                  <input
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.contractor}
+                    onChange={(e) => setExpenseForm({...expenseForm, contractor: e.target.value})}
+                    placeholder="Nazwa firmy/osoby"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Osoba odpowiedzialna</label>
+                  <input
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.responsible_person}
+                    onChange={(e) => setExpenseForm({...expenseForm, responsible_person: e.target.value})}
+                    placeholder="Imię i nazwisko"
+                  />
+                </div>
               </div>
-              <CustomSelect
-                label="Kategoria (powiązana z budżetem)"
-                value={expenseForm.category}
-                onChange={(val) => setExpenseForm({...expenseForm, category: val, description: ''})}
-                options={budgetCategories.length > 0 ? budgetCategories : [{ value: '', label: 'Najpierw dodaj pozycje budżetowe' }]}
-                placeholder="Wybierz kategorię"
-              />
-              {expenseForm.category && (
+
+              {/* Wiersz 3: Kategoria i Opis kosztu */}
+              <div className="grid grid-cols-2 gap-4">
                 <CustomSelect
-                  label="Opis kosztu (z budżetu)"
-                  value={expenseForm.description}
-                  onChange={(val) => setExpenseForm({...expenseForm, description: val})}
-                  options={budgetItems
-                    .filter(item => item.category === expenseForm.category)
-                    .map(item => ({ value: item.description, label: item.description }))}
-                  placeholder="Wybierz opis kosztu"
+                  label="Kategoria (powiązana z budżetem)"
+                  value={expenseForm.category}
+                  onChange={(val) => setExpenseForm({...expenseForm, category: val, description: ''})}
+                  options={budgetCategories.length > 0 ? budgetCategories : [{ value: '', label: 'Najpierw dodaj pozycje budżetowe' }]}
+                  placeholder="Wybierz kategorię"
                 />
-              )}
+                {expenseForm.category && (
+                  <CustomSelect
+                    label="Opis kosztu (z budżetu)"
+                    value={expenseForm.description}
+                    onChange={(val) => setExpenseForm({...expenseForm, description: val})}
+                    options={budgetItems
+                      .filter(item => item.category === expenseForm.category)
+                      .map(item => ({ value: item.description, label: item.description }))}
+                    placeholder="Wybierz opis kosztu"
+                  />
+                )}
+              </div>
+
+              {/* Wiersz 4: Szczegółowy opis (pełna szerokość) */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Szczegółowy opis</label>
                 <textarea
                   className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
-                  rows={3}
+                  rows={2}
                   value={expenseForm.detailed_description}
                   onChange={(e) => setExpenseForm({...expenseForm, detailed_description: e.target.value})}
                   placeholder="Dodatkowe informacje o wydatku..."
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Osoba odpowiedzialna</label>
-                <input
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  value={expenseForm.responsible_person}
-                  onChange={(e) => setExpenseForm({...expenseForm, responsible_person: e.target.value})}
-                  placeholder="Imię i nazwisko"
                 />
               </div>
               <div>

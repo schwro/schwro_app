@@ -1,10 +1,65 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { 
-  Settings, List, Plus, Trash2, Save, X,
-  Shield, CheckCircle, AlertCircle, Upload, Lock, 
-  Image as ImageIcon, Loader2, Eye, Edit3, ToggleLeft, ToggleRight, User, UserX, UserCheck, ChevronDown, Check
+import {
+  List, Plus, Trash2, X,
+  CheckCircle, AlertCircle, Upload,
+  Image as ImageIcon, Eye, Edit3, ToggleLeft, ToggleRight, UserX, UserCheck, Check, ChevronDown, ChevronUp
 } from 'lucide-react';
+import CustomSelect from '../../components/CustomSelect';
+
+// --- MODULE TABS DEFINITION ---
+const MODULE_TABS = {
+  homegroups: {
+    label: 'Grupy Domowe',
+    resourceKey: 'module:homegroups',
+    tabs: {
+      groups: 'Grupy',
+      leaders: 'Liderzy',
+      members: 'Członkowie',
+      finances: 'Finanse'
+    }
+  },
+  media: {
+    label: 'Media Team',
+    resourceKey: 'module:media',
+    tabs: {
+      schedule: 'Grafik',
+      tasks: 'Zadania',
+      members: 'Członkowie',
+      finances: 'Finanse'
+    }
+  },
+  kids: {
+    label: 'Małe SchWro',
+    resourceKey: 'module:kids',
+    tabs: {
+      schedule: 'Grafik',
+      groups: 'Grupy',
+      teachers: 'Nauczyciele',
+      students: 'Uczniowie',
+      finances: 'Finanse'
+    }
+  },
+  worship: {
+    label: 'Grupa Uwielbienia',
+    resourceKey: 'module:worship',
+    tabs: {
+      schedule: 'Grafik',
+      songs: 'Baza Pieśni',
+      members: 'Członkowie',
+      finances: 'Finanse'
+    }
+  },
+  atmosfera: {
+    label: 'Atmosfera Team',
+    resourceKey: 'module:atmosfera',
+    tabs: {
+      schedule: 'Grafik',
+      members: 'Członkowie',
+      finances: 'Finanse'
+    }
+  }
+};
 
 // --- UI HELPERS ---
 
@@ -14,50 +69,6 @@ const SectionHeader = ({ title, description }) => (
     <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
   </div>
 );
-
-const CustomSelect = ({ options, value, onChange, placeholder }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedLabel = options.find(o => String(o.value) === String(value))?.label;
-
-  return (
-    <div ref={wrapperRef} className="relative w-full">
-      <div 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 cursor-pointer flex justify-between items-center hover:border-pink-400 transition"
-      >
-        <span className={`text-sm ${selectedLabel ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}>
-          {selectedLabel || placeholder}
-        </span>
-        <ChevronDown size={16} className="text-gray-400 dark:text-gray-500"/>
-      </div>
-      
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
-          {options.map(opt => (
-            <div 
-              key={opt.value}
-              onClick={() => { onChange(opt.value); setIsOpen(false); }}
-              className="p-3 hover:bg-pink-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center text-sm text-gray-700 dark:text-gray-200 border-b border-gray-50 dark:border-gray-700 last:border-0"
-            >
-              {opt.label}
-              {String(value) === String(opt.value) && <Check size={14} className="text-pink-600 dark:text-pink-400"/>}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const DictionaryEditor = ({ category, title, items, onAdd, onDelete }) => {
   const [newItem, setNewItem] = useState('');
@@ -100,6 +111,9 @@ export default function GlobalSettings() {
   const [userForm, setUserForm] = useState({ id: null, full_name: '', email: '', role: '', is_active: true });
   const [showUserModal, setShowUserModal] = useState(false);
 
+  const [expandedModule, setExpandedModule] = useState(null);
+  const [tabPermissions, setTabPermissions] = useState(null);
+
   const definedRoles = [
     { key: 'rada_starszych', label: 'Rada Starszych' },
     { key: 'koordynator', label: 'Koordynator' },
@@ -107,16 +121,53 @@ export default function GlobalSettings() {
     { key: 'czlonek', label: 'Członek' }
   ];
 
-  const definedResources = [
-    { key: 'module:members', label: 'Moduł: Członkowie' },
-    { key: 'module:worship', label: 'Moduł: Uwielbienie' },
-    { key: 'module:kids', label: 'Moduł: Małe SchWro' },
-    { key: 'module:media', label: 'Moduł: Media' },
-    { key: 'module:settings', label: 'Moduł: Ustawienia' },
-    { key: 'section:finance', label: 'Sekcja: Finanse' },
-  ];
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    loadTabPermissions();
+  }, []);
+
+  const loadTabPermissions = () => {
+    const stored = localStorage.getItem('tabPermissions');
+    if (stored) {
+      setTabPermissions(JSON.parse(stored));
+    } else {
+      // Default tab permissions
+      const defaultPerms = {
+        homegroups: {
+          groups: null,
+          leaders: null,
+          members: ['rada_starszych', 'koordynator', 'lider'],
+          finances: ['rada_starszych', 'koordynator']
+        },
+        media: {
+          schedule: null,
+          tasks: null,
+          members: ['rada_starszych', 'koordynator', 'lider'],
+          finances: ['rada_starszych', 'koordynator']
+        },
+        kids: {
+          schedule: null,
+          groups: null,
+          teachers: ['rada_starszych', 'koordynator', 'lider'],
+          students: null,
+          finances: ['rada_starszych', 'koordynator']
+        },
+        worship: {
+          schedule: null,
+          songs: null,
+          members: ['rada_starszych', 'koordynator', 'lider'],
+          finances: ['rada_starszych', 'koordynator']
+        },
+        atmosfera: {
+          schedule: null,
+          members: ['rada_starszych', 'koordynator', 'lider'],
+          finances: ['rada_starszych', 'koordynator']
+        }
+      };
+      setTabPermissions(defaultPerms);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -124,7 +175,7 @@ export default function GlobalSettings() {
     const { data: d } = await supabase.from('app_dictionaries').select('*');
     const { data: p } = await supabase.from('app_permissions').select('*');
     const { data: u } = await supabase.from('app_users').select('*').order('full_name');
-    
+
     if (s) setAppSettings(s);
     if (d) setDictionaries(d);
     if (p) setPermissions(p);
@@ -174,6 +225,70 @@ export default function GlobalSettings() {
     const existing = permissions.find(p => p.role === role && p.resource === resource);
     const payload = { role, resource, [field]: value, [field === 'can_read' ? 'can_write' : 'can_read']: existing ? existing[field === 'can_read' ? 'can_write' : 'can_read'] : false };
     await supabase.from('app_permissions').upsert(payload, { onConflict: 'role, resource' }); fetchData();
+  };
+
+  // Tab permissions functions
+  const toggleTabRoleAccess = (module, tab, roleKey) => {
+    if (!tabPermissions) return;
+
+    setTabPermissions(prev => {
+      const newPerms = { ...prev };
+      const currentTabPerms = newPerms[module][tab];
+
+      if (currentTabPerms === null) {
+        newPerms[module][tab] = [roleKey];
+      } else if (Array.isArray(currentTabPerms)) {
+        if (currentTabPerms.includes(roleKey)) {
+          const newRoles = currentTabPerms.filter(r => r !== roleKey);
+          newPerms[module][tab] = newRoles.length === 0 ? null : newRoles;
+        } else {
+          newPerms[module][tab] = [...currentTabPerms, roleKey];
+        }
+      }
+
+      return newPerms;
+    });
+  };
+
+  const setAllTabAccess = (module, tab) => {
+    if (!tabPermissions) return;
+
+    setTabPermissions(prev => {
+      const currentTabPerms = prev[module]?.[tab];
+
+      // Jeśli już jest null (wszyscy mają dostęp), zmień na wszystkie role
+      if (currentTabPerms === null) {
+        return {
+          ...prev,
+          [module]: {
+            ...prev[module],
+            [tab]: definedRoles.map(r => r.key)
+          }
+        };
+      }
+
+      // W przeciwnym razie ustaw na null (wszyscy)
+      return {
+        ...prev,
+        [module]: {
+          ...prev[module],
+          [tab]: null
+        }
+      };
+    });
+  };
+
+  const hasTabRoleAccess = (module, tab, roleKey) => {
+    if (!tabPermissions) return false;
+    const tabPerms = tabPermissions[module]?.[tab];
+    if (tabPerms === null) return true;
+    return Array.isArray(tabPerms) && tabPerms.includes(roleKey);
+  };
+
+  const saveTabPermissions = () => {
+    localStorage.setItem('tabPermissions', JSON.stringify(tabPermissions));
+    setMessage({ type: 'success', text: 'Uprawnienia zaktualizowane. Odśwież stronę, aby zobaczyć zmiany.' });
+    setTimeout(() => window.location.reload(), 1500);
   };
 
   const logoUrl = appSettings.find(s => s.key === 'org_logo_url')?.value;
@@ -282,42 +397,166 @@ export default function GlobalSettings() {
           </div>
         )}
 
-        {/* --- TAB: UPRAWNIENIA --- */}
+        {/* --- TAB: UPRAWNIENIA (UNIFIED) --- */}
         {activeTab === 'permissions' && (
           <div>
-            <SectionHeader title="Macierz Uprawnień" description="Kto może czytać (R) i edytować (W) dane moduły." />
-            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-              <table className="w-full text-sm text-left border-collapse bg-white dark:bg-gray-700">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600">
-                    <th className="p-4 font-bold text-gray-600 dark:text-gray-300 w-1/3">Zasób / Moduł</th>
-                    {definedRoles.map(role => (
-                      <th key={role.key} className="p-4 font-bold text-center text-gray-700 dark:text-gray-200 border-l border-gray-200 dark:border-gray-600 min-w-[120px]">
-                        {role.label}
-                        <div className="flex justify-center gap-4 mt-2 text-[10px] font-normal text-gray-400 uppercase"><span className="flex items-center gap-1"><Eye size={10}/> R</span><span className="flex items-center gap-1"><Edit3 size={10}/> W</span></div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-600">
-                  {definedResources.map(res => (
-                    <tr key={res.key} className="hover:bg-pink-50/30 dark:hover:bg-gray-600 transition">
-                      <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{res.label}<div className="text-xs text-gray-400 font-mono mt-0.5">{res.key}</div></td>
-                      {definedRoles.map(role => {
-                        const perm = permissions.find(p => p.role === role.key && p.resource === res.key) || { can_read: false, can_write: false };
-                        return (
-                          <td key={`${role.key}-${res.key}`} className="p-4 text-center border-l border-gray-200 dark:border-gray-600">
-                            <div className="flex justify-center gap-8">
-                              <input type="checkbox" className="w-4 h-4 accent-pink-600 cursor-pointer" checked={perm.can_read} onChange={() => togglePermission(role.key, res.key, 'can_read', !perm.can_read)} />
-                              <input type="checkbox" className="w-4 h-4 accent-red-500 cursor-pointer" checked={perm.can_write} onChange={() => togglePermission(role.key, res.key, 'can_write', !perm.can_write)} />
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <SectionHeader title="Uprawnienia" description="Zarządzaj dostępem do modułów i zakładek według ról użytkowników." />
+
+            {/* MODUŁY Z ROZWIJANYMI ZAKŁADKAMI */}
+            <div className="space-y-4">
+              {Object.entries(MODULE_TABS).map(([moduleKey, moduleData]) => {
+                const isExpanded = expandedModule === moduleKey;
+
+                return (
+                  <div key={moduleKey} className="bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden shadow-sm">
+
+                    {/* NAGŁÓWEK MODUŁU Z UPRAWNIENIAMI R/W */}
+                    <div className="border-b border-gray-200 dark:border-gray-600">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800">
+                        <div className="flex items-center gap-3 flex-1">
+                          <button
+                            onClick={() => setExpandedModule(isExpanded ? null : moduleKey)}
+                            className="text-gray-400 hover:text-pink-600 dark:hover:text-pink-400 transition"
+                          >
+                            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                          </button>
+                          <div>
+                            <h3 className="font-bold text-lg text-gray-800 dark:text-white">{moduleData.label}</h3>
+                            <p className="text-xs text-gray-400 font-mono">{moduleData.resourceKey}</p>
+                          </div>
+                        </div>
+
+                        {/* UPRAWNIENIA READ/WRITE DLA MODUŁU */}
+                        <div className="flex gap-6">
+                          {definedRoles.map(role => {
+                            const perm = permissions.find(p => p.role === role.key && p.resource === moduleData.resourceKey) || { can_read: false, can_write: false };
+                            return (
+                              <div key={role.key} className="text-center">
+                                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">{role.label}</div>
+                                <div className="flex gap-3">
+                                  <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                    <Eye size={12} className="text-gray-400 group-hover:text-pink-500" />
+                                    <input
+                                      type="checkbox"
+                                      className="w-4 h-4 accent-pink-600 cursor-pointer"
+                                      checked={perm.can_read}
+                                      onChange={() => togglePermission(role.key, moduleData.resourceKey, 'can_read', !perm.can_read)}
+                                    />
+                                  </label>
+                                  <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                    <Edit3 size={12} className="text-gray-400 group-hover:text-red-500" />
+                                    <input
+                                      type="checkbox"
+                                      className="w-4 h-4 accent-red-500 cursor-pointer"
+                                      checked={perm.can_write}
+                                      onChange={() => togglePermission(role.key, moduleData.resourceKey, 'can_write', !perm.can_write)}
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ROZWINIĘTE ZAKŁADKI */}
+                    {isExpanded && tabPermissions && (
+                      <div className="p-6 bg-white dark:bg-gray-700">
+                        <h4 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-4 uppercase tracking-wide">Widoczność zakładek</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-200 dark:border-gray-600">
+                                <th className="text-left py-3 px-4 font-bold text-gray-600 dark:text-gray-300">Zakładka</th>
+                                <th className="text-center py-3 px-4 font-bold text-gray-600 dark:text-gray-300">Wszyscy</th>
+                                {definedRoles.map(role => (
+                                  <th key={role.key} className="text-center py-3 px-4 font-bold text-gray-600 dark:text-gray-300">
+                                    {role.label}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-600">
+                              {Object.entries(moduleData.tabs).map(([tabKey, tabLabel]) => {
+                                const allAccess = tabPermissions[moduleKey]?.[tabKey] === null;
+
+                                return (
+                                  <tr key={tabKey} className="hover:bg-gray-50 dark:hover:bg-gray-600/50">
+                                    <td className="py-3 px-4 font-medium text-gray-800 dark:text-gray-200">
+                                      {tabLabel}
+                                      <div className="text-xs text-gray-400 font-mono">{tabKey}</div>
+                                    </td>
+                                    <td className="py-3 px-4 text-center">
+                                      <button
+                                        onClick={() => setAllTabAccess(moduleKey, tabKey)}
+                                        className={`w-6 h-6 rounded flex items-center justify-center transition mx-auto ${
+                                          allAccess
+                                            ? 'bg-green-500 text-white'
+                                            : 'bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-500'
+                                        }`}
+                                      >
+                                        {allAccess && <Check size={14} />}
+                                      </button>
+                                    </td>
+                                    {definedRoles.map(role => {
+                                      const hasRoleAccess = hasTabRoleAccess(moduleKey, tabKey, role.key);
+
+                                      return (
+                                        <td key={role.key} className="py-3 px-4 text-center">
+                                          <button
+                                            onClick={() => toggleTabRoleAccess(moduleKey, tabKey, role.key)}
+                                            disabled={allAccess}
+                                            className={`w-6 h-6 rounded flex items-center justify-center mx-auto transition ${
+                                              allAccess
+                                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-300 cursor-not-allowed'
+                                                : hasRoleAccess
+                                                ? 'bg-pink-500 text-white'
+                                                : 'bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-500'
+                                            }`}
+                                          >
+                                            {hasRoleAccess && !allAccess && <Check size={14} />}
+                                          </button>
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* PRZYCISKI AKCJI */}
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  loadTabPermissions();
+                  setMessage({ type: 'success', text: 'Przywrócono domyślne uprawnienia zakładek' });
+                }}
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              >
+                Przywróć domyślne zakładki
+              </button>
+              <button
+                onClick={saveTabPermissions}
+                className="px-6 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition font-bold"
+              >
+                Zapisz wszystkie uprawnienia
+              </button>
+            </div>
+
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>Instrukcja:</strong> Rozwiń moduł aby zarządzać widocznością zakładek. Zaznacz "Wszyscy", aby dać dostęp wszystkim użytkownikom do danej zakładki.
+                W przeciwnym razie zaznacz konkretne role, które mają mieć dostęp.
+              </p>
             </div>
           </div>
         )}
