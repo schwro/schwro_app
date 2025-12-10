@@ -1,55 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useUserRole } from '../hooks/useUserRole';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 export default function Sidebar() {
   const location = useLocation();
   const active = location.pathname;
   const { userRole } = useUserRole();
-  const [logoUrl, setLogoUrl] = useState(null);
-  const [moduleSettings, setModuleSettings] = useState({
-    members: true,
-    worship: true,
-    media: true,
-    atmosfera: true,
-    kids: true,
-    groups: true
-  });
-  const [permissions, setPermissions] = useState([]);
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        // Pobierz ustawienia modułów
-        const { data: settings } = await supabase.from('app_settings').select('key, value');
-        if (settings) {
-          const logo = settings.find(s => s.key === 'org_logo_url')?.value;
-          if (logo) setLogoUrl(logo);
-
-          const newSettings = { ...moduleSettings };
-          settings.forEach(s => {
-            if (s.key === 'module_members_enabled') newSettings.members = s.value === 'true';
-            if (s.key === 'module_worship_enabled') newSettings.worship = s.value === 'true';
-            if (s.key === 'module_media_enabled') newSettings.media = s.value === 'true';
-            if (s.key === 'module_atmosfera_enabled') newSettings.atmosfera = s.value === 'true';
-            if (s.key === 'module_kids_enabled') newSettings.kids = s.value === 'true';
-            if (s.key === 'module_groups_enabled') newSettings.groups = s.value === 'true';
-          });
-          setModuleSettings(newSettings);
-        }
-
-        // Pobierz uprawnienia z bazy danych
-        const { data: perms } = await supabase.from('app_permissions').select('*');
-        if (perms) {
-          setPermissions(perms);
-        }
-      } catch (err) { console.error(err); }
-    };
-
-    fetchSettings();
-  }, []);
+  const { permissions, appSettings: moduleSettings, logoUrl } = usePermissions();
 
   // Sprawdź czy użytkownik ma dostęp do modułu (can_read)
   const hasModuleAccess = (moduleResource) => {

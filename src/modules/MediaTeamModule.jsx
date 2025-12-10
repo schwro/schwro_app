@@ -699,32 +699,27 @@ export default function MediaTeamModule() {
   async function fetchData() {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const { data: teamData, error: teamError } = await supabase
-        .from('media_team')
-        .select('*')
-        .order('full_name');
-      
-      if (teamError) throw new Error(`Błąd zespołu: ${teamError.message}`);
-      
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('media_tasks')
-        .select('*')
-        .order('due_date');
-      
-      if (tasksError) throw new Error(`Błąd zadań: ${tasksError.message}`);
+      // Pobierz programy tylko z ostatnich 6 miesięcy dla wydajności
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const dateFrom = sixMonthsAgo.toISOString().split('T')[0];
 
-      const { data: progData, error: progError } = await supabase
-        .from('programs')
-        .select('*')
-        .order('date', { ascending: false });
+      // Wykonaj wszystkie zapytania równolegle
+      const [teamResult, tasksResult, progResult] = await Promise.all([
+        supabase.from('media_team').select('id, full_name, role, email, phone').order('full_name'),
+        supabase.from('media_tasks').select('*').order('due_date'),
+        supabase.from('programs').select('id, date, produkcja').gte('date', dateFrom).order('date', { ascending: false })
+      ]);
 
-      if (progError) throw new Error(`Błąd programów: ${progError.message}`);
-      
-      setTeam(teamData || []);
-      setTasks(tasksData || []);
-      setPrograms(progData || []);
+      if (teamResult.error) throw new Error(`Błąd zespołu: ${teamResult.error.message}`);
+      if (tasksResult.error) throw new Error(`Błąd zadań: ${tasksResult.error.message}`);
+      if (progResult.error) throw new Error(`Błąd programów: ${progResult.error.message}`);
+
+      setTeam(teamResult.data || []);
+      setTasks(tasksResult.data || []);
+      setPrograms(progResult.data || []);
     } catch (err) {
       console.error('❌ Błąd pobierania danych:', err);
       setError(err.message);

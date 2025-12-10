@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare } from 'lucide-react';
+import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare, Download, Play, Pause, Volume2 } from 'lucide-react';
 import SongForm from './SongForm';
 import FinanceTab from '../shared/FinanceTab';
 import WallTab from '../shared/WallTab';
@@ -534,14 +534,131 @@ const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram }) => {
 
 // --- MODAL SZCZEGÓŁÓW PIEŚNI ---
 
+// Komponent odtwarzacza MP3
+const AudioPlayer = ({ url, name }) => {
+  const audioRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = x / rect.width;
+    if (audioRef.current) {
+      audioRef.current.currentTime = percentage * duration;
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  };
+
+  const formatTime = (time) => {
+    if (isNaN(time)) return '0:00';
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div className="mt-3 p-3 bg-gradient-to-r from-pink-50 to-purple-50 dark:from-gray-700 dark:to-gray-700 rounded-xl border border-pink-100 dark:border-gray-600">
+      <audio
+        ref={audioRef}
+        src={url}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={handleEnded}
+        preload="metadata"
+      />
+      <div className="flex items-center gap-3">
+        <button
+          onClick={togglePlay}
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-pink-600 dark:bg-pink-500 text-white shadow-lg shadow-pink-500/30 hover:bg-pink-700 dark:hover:bg-pink-600 transition"
+        >
+          {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+        </button>
+
+        <div className="flex-1">
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+            <span className="flex items-center gap-1">
+              <Volume2 size={12} />
+              {name || 'Odtwarzacz MP3'}
+            </span>
+            <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
+          </div>
+          <div
+            className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full cursor-pointer overflow-hidden"
+            onClick={handleSeek}
+          >
+            <div
+              className="h-full bg-gradient-to-r from-pink-500 to-purple-500 rounded-full transition-all duration-100"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function SongDetailsModal({ song, onClose, onEdit }) {
   const [activeTab, setActiveTab] = useState('overview'); // overview | history | materials
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [newLink, setNewLink] = useState('');
-  
+  const [downloadingFile, setDownloadingFile] = useState(null);
+
   // Transpozycja
   const [transposeSteps, setTransposeSteps] = useState(0);
+
+  // Funkcja pobierania pliku (obejście cross-origin)
+  const handleDownloadFile = async (url, filename) => {
+    setDownloadingFile(url);
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Błąd pobierania:', error);
+      // Fallback - otwórz w nowej karcie
+      window.open(url, '_blank');
+    } finally {
+      setDownloadingFile(null);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -553,10 +670,19 @@ function SongDetailsModal({ song, onClose, onEdit }) {
     setLoadingHistory(true);
     try {
         const { data: programs } = await supabase.from('programs').select('*').order('date', { ascending: false });
-        const songHistory = programs.filter(p => {
-            if (!p.songs) return false;
-            if (Array.isArray(p.songs)) {
-                return p.songs.some(s => s.id === song.id || s.title === song.title);
+        const songHistory = (programs || []).filter(p => {
+            // Sprawdź w schedule - pieśni są w elementach "uwielbienie"
+            if (p.schedule && Array.isArray(p.schedule)) {
+                return p.schedule.some(row => {
+                    if (row.selectedSongs && Array.isArray(row.selectedSongs)) {
+                        return row.selectedSongs.some(s => s.songId === song.id);
+                    }
+                    // Stary format - songIds
+                    if (row.songIds && Array.isArray(row.songIds)) {
+                        return row.songIds.includes(song.id);
+                    }
+                    return false;
+                });
             }
             return false;
         });
@@ -566,23 +692,6 @@ function SongDetailsModal({ song, onClose, onEdit }) {
     }
     setLoadingHistory(false);
   }
-
-  const handleAddLink = async () => {
-      if(!newLink) return;
-      try {
-        const currentAttachments = song.attachments || [];
-        const updated = [...currentAttachments, { type: 'link', url: newLink, name: newLink, date: new Date().toISOString() }];
-        const { error } = await supabase.from('songs').update({ attachments: updated }).eq('id', song.id);
-        if (error) throw error;
-
-        // Aktualizujemy lokalny obiekt song
-        song.attachments = updated;
-        setNewLink('');
-      } catch (error) {
-        console.error('Błąd dodawania linku:', error);
-        alert('Nie udało się dodać linku: ' + error.message);
-      }
-  };
 
   // FUNKCJA GENEROWANIA I POBIERANIA PDF
   const handleDownloadPDF = async () => {
@@ -859,44 +968,89 @@ function SongDetailsModal({ song, onClose, onEdit }) {
 
             {activeTab === 'materials' && (
                 <div className="space-y-6">
-                     {/* DODAWANIE LINKU */}
-                    <div className="flex gap-2">
-                        <input 
-                            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white text-sm outline-none focus:border-pink-500 transition"
-                            placeholder="Wklej link (YouTube, Drive, Chords)..."
-                            value={newLink}
-                            onChange={e => setNewLink(e.target.value)}
-                        />
-                        <button onClick={handleAddLink} className="px-6 py-3 bg-pink-600 text-white rounded-xl font-bold text-sm hover:bg-pink-700 transition">
-                            Dodaj Link
-                        </button>
+                     {/* INFO */}
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                        <p className="text-sm text-blue-800 dark:text-blue-300">
+                            Aby dodać lub edytować załączniki, użyj przycisku <strong>"Edytuj"</strong> i przejdź do zakładki "Załączniki".
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
-                        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mt-2">Załączniki i Linki</h3>
-                        
+                        <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mt-2">
+                            Załączniki i Linki ({(song.attachments || []).length})
+                        </h3>
+
                         {(!song.attachments || song.attachments.length === 0) && (
-                             <div className="text-center py-8 text-gray-400 text-sm italic border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">Brak materiałów</div>
+                             <div className="text-center py-8 text-gray-400 text-sm italic border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                                 <FileText size={32} className="mx-auto mb-2 opacity-50" />
+                                 Brak materiałów
+                                 <p className="text-xs mt-1">Kliknij "Edytuj" aby dodać załączniki</p>
+                             </div>
                         )}
 
-                        {(song.attachments || []).map((att, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-pink-300 dark:hover:border-pink-500 transition group">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${att.type === 'link' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600'}`}>
-                                        {att.type === 'link' ? <LinkIcon size={20}/> : <FileText size={20}/>}
+                        {(song.attachments || []).map((att, idx) => {
+                            const isMP3 = att.type === 'file' && (att.name?.toLowerCase().endsWith('.mp3') || att.url?.toLowerCase().endsWith('.mp3'));
+
+                            return (
+                                <div key={idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-pink-300 dark:hover:border-pink-500 transition group">
+                                    <div className="flex items-center justify-between p-4">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${att.type === 'link' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' : isMP3 ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' : 'bg-pink-100 dark:bg-pink-900/30 text-pink-600'}`}>
+                                                {att.type === 'link' ? <LinkIcon size={24}/> : isMP3 ? <Music size={24}/> : <FileText size={24}/>}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="font-bold text-gray-800 dark:text-gray-200 text-sm truncate">
+                                                    {att.description || att.name || att.url}
+                                                </div>
+                                                {att.description && att.name && att.description !== att.name && (
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                                        {att.type === 'file' ? att.name : att.url}
+                                                    </div>
+                                                )}
+                                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-2">
+                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${att.type === 'link' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' : isMP3 ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' : 'bg-pink-100 dark:bg-pink-900/30 text-pink-600'}`}>
+                                                        {att.type === 'link' ? 'Link' : isMP3 ? 'MP3' : 'Plik'}
+                                                    </span>
+                                                    {att.date && new Date(att.date).toLocaleDateString('pl-PL')}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0 ml-3">
+                                            {att.type === 'file' && (
+                                                <button
+                                                    onClick={() => handleDownloadFile(att.url, att.name)}
+                                                    disabled={downloadingFile === att.url}
+                                                    className="p-2.5 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition disabled:opacity-50"
+                                                    title="Pobierz plik"
+                                                >
+                                                    {downloadingFile === att.url ? (
+                                                        <div className="w-[18px] h-[18px] border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <Download size={18}/>
+                                                    )}
+                                                </button>
+                                            )}
+                                            <a
+                                                href={att.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="p-2.5 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-pink-50 dark:hover:bg-pink-900 hover:text-pink-600 transition"
+                                                title={att.type === 'link' ? 'Otwórz link' : 'Podgląd'}
+                                            >
+                                                <ExternalLink size={18}/>
+                                            </a>
+                                        </div>
                                     </div>
-                                    <div className="truncate">
-                                        <div className="font-bold text-gray-800 dark:text-gray-200 text-sm truncate">{att.name || att.url}</div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">{new Date(att.date).toLocaleDateString()}</div>
-                                    </div>
+
+                                    {/* Odtwarzacz MP3 */}
+                                    {isMP3 && (
+                                        <div className="px-4 pb-4">
+                                            <AudioPlayer url={att.url} name={att.description || att.name} />
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex gap-2">
-                                    <a href={att.url} target="_blank" rel="noreferrer" className="p-2 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-pink-50 dark:hover:bg-pink-900 hover:text-pink-600 transition" title="Otwórz">
-                                        <ExternalLink size={18}/>
-                                    </a>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
 
                         {/* Kompatybilność wsteczna dla starych pól */}
                         {song.sheet_music_url && (
@@ -1158,6 +1312,21 @@ export default function WorshipModule() {
     }
   };
 
+  const removeTagFromSong = async (songId, tagToRemove) => {
+    const song = songs.find(s => s.id === songId);
+    if (!song) return;
+
+    const updatedTags = (song.tags || []).filter(t => t !== tagToRemove);
+
+    try {
+      await supabase.from('songs').update({ tags: updatedTags }).eq('id', songId);
+      // Aktualizuj stan lokalnie
+      setSongs(prev => prev.map(s => s.id === songId ? { ...s, tags: updatedTags } : s));
+    } catch (err) {
+      console.error('Błąd usuwania tagu:', err);
+    }
+  };
+
   const handleProgramUpdate = async (id, updates) => {
     setPrograms(prev => prev.map(p => {
       if (p.id === id) {
@@ -1305,7 +1474,16 @@ export default function WorshipModule() {
                   <td className="p-4">
                     <div className="flex gap-1 flex-wrap">
                       {Array.isArray(s.tags) && s.tags.length > 0 ? s.tags.map((t, i) => (
-                        <span key={i} className="bg-gradient-to-r from-pink-100 to-orange-100 dark:from-pink-900/30 dark:to-orange-900/30 px-2 py-1 text-xs rounded-full text-pink-800 dark:text-pink-300 border border-pink-200 dark:border-pink-800 font-medium">{t}</span>
+                        <span key={i} className="bg-gradient-to-r from-pink-100 to-orange-100 dark:from-pink-900/30 dark:to-orange-900/30 px-2 py-1 text-xs rounded-full text-pink-800 dark:text-pink-300 border border-pink-200 dark:border-pink-800 font-medium flex items-center gap-1 group">
+                          {t}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeTagFromSong(s.id, t); }}
+                            className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-opacity"
+                            title="Usuń tag"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
                       )) : <span className="text-gray-400 text-xs">-</span>}
                     </div>
                   </td>

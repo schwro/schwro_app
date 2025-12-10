@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, PlusCircle, Music, Hash, AlignLeft, Check } from 'lucide-react';
+import { X, PlusCircle, Music, Hash, AlignLeft, Check, Upload, FileText, Link as LinkIcon, Trash2, Edit3 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import CustomSelect from '../../components/CustomSelect';
 
 // --- STAŁE DANYCH ---
 const KEYS = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
-const CATEGORIES = ["Uwielbienie", "Modlitwa", "Na wejście", "Na ofiarowanie", "Komunia", "Uwielbienie (szybkie)", "Kolęda", "Inne"];
+const DEFAULT_CATEGORIES = ["Uwielbienie", "Modlitwa", "Na wejście", "Na ofiarowanie", "Komunia", "Uwielbienie (szybkie)", "Kolęda", "Inne"];
 const METERS = ["4/4", "3/4", "2/4", "6/8", "12/8", "Inne"];
 const AVAILABLE_TAGS = ["intymna", "modlitewna", "niedzielna", "popularna", "szybko", "wolna", "nowość", "klasyk"];
 
@@ -139,8 +140,33 @@ export default function SongForm({ initialData, onSave, onCancel }) {
     attachments: []
   });
 
-  const [activeTab, setActiveTab] = useState('basic'); // basic | lyrics
+  const [activeTab, setActiveTab] = useState('basic'); // basic | lyrics | attachments
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [newLink, setNewLink] = useState('');
+  const [newLinkDescription, setNewLinkDescription] = useState('');
+  const [editingAttachmentIdx, setEditingAttachmentIdx] = useState(null);
+  const [editingDescription, setEditingDescription] = useState('');
   const chordsTextareaRef = useRef(null);
+
+  // Pobierz kategorie ze słownika
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_dictionaries')
+          .select('label')
+          .eq('category', 'song_category');
+
+        if (data && data.length > 0) {
+          setCategories(data.map(d => d.label));
+        }
+      } catch (err) {
+        console.error('Błąd pobierania kategorii:', err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     if (initialData) {
@@ -162,6 +188,93 @@ export default function SongForm({ initialData, onSave, onCancel }) {
   const handleSubmit = () => {
     if (!formData.title) return alert("Podaj tytuł pieśni");
     onSave(formData);
+  };
+
+  // Funkcje do obsługi załączników
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setUploadingFile(true);
+    try {
+      const uploadedDocs = [];
+
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `song_attachments/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('public-assets')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('public-assets').getPublicUrl(filePath);
+
+        uploadedDocs.push({
+          type: 'file',
+          name: file.name,
+          url: data.publicUrl,
+          description: '',
+          date: new Date().toISOString()
+        });
+      }
+
+      setFormData({
+        ...formData,
+        attachments: [...(formData.attachments || []), ...uploadedDocs]
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Błąd przesyłania pliku: ' + error.message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleAddLink = () => {
+    if (!newLink) return;
+
+    const newAttachment = {
+      type: 'link',
+      name: newLinkDescription || newLink,
+      url: newLink,
+      description: newLinkDescription,
+      date: new Date().toISOString()
+    };
+
+    setFormData({
+      ...formData,
+      attachments: [...(formData.attachments || []), newAttachment]
+    });
+
+    setNewLink('');
+    setNewLinkDescription('');
+  };
+
+  const removeAttachment = (index) => {
+    setFormData({
+      ...formData,
+      attachments: (formData.attachments || []).filter((_, i) => i !== index)
+    });
+  };
+
+  const updateAttachmentDescription = (index, newDescription) => {
+    const updatedAttachments = [...(formData.attachments || [])];
+    updatedAttachments[index] = {
+      ...updatedAttachments[index],
+      description: newDescription,
+      name: newDescription || updatedAttachments[index].url
+    };
+    setFormData({ ...formData, attachments: updatedAttachments });
+    setEditingAttachmentIdx(null);
+    setEditingDescription('');
+  };
+
+  const startEditingDescription = (index) => {
+    setEditingAttachmentIdx(index);
+    setEditingDescription(formData.attachments[index]?.description || '');
   };
 
   // Funkcja wstawiająca szablon w miejscu kursora (DLA POLA CHORDS_BARS)
@@ -206,17 +319,24 @@ export default function SongForm({ initialData, onSave, onCancel }) {
           
           {/* TABS */}
           <div className="flex gap-2 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
-            <button 
-              onClick={() => setActiveTab('basic')} 
+            <button
+              onClick={() => setActiveTab('basic')}
               className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'basic' ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
             >
               Informacje Podstawowe
             </button>
-            <button 
-              onClick={() => setActiveTab('lyrics')} 
+            <button
+              onClick={() => setActiveTab('lyrics')}
               className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'lyrics' ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
             >
               Tekst i Chwyty
+            </button>
+            <button
+              onClick={() => setActiveTab('attachments')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${activeTab === 'attachments' ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+            >
+              <FileText size={14} />
+              Załączniki {(formData.attachments || []).length > 0 && <span className="bg-pink-100 dark:bg-pink-900 text-pink-600 dark:text-pink-300 px-1.5 py-0.5 rounded text-xs">{formData.attachments.length}</span>}
             </button>
           </div>
 
@@ -272,11 +392,11 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                     onChange={e => setFormData({...formData, tempo: e.target.value})}
                   />
                 </div>
-                 <CustomSelect 
+                 <CustomSelect
                   label="Kategoria"
-                  options={CATEGORIES} 
-                  value={formData.category} 
-                  onChange={val => setFormData({...formData, category: val})} 
+                  options={categories}
+                  value={formData.category}
+                  onChange={val => setFormData({...formData, category: val})}
                   placeholder="Rodzaj"
                   icon={AlignLeft}
                 />
@@ -298,7 +418,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                  {/* KOLUMNA 1: CZYSTY TEKST */}
                  <div className="flex flex-col h-full">
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tekst Pieśni (Lyrics)</label>
-                    <textarea 
+                    <textarea
                       className="flex-1 w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition resize-none font-mono text-sm leading-relaxed"
                       placeholder="Wpisz tekst tutaj..."
                       value={formData.lyrics}
@@ -312,15 +432,15 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Chwyty / Takty (chords_bars)</label>
                        <span className="text-[10px] text-gray-400">Kliknij przycisk poniżej, aby wstawić</span>
                     </div>
-                    
-                    <textarea 
+
+                    <textarea
                       ref={chordsTextareaRef}
                       className="flex-1 w-full px-4 py-3 rounded-t-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 focus:ring-2 focus:ring-pink-500/20 outline-none transition resize-none font-mono text-sm leading-relaxed"
                       placeholder="[INTRO] | C | G | Am | F |..."
-                      value={formData.chords_bars} // ZMIANA
-                      onChange={e => setFormData({...formData, chords_bars: e.target.value})} // ZMIANA
+                      value={formData.chords_bars}
+                      onChange={e => setFormData({...formData, chords_bars: e.target.value})}
                     />
-                    
+
                     {/* PASEK NARZĘDZI DO WSTAWIANIA SEKCJI */}
                     <div className="p-2 bg-gray-100 dark:bg-gray-800 border-x border-b border-gray-200 dark:border-gray-700 rounded-b-xl flex flex-wrap gap-2">
                         {MUSIC_SECTIONS.map((section) => (
@@ -337,6 +457,143 @@ export default function SongForm({ initialData, onSave, onCancel }) {
 
                  </div>
                </div>
+            </div>
+          )}
+
+          {activeTab === 'attachments' && (
+            <div className="space-y-6 min-h-[500px]">
+              {/* DODAWANIE PLIKU */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-4 flex items-center gap-2">
+                  <Upload size={16} className="text-pink-500" /> Prześlij plik
+                </h3>
+                <label className="w-full px-6 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 cursor-pointer hover:border-pink-400 dark:hover:border-pink-500 transition flex flex-col items-center justify-center gap-2">
+                  <Upload size={32} className="text-gray-400" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                    {uploadingFile ? 'Przesyłanie...' : 'Kliknij lub przeciągnij plik'}
+                  </span>
+                  <span className="text-xs text-gray-400">PDF, JPG, PNG, MP3, DOC (max 10MB)</span>
+                  <input
+                    type="file"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp3,.wav"
+                    disabled={uploadingFile}
+                    multiple
+                  />
+                </label>
+              </div>
+
+              {/* DODAWANIE LINKU */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-4 flex items-center gap-2">
+                  <LinkIcon size={16} className="text-orange-500" /> Dodaj link
+                </h3>
+                <div className="space-y-3">
+                  <input
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white text-sm outline-none focus:border-pink-500 transition"
+                    placeholder="https://youtube.com/watch?v=..."
+                    value={newLink}
+                    onChange={e => setNewLink(e.target.value)}
+                  />
+                  <input
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white text-sm outline-none focus:border-pink-500 transition"
+                    placeholder="Opis linku (np. Tutorial na YouTube)"
+                    value={newLinkDescription}
+                    onChange={e => setNewLinkDescription(e.target.value)}
+                  />
+                  <button
+                    onClick={handleAddLink}
+                    disabled={!newLink}
+                    className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl font-bold text-sm hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Dodaj Link
+                  </button>
+                </div>
+              </div>
+
+              {/* LISTA ZAŁĄCZNIKÓW */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-4">
+                  Załączniki ({(formData.attachments || []).length})
+                </h3>
+
+                {(!formData.attachments || formData.attachments.length === 0) ? (
+                  <div className="text-center py-12 text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                    <FileText size={40} className="mx-auto mb-3 opacity-50" />
+                    <p>Brak załączników</p>
+                    <p className="text-sm mt-1">Dodaj pliki lub linki powyżej</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {formData.attachments.map((att, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-pink-300 dark:hover:border-pink-600 transition group"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${att.type === 'link' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' : 'bg-pink-100 dark:bg-pink-900/30 text-pink-600'}`}>
+                            {att.type === 'link' ? <LinkIcon size={20} /> : <FileText size={20} />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            {editingAttachmentIdx === idx ? (
+                              <div className="flex gap-2">
+                                <input
+                                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-800 dark:text-white outline-none focus:border-pink-500"
+                                  value={editingDescription}
+                                  onChange={e => setEditingDescription(e.target.value)}
+                                  placeholder="Wpisz opis..."
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => updateAttachmentDescription(idx, editingDescription)}
+                                  className="px-3 py-1.5 bg-pink-600 text-white rounded-lg text-sm font-bold hover:bg-pink-700"
+                                >
+                                  OK
+                                </button>
+                                <button
+                                  onClick={() => { setEditingAttachmentIdx(null); setEditingDescription(''); }}
+                                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-sm"
+                                >
+                                  Anuluj
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="font-bold text-gray-800 dark:text-gray-200 text-sm truncate">
+                                  {att.description || att.name || att.url}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                  {att.type === 'link' ? att.url : att.name}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {editingAttachmentIdx !== idx && (
+                          <div className="flex gap-2 shrink-0 ml-3">
+                            <button
+                              onClick={() => startEditingDescription(idx)}
+                              className="p-2 text-gray-400 hover:text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-lg transition"
+                              title="Edytuj opis"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button
+                              onClick={() => removeAttachment(idx)}
+                              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
+                              title="Usuń załącznik"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

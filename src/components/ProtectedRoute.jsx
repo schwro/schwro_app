@@ -1,29 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useUserRole } from '../hooks/useUserRole';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 export default function ProtectedRoute({ children, resource }) {
   const { userRole, loading: roleLoading } = useUserRole();
-  const [permissions, setPermissions] = useState([]);
-  const [permissionsLoading, setPermissionsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchPermissions = async () => {
-      try {
-        const { data: perms } = await supabase.from('app_permissions').select('*');
-        if (perms) {
-          setPermissions(perms);
-        }
-      } catch (err) {
-        console.error('Error fetching permissions:', err);
-      } finally {
-        setPermissionsLoading(false);
-      }
-    };
-
-    fetchPermissions();
-  }, []);
+  const { permissions, loading: permissionsLoading } = usePermissions();
 
   // Pokaż loader podczas ładowania
   if (roleLoading || permissionsLoading) {

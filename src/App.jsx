@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
+import { PermissionsProvider } from './contexts/PermissionsContext';
 
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
@@ -11,13 +12,13 @@ import Dashboard from './modules/Programs/Dashboard';
 import Members from './modules/Members';
 import WorshipModule from './modules/MusicTeam/WorshipModule';
 import MediaTeamModule from './modules/MediaTeamModule';
-import AtmosferaTeamModule from './modules/AtmosferaTeamModule'; // NOWY MODUŁ
+import AtmosferaTeamModule from './modules/AtmosferaTeamModule';
 import KidsModule from './modules/Kids/KidsModule';
 import HomeGroupsModule from './modules/HomeGroups/HomeGroupsModule';
 import FinanceModule from './modules/FinanceModule';
 import GlobalSettings from './modules/Settings/GlobalSettings';
 import UserSettings from './modules/Settings/UserSettings';
-import CalendarModule from './modules/CalendarModule'; // <-- Import
+import CalendarModule from './modules/CalendarModule';
 import TeachingModule from './modules/Teaching/TeachingModule';
 
 export default function App() {
@@ -95,47 +96,49 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
-          <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/calendar" element={<CalendarModule />} />
-              <Route path="/members" element={
-                <ProtectedRoute resource="module:members"><Members /></ProtectedRoute>
-              } />
-              <Route path="/worship" element={
-                <ProtectedRoute resource="module:worship"><WorshipModule /></ProtectedRoute>
-              } />
-              <Route path="/media" element={
-                <ProtectedRoute resource="module:media"><MediaTeamModule /></ProtectedRoute>
-              } />
-              <Route path="/atmosfera" element={
-                <ProtectedRoute resource="module:atmosfera"><AtmosferaTeamModule /></ProtectedRoute>
-              } />
-              <Route path="/kids" element={
-                <ProtectedRoute resource="module:kids"><KidsModule /></ProtectedRoute>
-              } />
-              <Route path="/home-groups" element={
-                <ProtectedRoute resource="module:homegroups"><HomeGroupsModule /></ProtectedRoute>
-              } />
-              <Route path="/finance" element={
-                <ProtectedRoute resource="module:finance"><FinanceModule /></ProtectedRoute>
-              } />
-              <Route path="/teaching" element={
-                <ProtectedRoute resource="module:teaching"><TeachingModule /></ProtectedRoute>
-              } />
-              <Route path="/settings" element={
-                <ProtectedRoute resource="module:settings"><GlobalSettings /></ProtectedRoute>
-              } />
-              <Route path="/profile" element={<UserSettings />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
+      <PermissionsProvider>
+        <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+          <Sidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
+            <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/calendar" element={<CalendarModule />} />
+                <Route path="/members" element={
+                  <ProtectedRoute resource="module:members"><Members /></ProtectedRoute>
+                } />
+                <Route path="/worship" element={
+                  <ProtectedRoute resource="module:worship"><WorshipModule /></ProtectedRoute>
+                } />
+                <Route path="/media" element={
+                  <ProtectedRoute resource="module:media"><MediaTeamModule /></ProtectedRoute>
+                } />
+                <Route path="/atmosfera" element={
+                  <ProtectedRoute resource="module:atmosfera"><AtmosferaTeamModule /></ProtectedRoute>
+                } />
+                <Route path="/kids" element={
+                  <ProtectedRoute resource="module:kids"><KidsModule /></ProtectedRoute>
+                } />
+                <Route path="/home-groups" element={
+                  <ProtectedRoute resource="module:homegroups"><HomeGroupsModule /></ProtectedRoute>
+                } />
+                <Route path="/finance" element={
+                  <ProtectedRoute resource="module:finance"><FinanceModule /></ProtectedRoute>
+                } />
+                <Route path="/teaching" element={
+                  <ProtectedRoute resource="module:teaching"><TeachingModule /></ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute resource="module:settings"><GlobalSettings /></ProtectedRoute>
+                } />
+                <Route path="/profile" element={<UserSettings />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </main>
+          </div>
         </div>
-      </div>
+      </PermissionsProvider>
     </BrowserRouter>
   );
 }
