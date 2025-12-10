@@ -9,6 +9,11 @@ import CustomSelect from '../../components/CustomSelect';
 
 // --- MODULE TABS DEFINITION ---
 const MODULE_TABS = {
+  members: {
+    label: 'Członkowie',
+    resourceKey: 'module:members',
+    tabs: {}
+  },
   homegroups: {
     label: 'Grupy Domowe',
     resourceKey: 'module:homegroups',
@@ -58,6 +63,16 @@ const MODULE_TABS = {
       members: 'Członkowie',
       finances: 'Finanse'
     }
+  },
+  finance: {
+    label: 'Finanse',
+    resourceKey: 'module:finance',
+    tabs: {}
+  },
+  settings: {
+    label: 'Ustawienia',
+    resourceKey: 'module:settings',
+    tabs: {}
   }
 };
 
@@ -108,13 +123,18 @@ export default function GlobalSettings() {
   const [permissions, setPermissions] = useState([]);
   const [users, setUsers] = useState([]);
 
-  const [userForm, setUserForm] = useState({ id: null, full_name: '', email: '', role: '', is_active: true });
+  const [userForm, setUserForm] = useState({ id: null, full_name: '', email: '', password: '', role: '', is_active: true });
   const [showUserModal, setShowUserModal] = useState(false);
+  const [isCreatingAuthUser, setIsCreatingAuthUser] = useState(false);
 
   const [expandedModule, setExpandedModule] = useState(null);
   const [tabPermissions, setTabPermissions] = useState(null);
+  const [userPermissions, setUserPermissions] = useState({});
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [expandedUserModule, setExpandedUserModule] = useState(null);
 
   const definedRoles = [
+    { key: 'superadmin', label: 'Super Administrator' },
     { key: 'rada_starszych', label: 'Rada Starszych' },
     { key: 'koordynator', label: 'Koordynator' },
     { key: 'lider', label: 'Lider Służby' },
@@ -125,6 +145,7 @@ export default function GlobalSettings() {
   useEffect(() => {
     fetchData();
     loadTabPermissions();
+    loadUserPermissions();
   }, []);
 
   const loadTabPermissions = () => {
@@ -174,13 +195,44 @@ export default function GlobalSettings() {
     const { data: s } = await supabase.from('app_settings').select('*');
     const { data: d } = await supabase.from('app_dictionaries').select('*');
     const { data: p } = await supabase.from('app_permissions').select('*');
-    const { data: u } = await supabase.from('app_users').select('*').order('full_name');
+    const { data: u, error: usersError } = await supabase.from('app_users').select('*').order('full_name');
+
+    if (usersError) {
+      console.error('Błąd pobierania użytkowników:', usersError);
+    }
 
     if (s) setAppSettings(s);
     if (d) setDictionaries(d);
     if (p) setPermissions(p);
     if (u) setUsers(u);
+
+    console.log('Pobrani użytkownicy:', u);
+
+    // Sprawdź czy istnieje superadmin
+    await ensureSuperAdmin();
+
     setLoading(false);
+  };
+
+  const ensureSuperAdmin = async () => {
+    const superAdminEmail = 'lukasz@schwro.pl';
+    const { data: existing } = await supabase
+      .from('app_users')
+      .select('*')
+      .eq('email', superAdminEmail)
+      .single();
+
+    if (!existing) {
+      // Utwórz superadmina w tabeli app_users
+      await supabase.from('app_users').insert([{
+        email: superAdminEmail,
+        full_name: 'Łukasz Dobrowolski',
+        role: 'superadmin',
+        is_active: true
+      }]);
+
+      console.log('Utworzono superadmina');
+    }
   };
 
   const handleLogoUpload = async (e) => {
@@ -207,15 +259,100 @@ export default function GlobalSettings() {
 
   const saveUser = async () => {
     if (!userForm.email || !userForm.role) return alert('Wymagany Email i Rola');
-    const payload = { full_name: userForm.full_name || '', email: userForm.email, role: userForm.role, is_active: userForm.is_active };
+
+    setIsCreatingAuthUser(true);
+
     try {
-      if (userForm.id) await supabase.from('app_users').update(payload).eq('id', userForm.id);
-      else await supabase.from('app_users').insert([payload]);
-      setShowUserModal(false); fetchData(); setMessage({ type: 'success', text: 'Zapisano użytkownika' });
-    } catch (err) { alert('Błąd zapisu: ' + err.message); }
+      if (userForm.id) {
+        // Edycja istniejącego użytkownika
+        const payload = {
+          full_name: userForm.full_name || '',
+          email: userForm.email,
+          role: userForm.role,
+          is_active: userForm.is_active
+        };
+        await supabase.from('app_users').update(payload).eq('id', userForm.id);
+        setMessage({ type: 'success', text: 'Zaktualizowano użytkownika' });
+      } else {
+        // Tworzenie nowego użytkownika
+        // 1. Utwórz konto w Supabase Auth z losowym hasłem
+        // UWAGA: W Supabase wyłącz "Confirm email" (Authentication → Providers → Email)
+        // żeby signUp() nie wysyłał emaila potwierdzającego
+        const tempPassword = crypto.randomUUID() + 'Aa1!';
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: userForm.email,
+          password: tempPassword,
+          options: {
+            data: {
+              full_name: userForm.full_name
+            }
+          }
+        });
+
+        if (authError) {
+          throw new Error(`Błąd tworzenia konta: ${authError.message}`);
+        }
+
+        // 2. Dodaj rekord do app_users
+        if (authData?.user?.id) {
+          const { error: insertError } = await supabase
+            .from('app_users')
+            .insert({
+              email: userForm.email,
+              full_name: userForm.full_name || '',
+              role: userForm.role,
+              is_active: userForm.is_active,
+              auth_user_id: authData.user.id
+            });
+
+          if (insertError) {
+            console.error('Błąd dodawania do app_users:', insertError);
+          }
+        }
+
+        // 3. Wyślij email z linkiem do ustawienia hasła (przez Resend SMTP skonfigurowany w Supabase)
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(userForm.email, {
+          redirectTo: `${window.location.origin}/reset-password`
+        });
+
+        if (resetError) {
+          console.error('Błąd wysyłania emaila:', resetError);
+          setMessage({ type: 'warning', text: `Utworzono użytkownika, ale nie udało się wysłać emaila: ${resetError.message}` });
+        } else {
+          setMessage({ type: 'success', text: `Utworzono użytkownika ${userForm.email}. Email z linkiem do ustawienia hasła został wysłany.` });
+        }
+      }
+
+      setShowUserModal(false);
+      fetchData();
+    } catch (err) {
+      alert('Błąd zapisu: ' + err.message);
+    } finally {
+      setIsCreatingAuthUser(false);
+    }
   };
 
-  const deleteUser = async (id) => { if(confirm('Usunąć?')) { await supabase.from('app_users').delete().eq('id', id); fetchData(); } };
+  const deleteUser = async (id) => {
+    const user = users.find(u => u.id === id);
+    if (user?.email === 'lukasz@schwro.pl') {
+      return alert('Nie można usunąć superadmina!');
+    }
+
+    if(confirm('Usunąć użytkownika? To również usunie jego konto z systemu autentykacji.')) {
+      try {
+        // Usuń z tabeli app_users
+        await supabase.from('app_users').delete().eq('id', id);
+
+        // TODO: Można też usunąć z Supabase Auth, ale wymaga admin API
+        // const { error } = await supabase.auth.admin.deleteUser(user.auth_user_id);
+
+        fetchData();
+        setMessage({ type: 'success', text: 'Użytkownik został usunięty' });
+      } catch (err) {
+        alert('Błąd usuwania: ' + err.message);
+      }
+    }
+  };
   const toggleUserStatus = async (user) => { await supabase.from('app_users').update({ is_active: !user.is_active }).eq('id', user.id); fetchData(); };
   
   const addDict = async (category, label) => { const { data } = await supabase.from('app_dictionaries').insert([{ category, label, value: label }]).select(); if (data) setDictionaries([...dictionaries, data[0]]); };
@@ -313,6 +450,122 @@ export default function GlobalSettings() {
     setTimeout(() => window.location.reload(), 1500);
   };
 
+  // User-specific permissions functions
+  const loadUserPermissions = () => {
+    const stored = localStorage.getItem('userPermissions');
+    if (stored) {
+      setUserPermissions(JSON.parse(stored));
+    }
+  };
+
+  const toggleUserModuleAccess = (userId, moduleKey, field) => {
+    setUserPermissions(prev => {
+      const userPerms = prev[userId] || { modules: {}, tabs: {} };
+      const modulePerms = userPerms.modules[moduleKey] || { can_read: false, can_write: false };
+
+      return {
+        ...prev,
+        [userId]: {
+          ...userPerms,
+          modules: {
+            ...userPerms.modules,
+            [moduleKey]: {
+              ...modulePerms,
+              [field]: !modulePerms[field]
+            }
+          }
+        }
+      };
+    });
+  };
+
+  const toggleUserTabAccess = (userId, moduleKey, tabKey) => {
+    setUserPermissions(prev => {
+      const userPerms = prev[userId] || { modules: {}, tabs: {} };
+      const userTabs = userPerms.tabs[moduleKey] || {};
+
+      return {
+        ...prev,
+        [userId]: {
+          ...userPerms,
+          tabs: {
+            ...userPerms.tabs,
+            [moduleKey]: {
+              ...userTabs,
+              [tabKey]: !userTabs[tabKey]
+            }
+          }
+        }
+      };
+    });
+  };
+
+  const hasUserTabAccess = (userId, moduleKey, tabKey) => {
+    return userPermissions[userId]?.tabs?.[moduleKey]?.[tabKey] || false;
+  };
+
+  const hasUserModuleAccess = (userId, moduleKey, field) => {
+    return userPermissions[userId]?.modules?.[moduleKey]?.[field] || false;
+  };
+
+  const saveUserPermissions = () => {
+    localStorage.setItem('userPermissions', JSON.stringify(userPermissions));
+    setMessage({ type: 'success', text: 'Uprawnienia użytkowników zapisane. Odśwież stronę, aby zobaczyć zmiany.' });
+    setTimeout(() => window.location.reload(), 1500);
+  };
+
+  const resetUserPermissionsToRole = (userId) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+
+    // Usuń wszystkie indywidualne uprawnienia użytkownika
+    setUserPermissions(prev => {
+      const newPerms = { ...prev };
+      delete newPerms[userId];
+      return newPerms;
+    });
+
+    setMessage({ type: 'success', text: 'Przywrócono uprawnienia z roli użytkownika' });
+  };
+
+  const getUserEffectivePermissions = (userId, moduleKey) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return { can_read: false, can_write: false };
+
+    // Sprawdź czy użytkownik ma indywidualne uprawnienia
+    const userPerms = userPermissions[userId]?.modules?.[moduleKey];
+    if (userPerms) {
+      return userPerms;
+    }
+
+    // W przeciwnym razie zwróć uprawnienia z roli
+    const moduleData = Object.values(MODULE_TABS).find(m => m.resourceKey === `module:${moduleKey}` || Object.keys(MODULE_TABS).includes(moduleKey));
+    if (!moduleData) return { can_read: false, can_write: false };
+
+    const rolePerm = permissions.find(p => p.role === user.role && p.resource === moduleData.resourceKey);
+    return {
+      can_read: rolePerm?.can_read || false,
+      can_write: rolePerm?.can_write || false
+    };
+  };
+
+  const getUserEffectiveTabAccess = (userId, moduleKey, tabKey) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return false;
+
+    // Sprawdź czy użytkownik ma indywidualne uprawnienia dla tej zakładki
+    const userTabPerm = userPermissions[userId]?.tabs?.[moduleKey]?.[tabKey];
+    if (userTabPerm !== undefined) {
+      return userTabPerm;
+    }
+
+    // W przeciwnym razie zwróć uprawnienia z roli
+    const tabPerms = tabPermissions?.[moduleKey]?.[tabKey];
+    if (tabPerms === null) return true; // wszyscy mają dostęp
+    if (!Array.isArray(tabPerms)) return false;
+    return tabPerms.includes(user.role);
+  };
+
   const logoUrl = appSettings.find(s => s.key === 'org_logo_url')?.value;
   const modulesSettings = appSettings.filter(s => s.key.startsWith('module_'));
 
@@ -393,22 +646,26 @@ export default function GlobalSettings() {
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-600">
                   {users.map(user => {
                     const roleLabel = definedRoles.find(r => r.key === user.role)?.label || user.role;
+                    const isSuperAdmin = user.email === 'lukasz@schwro.pl';
                     return (
-                      <tr key={user.id} className="hover:bg-pink-50/30 dark:hover:bg-gray-600 transition text-gray-800 dark:text-gray-200">
+                      <tr key={user.id} className={`hover:bg-pink-50/30 dark:hover:bg-gray-600 transition text-gray-800 dark:text-gray-200 ${isSuperAdmin ? 'bg-yellow-50/30 dark:bg-yellow-900/10' : ''}`}>
                         <td className="p-4 font-medium flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-300 flex items-center justify-center font-bold uppercase">{(user.full_name || user.email || '?').charAt(0)}</div>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold uppercase ${isSuperAdmin ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300' : 'bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-300'}`}>
+                            {(user.full_name || user.email || '?').charAt(0)}
+                          </div>
                           {user.full_name || 'Brak imienia'}
+                          {isSuperAdmin && <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded font-bold">SUPERADMIN</span>}
                         </td>
                         <td className="p-4 text-gray-600 dark:text-gray-400">{user.email}</td>
-                        <td className="p-4"><span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-lg text-xs font-bold">{roleLabel}</span></td>
+                        <td className="p-4"><span className={`px-2 py-1 rounded-lg text-xs font-bold ${isSuperAdmin ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'}`}>{roleLabel}</span></td>
                         <td className="p-4">
-                          <button onClick={() => toggleUserStatus(user)} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border ${user.is_active ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'}`}>
+                          <button onClick={() => toggleUserStatus(user)} disabled={isSuperAdmin} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border ${user.is_active ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'} ${isSuperAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}>
                             {user.is_active ? <UserCheck size={12}/> : <UserX size={12}/>} {user.is_active ? 'Aktywny' : 'Zablokowany'}
                           </button>
                         </td>
                         <td className="p-4 text-right flex justify-end gap-2">
-                          <button onClick={() => { setUserForm(user); setShowUserModal(true); }} className="text-pink-600 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-gray-600 p-2 rounded-lg"><Edit3 size={16}/></button>
-                          <button onClick={() => deleteUser(user.id)} className="text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-gray-600 p-2 rounded-lg"><Trash2 size={16}/></button>
+                          <button onClick={() => { setUserForm({...user, password: ''}); setShowUserModal(true); }} className="text-pink-600 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-gray-600 p-2 rounded-lg"><Edit3 size={16}/></button>
+                          <button onClick={() => deleteUser(user.id)} disabled={isSuperAdmin} className={`text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-gray-600 p-2 rounded-lg ${isSuperAdmin ? 'opacity-30 cursor-not-allowed' : ''}`}><Trash2 size={16}/></button>
                         </td>
                       </tr>
                     );
@@ -422,12 +679,60 @@ export default function GlobalSettings() {
         {/* --- TAB: UPRAWNIENIA (UNIFIED) --- */}
         {activeTab === 'permissions' && (
           <div>
-            <SectionHeader title="Uprawnienia" description="Zarządzaj dostępem do modułów i zakładek według ról użytkowników." />
+            <SectionHeader title="Uprawnienia" description="Zarządzaj dostępem do modułów i zakładek według ról użytkowników oraz indywidualnych użytkowników." />
+
+            {/* PRZEŁĄCZNIK ROL / UŻYTKOWNICY */}
+            <div className="flex gap-2 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
+              <button
+                onClick={() => setSelectedUserId(null)}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition ${!selectedUserId ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+              >
+                Uprawnienia Ról
+              </button>
+              <button
+                onClick={() => setSelectedUserId(users[0]?.id || null)}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition ${selectedUserId ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+              >
+                Uprawnienia Użytkowników
+              </button>
+            </div>
+
+            {/* SEKCJA UPRAWNIEŃ UŻYTKOWNIKÓW */}
+            {selectedUserId && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex-1 max-w-md">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Wybierz użytkownika</label>
+                    <CustomSelect
+                      options={users.map(u => ({
+                        value: u.id,
+                        label: `${u.full_name || u.email} (${definedRoles.find(r => r.key === u.role)?.label || u.role})`
+                      }))}
+                      value={selectedUserId}
+                      onChange={(val) => setSelectedUserId(val)}
+                      placeholder="Wybierz użytkownika..."
+                    />
+                  </div>
+                  <button
+                    onClick={() => resetUserPermissionsToRole(selectedUserId)}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm font-bold"
+                  >
+                    Przywróć z roli
+                  </button>
+                </div>
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl mb-4">
+                  <p className="text-sm text-blue-800 dark:text-blue-300">
+                    <strong>Uwaga:</strong> Domyślnie użytkownik dziedziczy uprawnienia ze swojej roli. Możesz nadpisać je indywidualnymi uprawnieniami poniżej.
+                    Użyj przycisku "Przywróć z roli" aby zresetować do ustawień domyślnych.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* MODUŁY Z ROZWIJANYMI ZAKŁADKAMI */}
             <div className="space-y-4">
               {Object.entries(MODULE_TABS).map(([moduleKey, moduleData]) => {
-                const isExpanded = expandedModule === moduleKey;
+                const isExpanded = selectedUserId ? (expandedUserModule === moduleKey) : (expandedModule === moduleKey);
 
                 return (
                   <div key={moduleKey} className="bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden shadow-sm">
@@ -437,7 +742,7 @@ export default function GlobalSettings() {
                       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800">
                         <div className="flex items-center gap-3 flex-1">
                           <button
-                            onClick={() => setExpandedModule(isExpanded ? null : moduleKey)}
+                            onClick={() => selectedUserId ? setExpandedUserModule(isExpanded ? null : moduleKey) : setExpandedModule(isExpanded ? null : moduleKey)}
                             className="text-gray-400 hover:text-pink-600 dark:hover:text-pink-400 transition"
                           >
                             {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -449,105 +754,162 @@ export default function GlobalSettings() {
                         </div>
 
                         {/* UPRAWNIENIA READ/WRITE DLA MODUŁU */}
-                        <div className="flex gap-6">
-                          {definedRoles.map(role => {
-                            const perm = permissions.find(p => p.role === role.key && p.resource === moduleData.resourceKey) || { can_read: false, can_write: false };
-                            return (
-                              <div key={role.key} className="text-center">
-                                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">{role.label}</div>
-                                <div className="flex gap-3">
-                                  <label className="flex flex-col items-center gap-1 cursor-pointer group">
-                                    <Eye size={12} className="text-gray-400 group-hover:text-pink-500" />
-                                    <input
-                                      type="checkbox"
-                                      className="w-4 h-4 accent-pink-600 cursor-pointer"
-                                      checked={perm.can_read}
-                                      onChange={() => togglePermission(role.key, moduleData.resourceKey, 'can_read', !perm.can_read)}
-                                    />
-                                  </label>
-                                  <label className="flex flex-col items-center gap-1 cursor-pointer group">
-                                    <Edit3 size={12} className="text-gray-400 group-hover:text-red-500" />
-                                    <input
-                                      type="checkbox"
-                                      className="w-4 h-4 accent-red-500 cursor-pointer"
-                                      checked={perm.can_write}
-                                      onChange={() => togglePermission(role.key, moduleData.resourceKey, 'can_write', !perm.can_write)}
-                                    />
-                                  </label>
+                        {!selectedUserId ? (
+                          <div className="flex gap-6">
+                            {definedRoles.map(role => {
+                              const perm = permissions.find(p => p.role === role.key && p.resource === moduleData.resourceKey) || { can_read: false, can_write: false };
+                              return (
+                                <div key={role.key} className="text-center">
+                                  <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">{role.label}</div>
+                                  <div className="flex gap-3">
+                                    <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                      <Eye size={12} className="text-gray-400 group-hover:text-pink-500" />
+                                      <input
+                                        type="checkbox"
+                                        className="w-4 h-4 accent-pink-600 cursor-pointer"
+                                        checked={perm.can_read}
+                                        onChange={() => togglePermission(role.key, moduleData.resourceKey, 'can_read', !perm.can_read)}
+                                      />
+                                    </label>
+                                    <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                      <Edit3 size={12} className="text-gray-400 group-hover:text-red-500" />
+                                      <input
+                                        type="checkbox"
+                                        className="w-4 h-4 accent-red-500 cursor-pointer"
+                                        checked={perm.can_write}
+                                        onChange={() => togglePermission(role.key, moduleData.resourceKey, 'can_write', !perm.can_write)}
+                                      />
+                                    </label>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex gap-4">
+                            <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">Odczyt</span>
+                              <input
+                                type="checkbox"
+                                className="w-5 h-5 accent-pink-600 cursor-pointer"
+                                checked={hasUserModuleAccess(selectedUserId, moduleKey, 'can_read')}
+                                onChange={() => toggleUserModuleAccess(selectedUserId, moduleKey, 'can_read')}
+                              />
+                            </label>
+                            <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">Zapis</span>
+                              <input
+                                type="checkbox"
+                                className="w-5 h-5 accent-red-500 cursor-pointer"
+                                checked={hasUserModuleAccess(selectedUserId, moduleKey, 'can_write')}
+                                onChange={() => toggleUserModuleAccess(selectedUserId, moduleKey, 'can_write')}
+                              />
+                            </label>
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     {/* ROZWINIĘTE ZAKŁADKI */}
-                    {isExpanded && tabPermissions && (
+                    {isExpanded && (
                       <div className="p-6 bg-white dark:bg-gray-700">
-                        <h4 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-4 uppercase tracking-wide">Widoczność zakładek</h4>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b border-gray-200 dark:border-gray-600">
-                                <th className="text-left py-3 px-4 font-bold text-gray-600 dark:text-gray-300">Zakładka</th>
-                                <th className="text-center py-3 px-4 font-bold text-gray-600 dark:text-gray-300">Wszyscy</th>
-                                {definedRoles.map(role => (
-                                  <th key={role.key} className="text-center py-3 px-4 font-bold text-gray-600 dark:text-gray-300">
-                                    {role.label}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-600">
-                              {Object.entries(moduleData.tabs).map(([tabKey, tabLabel]) => {
-                                const allAccess = tabPermissions[moduleKey]?.[tabKey] === null;
+                        <h4 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-4 uppercase tracking-wide">
+                          {selectedUserId ? 'Dostęp do zakładek' : 'Widoczność zakładek'}
+                        </h4>
 
-                                return (
-                                  <tr key={tabKey} className="hover:bg-gray-50 dark:hover:bg-gray-600/50">
-                                    <td className="py-3 px-4 font-medium text-gray-800 dark:text-gray-200">
-                                      {tabLabel}
-                                      <div className="text-xs text-gray-400 font-mono">{tabKey}</div>
-                                    </td>
-                                    <td className="py-3 px-4 text-center">
-                                      <button
-                                        onClick={() => setAllTabAccess(moduleKey, tabKey)}
-                                        className={`w-6 h-6 rounded flex items-center justify-center transition mx-auto ${
-                                          allAccess
-                                            ? 'bg-green-500 text-white'
-                                            : 'bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-500'
-                                        }`}
-                                      >
-                                        {allAccess && <Check size={14} />}
-                                      </button>
-                                    </td>
-                                    {definedRoles.map(role => {
-                                      const hasRoleAccess = hasTabRoleAccess(moduleKey, tabKey, role.key);
+                        {!selectedUserId ? (
+                          // WIDOK DLA RÓL
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-gray-200 dark:border-gray-600">
+                                  <th className="text-left py-3 px-4 font-bold text-gray-600 dark:text-gray-300">Zakładka</th>
+                                  <th className="text-center py-3 px-4 font-bold text-gray-600 dark:text-gray-300">Wszyscy</th>
+                                  {definedRoles.map(role => (
+                                    <th key={role.key} className="text-center py-3 px-4 font-bold text-gray-600 dark:text-gray-300">
+                                      {role.label}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 dark:divide-gray-600">
+                                {Object.entries(moduleData.tabs).map(([tabKey, tabLabel]) => {
+                                  const allAccess = tabPermissions?.[moduleKey]?.[tabKey] === null;
 
-                                      return (
-                                        <td key={role.key} className="py-3 px-4 text-center">
-                                          <button
-                                            onClick={() => toggleTabRoleAccess(moduleKey, tabKey, role.key)}
-                                            disabled={allAccess}
-                                            className={`w-6 h-6 rounded flex items-center justify-center mx-auto transition ${
-                                              allAccess
-                                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-300 cursor-not-allowed'
-                                                : hasRoleAccess
-                                                ? 'bg-pink-500 text-white'
-                                                : 'bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-500'
-                                            }`}
-                                          >
-                                            {hasRoleAccess && !allAccess && <Check size={14} />}
-                                          </button>
-                                        </td>
-                                      );
-                                    })}
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                                  return (
+                                    <tr key={tabKey} className="hover:bg-gray-50 dark:hover:bg-gray-600/50">
+                                      <td className="py-3 px-4 font-medium text-gray-800 dark:text-gray-200">
+                                        {tabLabel}
+                                        <div className="text-xs text-gray-400 font-mono">{tabKey}</div>
+                                      </td>
+                                      <td className="py-3 px-4 text-center">
+                                        <button
+                                          onClick={() => setAllTabAccess(moduleKey, tabKey)}
+                                          className={`w-6 h-6 rounded flex items-center justify-center transition mx-auto ${
+                                            allAccess
+                                              ? 'bg-green-500 text-white'
+                                              : 'bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-500'
+                                          }`}
+                                        >
+                                          {allAccess && <Check size={14} />}
+                                        </button>
+                                      </td>
+                                      {definedRoles.map(role => {
+                                        const hasRoleAccess = hasTabRoleAccess(moduleKey, tabKey, role.key);
+
+                                        return (
+                                          <td key={role.key} className="py-3 px-4 text-center">
+                                            <button
+                                              onClick={() => toggleTabRoleAccess(moduleKey, tabKey, role.key)}
+                                              disabled={allAccess}
+                                              className={`w-6 h-6 rounded flex items-center justify-center mx-auto transition ${
+                                                allAccess
+                                                  ? 'bg-gray-100 dark:bg-gray-700 text-gray-300 cursor-not-allowed'
+                                                  : hasRoleAccess
+                                                  ? 'bg-pink-500 text-white'
+                                                  : 'bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-500'
+                                              }`}
+                                            >
+                                              {hasRoleAccess && !allAccess && <Check size={14} />}
+                                            </button>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          // WIDOK DLA UŻYTKOWNIKÓW
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {Object.entries(moduleData.tabs).map(([tabKey, tabLabel]) => {
+                              const hasAccess = hasUserTabAccess(selectedUserId, moduleKey, tabKey);
+
+                              return (
+                                <label
+                                  key={tabKey}
+                                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                                    hasAccess
+                                      ? 'bg-pink-50 dark:bg-pink-900/20 border-pink-300 dark:border-pink-700'
+                                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:border-pink-200 dark:hover:border-pink-800'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="w-4 h-4 accent-pink-600 cursor-pointer"
+                                    checked={hasAccess}
+                                    onChange={() => toggleUserTabAccess(selectedUserId, moduleKey, tabKey)}
+                                  />
+                                  <span className={`text-sm font-medium ${hasAccess ? 'text-pink-700 dark:text-pink-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                                    {tabLabel}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -557,29 +919,33 @@ export default function GlobalSettings() {
 
             {/* PRZYCISKI AKCJI */}
             <div className="flex justify-end gap-3 mt-6">
+              {!selectedUserId && (
+                <button
+                  onClick={() => {
+                    loadTabPermissions();
+                    setMessage({ type: 'success', text: 'Przywrócono domyślne uprawnienia zakładek' });
+                  }}
+                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  Przywróć domyślne zakładki
+                </button>
+              )}
               <button
-                onClick={() => {
-                  loadTabPermissions();
-                  setMessage({ type: 'success', text: 'Przywrócono domyślne uprawnienia zakładek' });
-                }}
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-              >
-                Przywróć domyślne zakładki
-              </button>
-              <button
-                onClick={saveTabPermissions}
+                onClick={selectedUserId ? saveUserPermissions : saveTabPermissions}
                 className="px-6 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition font-bold"
               >
                 Zapisz wszystkie uprawnienia
               </button>
             </div>
 
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-              <p className="text-sm text-blue-800 dark:text-blue-300">
-                <strong>Instrukcja:</strong> Rozwiń moduł aby zarządzać widocznością zakładek. Zaznacz "Wszyscy", aby dać dostęp wszystkim użytkownikom do danej zakładki.
-                W przeciwnym razie zaznacz konkretne role, które mają mieć dostęp.
-              </p>
-            </div>
+            {!selectedUserId && (
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  <strong>Instrukcja:</strong> Rozwiń moduł aby zarządzać widocznością zakładek. Zaznacz "Wszyscy", aby dać dostęp wszystkim użytkownikom do danej zakładki.
+                  W przeciwnym razie zaznacz konkretne role, które mają mieć dostęp.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -610,13 +976,22 @@ export default function GlobalSettings() {
               </div>
               <div>
                 <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Email (Login)</label>
-                <input className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="jan@example.com" value={userForm.email || ''} onChange={e => setUserForm({...userForm, email: e.target.value})} />
+                <input type="email" className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="jan@example.com" value={userForm.email || ''} onChange={e => setUserForm({...userForm, email: e.target.value})} />
               </div>
+              {!userForm.id && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                  <p className="text-sm text-blue-800 dark:text-blue-300">
+                    Użytkownik otrzyma email z linkiem do ustawienia własnego hasła.
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1 mb-1 block">Rola w systemie</label>
-                <CustomSelect options={definedRoles.map(r => ({value: r.key, label: r.label}))} value={userForm.role} onChange={v => setUserForm({...userForm, role: v})} placeholder="Wybierz rolę..." />
+                <CustomSelect options={definedRoles.filter(r => r.key !== 'superadmin').map(r => ({value: r.key, label: r.label}))} value={userForm.role} onChange={v => setUserForm({...userForm, role: v})} placeholder="Wybierz rolę..." />
               </div>
-              <button onClick={saveUser} className="w-full py-3 bg-pink-600 text-white rounded-xl font-bold mt-2 hover:bg-pink-700 transition">Zapisz</button>
+              <button onClick={saveUser} disabled={isCreatingAuthUser} className="w-full py-3 bg-pink-600 text-white rounded-xl font-bold mt-2 hover:bg-pink-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                {isCreatingAuthUser ? 'Tworzenie konta...' : 'Zapisz'}
+              </button>
             </div>
           </div>
         </div>

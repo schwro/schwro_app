@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, Download, ExternalLink, Printer, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload } from 'lucide-react';
+import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown } from 'lucide-react';
 import SongForm from './SongForm';
 import FinanceTab from '../shared/FinanceTab';
 import CustomSelect from '../../components/CustomSelect';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const TAGS = [
   "intymna", "modlitewna", "niedzielna", "popularna", "szybko", "uwielbienie", "wolna"
@@ -566,61 +568,139 @@ function SongDetailsModal({ song, onClose, onEdit }) {
 
   const handleAddLink = async () => {
       if(!newLink) return;
-      const currentAttachments = song.attachments || [];
-      const updated = [...currentAttachments, { type: 'link', url: newLink, name: newLink, date: new Date().toISOString() }];
-      await supabase.from('songs').update({ attachments: updated }).eq('id', song.id);
-      song.attachments = updated; 
-      setNewLink('');
+      try {
+        const currentAttachments = song.attachments || [];
+        const updated = [...currentAttachments, { type: 'link', url: newLink, name: newLink, date: new Date().toISOString() }];
+        const { error } = await supabase.from('songs').update({ attachments: updated }).eq('id', song.id);
+        if (error) throw error;
+
+        // Aktualizujemy lokalny obiekt song
+        song.attachments = updated;
+        setNewLink('');
+      } catch (error) {
+        console.error('Błąd dodawania linku:', error);
+        alert('Nie udało się dodać linku: ' + error.message);
+      }
   };
 
-  // FUNKCJA DRUKOWANIA (PDF)
-  const handlePrint = () => {
-      const transposedChords = song.chords_bars 
+  // FUNKCJA GENEROWANIA I POBIERANIA PDF
+  const handleDownloadPDF = async () => {
+      const transposedChords = song.chords_bars
         ? transposeLine(song.chords_bars, transposeSteps)
         : "";
       const currentKey = transposeChord(song.key, transposeSteps);
 
-      const printContent = `
-        <html>
-        <head>
-            <title>${song.title} - PDF</title>
-            <style>
-                body { font-family: sans-serif; padding: 30px; color: #111; }
-                h1 { font-size: 24px; margin-bottom: 5px; }
-                .meta { font-size: 14px; color: #555; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
-                .grid { display: flex; gap: 30px; }
-                .col { flex: 1; }
-                h3 { font-size: 14px; text-transform: uppercase; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
-                pre { font-family: monospace; white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
-                .chords { color: #0044cc; font-weight: bold; }
-            </style>
-        </head>
-        <body>
-            <h1>${song.title}</h1>
-            <div class="meta">
-                Autor: ${song.author || '-'} | 
-                Tonacja: <strong>${currentKey}</strong> | 
-                Tempo: ${song.tempo || '-'} BPM | 
-                Metrum: ${song.meter || '-'}
+      // Tworzymy element HTML z pieśnią
+      const container = document.createElement('div');
+      container.style.width = '794px'; // A4 width at 96 DPI
+      container.style.padding = '25px';
+      container.style.background = 'white';
+      container.style.fontFamily = 'Arial, sans-serif';
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+
+      container.innerHTML = `
+        <div style="padding: 15px 0; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0;">
+          <div style="flex: 1;">
+            <h1 style="font-size: 28px; font-weight: 700; color: #ec4899; margin: 0;">${song.title}</h1>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: stretch;">
+            <div style="background: #fef3f8; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center;">
+              <div style="font-size: 8px; color: #999; font-weight: 600; text-transform: uppercase; margin-bottom: 3px;">Tonacja</div>
+              <div style="font-size: 16px; color: #ec4899; font-weight: 700;">${currentKey || '-'}</div>
             </div>
-            <div class="grid">
-                <div class="col">
-                    <h3>Tekst</h3>
-                    <pre>${song.lyrics || ''}</pre>
-                </div>
-                <div class="col">
-                    <h3>Akordy w taktach</h3>
-                    <pre class="chords">${transposedChords}</pre>
-                </div>
+            <div style="background: #fef3f8; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center;">
+              <div style="font-size: 8px; color: #999; font-weight: 600; text-transform: uppercase; margin-bottom: 3px;">Tempo</div>
+              <div style="font-size: 13px; color: #ec4899; font-weight: 700;">${song.tempo ? song.tempo + ' BPM' : '-'}</div>
             </div>
-            <script>window.print();</script>
-        </body>
-        </html>
+            <div style="background: #fef3f8; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center;">
+              <div style="font-size: 8px; color: #999; font-weight: 600; text-transform: uppercase; margin-bottom: 3px;">Metrum</div>
+              <div style="font-size: 16px; color: #ec4899; font-weight: 700;">${song.meter || '-'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+          <div style="background: #fafafa; border-radius: 6px; padding: 15px; border: 1px solid #e5e5e5;">
+            <div style="font-size: 9px; text-transform: uppercase; color: #999; font-weight: 700; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5;">Tekst</div>
+            <pre style="font-family: Arial, sans-serif; white-space: pre-wrap; font-size: 10px; line-height: 1.6; color: #333; margin: 0;">${song.lyrics || 'Brak tekstu'}</pre>
+          </div>
+
+          <div style="background: #fafafa; border-radius: 6px; padding: 15px; border: 1px solid #e5e5e5;">
+            <div style="font-size: 9px; text-transform: uppercase; color: #999; font-weight: 700; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5;">
+              Akordy w taktach
+              ${transposeSteps !== 0 ? `<span style="background: #ec4899; color: white; padding: 2px 5px; border-radius: 3px; font-size: 7px; margin-left: 6px; text-transform: none;">transp. ${transposeSteps > 0 ? '+' + transposeSteps : transposeSteps}</span>` : ''}
+            </div>
+            <pre style="font-family: 'Courier New', monospace; white-space: pre-wrap; font-size: 10px; line-height: 1.6; color: #ec4899; font-weight: 600; margin: 0;">${transposedChords || 'Brak akordów'}</pre>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: center; color: #999; font-size: 9px;">
+          Wygenerowano ${new Date().toLocaleDateString('pl-PL')} o ${new Date().toLocaleTimeString('pl-PL')} | App SchWro Południe
+        </div>
       `;
 
-      const printWindow = window.open('', '', 'width=900,height=700');
-      printWindow.document.write(printContent);
-      printWindow.document.close();
+      document.body.appendChild(container);
+
+      try {
+        const canvas = await html2canvas(container, {
+          scale: 2.5,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        });
+
+        document.body.removeChild(container);
+
+        const imgData = canvas.toDataURL('image/png');
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'px',
+          format: 'a4',
+          compress: true
+        });
+
+        const imgWidth = doc.internal.pageSize.getWidth();
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+
+        // Funkcja do transliteracji polskich znaków na ASCII
+        const sanitizeFileName = (text) => {
+          return text
+            .replace(/ą/g, 'a')
+            .replace(/Ą/g, 'A')
+            .replace(/ć/g, 'c')
+            .replace(/Ć/g, 'C')
+            .replace(/ę/g, 'e')
+            .replace(/Ę/g, 'E')
+            .replace(/ł/g, 'l')
+            .replace(/Ł/g, 'L')
+            .replace(/ń/g, 'n')
+            .replace(/Ń/g, 'N')
+            .replace(/ó/g, 'o')
+            .replace(/Ó/g, 'O')
+            .replace(/ś/g, 's')
+            .replace(/Ś/g, 'S')
+            .replace(/ź/g, 'z')
+            .replace(/Ź/g, 'Z')
+            .replace(/ż/g, 'z')
+            .replace(/Ż/g, 'Z')
+            .replace(/[^a-zA-Z0-9\s-]/g, '')  // Usuń inne znaki specjalne
+            .replace(/\s+/g, '_')  // Zamień spacje na podkreślenia
+            .replace(/_+/g, '_')  // Usuń wielokrotne podkreślenia
+            .trim();
+        };
+
+        const fileName = `${sanitizeFileName(song.title)}.pdf`;
+        doc.save(fileName);
+      } catch (error) {
+        console.error('Błąd generowania PDF:', error);
+        alert('Nie udało się wygenerować PDF');
+        if (document.body.contains(container)) {
+          document.body.removeChild(container);
+        }
+      }
   };
 
   // Obliczamy transponowane wartości do wyświetlenia
@@ -650,8 +730,8 @@ function SongDetailsModal({ song, onClose, onEdit }) {
             </p>
           </div>
           <div className="flex gap-2">
-             <button onClick={handlePrint} className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center gap-2">
-                <Printer size={16}/> PDF
+             <button onClick={handleDownloadPDF} className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center gap-2">
+                <FileDown size={16}/> PDF
             </button>
             <button onClick={onEdit} className="px-4 py-2 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 rounded-xl font-bold text-sm hover:bg-pink-100 dark:hover:bg-pink-900/50 transition">
                 Edytuj

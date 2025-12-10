@@ -2,38 +2,48 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useUserRole } from '../hooks/useUserRole';
 
 export default function Sidebar() {
   const location = useLocation();
   const active = location.pathname;
+  const { userRole } = useUserRole();
   const [logoUrl, setLogoUrl] = useState(null);
-  const [visibleModules, setVisibleModules] = useState({ 
-    members: true, 
-    worship: true, 
-    media: true, 
+  const [moduleSettings, setModuleSettings] = useState({
+    members: true,
+    worship: true,
+    media: true,
     atmosfera: true,
-    kids: true, 
-    groups: true 
+    kids: true,
+    groups: true
   });
+  const [permissions, setPermissions] = useState([]);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data } = await supabase.from('app_settings').select('key, value');
-        if (data) {
-          const logo = data.find(s => s.key === 'org_logo_url')?.value;
+        // Pobierz ustawienia modułów
+        const { data: settings } = await supabase.from('app_settings').select('key, value');
+        if (settings) {
+          const logo = settings.find(s => s.key === 'org_logo_url')?.value;
           if (logo) setLogoUrl(logo);
 
-          const newVisibility = { ...visibleModules };
-          data.forEach(s => {
-            if (s.key === 'module_members_enabled') newVisibility.members = s.value === 'true';
-            if (s.key === 'module_worship_enabled') newVisibility.worship = s.value === 'true';
-            if (s.key === 'module_media_enabled') newVisibility.media = s.value === 'true';
-            if (s.key === 'module_atmosfera_enabled') newVisibility.atmosfera = s.value === 'true';
-            if (s.key === 'module_kids_enabled') newVisibility.kids = s.value === 'true';
-            if (s.key === 'module_groups_enabled') newVisibility.groups = s.value === 'true';
+          const newSettings = { ...moduleSettings };
+          settings.forEach(s => {
+            if (s.key === 'module_members_enabled') newSettings.members = s.value === 'true';
+            if (s.key === 'module_worship_enabled') newSettings.worship = s.value === 'true';
+            if (s.key === 'module_media_enabled') newSettings.media = s.value === 'true';
+            if (s.key === 'module_atmosfera_enabled') newSettings.atmosfera = s.value === 'true';
+            if (s.key === 'module_kids_enabled') newSettings.kids = s.value === 'true';
+            if (s.key === 'module_groups_enabled') newSettings.groups = s.value === 'true';
           });
-          setVisibleModules(newVisibility);
+          setModuleSettings(newSettings);
+        }
+
+        // Pobierz uprawnienia z bazy danych
+        const { data: perms } = await supabase.from('app_permissions').select('*');
+        if (perms) {
+          setPermissions(perms);
         }
       } catch (err) { console.error(err); }
     };
@@ -41,16 +51,50 @@ export default function Sidebar() {
     fetchSettings();
   }, []);
 
+  // Sprawdź czy użytkownik ma dostęp do modułu (can_read)
+  const hasModuleAccess = (moduleResource) => {
+    // Superadmin ma dostęp do wszystkiego
+    if (userRole === 'superadmin') return true;
+
+    // Rada starszych zawsze ma dostęp do ustawień
+    if (userRole === 'rada_starszych' && moduleResource === 'module:settings') return true;
+
+    // Znajdź uprawnienie dla roli i zasobu
+    const perm = permissions.find(p => p.role === userRole && p.resource === moduleResource);
+
+    // Brak wpisu lub can_read !== true = brak dostępu
+    if (!perm) return false;
+
+    return perm.can_read === true;
+  };
+
+  // Mapowanie ścieżek na zasoby uprawnień
+  const moduleResourceMap = {
+    members: 'module:members',
+    worship: 'module:worship',
+    media: 'module:media',
+    atmosfera: 'module:atmosfera',
+    kids: 'module:kids',
+    groups: 'module:homegroups',
+    finance: 'module:finance',
+    settings: 'module:settings'
+  };
+
+  // Moduł jest widoczny jeśli: jest włączony globalnie ORAZ użytkownik ma uprawnienia
+  const isModuleVisible = (moduleKey) => {
+    return moduleSettings[moduleKey] && hasModuleAccess(moduleResourceMap[moduleKey]);
+  };
+
   const allLinks = [
     { path: '/', icon: Home, label: 'Programy', show: true },
     { path: '/calendar', icon: Calendar, label: 'Kalendarz', show: true },
-    { path: '/members', icon: Users, label: 'Członkowie', show: visibleModules.members },
-    { path: '/worship', icon: Music, label: 'Grupa Uwielbienia', show: visibleModules.worship },
-    { path: '/media', icon: Video, label: 'MediaTeam', show: visibleModules.media },
-    { path: '/atmosfera', icon: HeartHandshake, label: 'Atmosfera Team', show: visibleModules.atmosfera },
-    { path: '/kids', icon: Baby, label: 'Małe SchWro', show: visibleModules.kids },
-    { path: '/home-groups', icon: UserCircle, label: 'Grupy domowe', show: visibleModules.groups },
-    { path: '/finance', icon: DollarSign, label: 'Finanse', show: true },
+    { path: '/members', icon: Users, label: 'Członkowie', show: isModuleVisible('members') },
+    { path: '/worship', icon: Music, label: 'Grupa Uwielbienia', show: isModuleVisible('worship') },
+    { path: '/media', icon: Video, label: 'MediaTeam', show: isModuleVisible('media') },
+    { path: '/atmosfera', icon: HeartHandshake, label: 'Atmosfera Team', show: isModuleVisible('atmosfera') },
+    { path: '/kids', icon: Baby, label: 'Małe SchWro', show: isModuleVisible('kids') },
+    { path: '/home-groups', icon: UserCircle, label: 'Grupy domowe', show: isModuleVisible('groups') },
+    { path: '/finance', icon: DollarSign, label: 'Finanse', show: hasModuleAccess('module:finance') },
   ];
 
   return (
@@ -86,12 +130,14 @@ export default function Sidebar() {
       </nav>
 
       {/* USTAWIENIA */}
-      <div className="p-4 border-t border-gray-200/50 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
-        <Link to="/settings" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all w-full ${active === '/settings' ? 'bg-gray-800 dark:bg-gray-900 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'}`}>
-          <Settings size={20} />
-          <span className="text-sm font-medium">Ustawienia</span>
-        </Link>
-      </div>
+      {hasModuleAccess('module:settings') && (
+        <div className="p-4 border-t border-gray-200/50 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
+          <Link to="/settings" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all w-full ${active === '/settings' ? 'bg-gray-800 dark:bg-gray-900 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'}`}>
+            <Settings size={20} />
+            <span className="text-sm font-medium">Ustawienia</span>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

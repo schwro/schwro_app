@@ -1,5 +1,11 @@
 # Supabase Edge Functions
 
+## Dostępne funkcje
+
+1. **send-program-email** - Wysyłanie programów nabożeństwa przez email
+
+---
+
 ## Wysyłanie programów przez email
 
 ### Konfiguracja

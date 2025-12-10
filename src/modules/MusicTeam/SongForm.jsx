@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, PlusCircle } from 'lucide-react';
+import { X, PlusCircle, Music, Hash, AlignLeft, Check } from 'lucide-react';
 import CustomSelect from '../../components/CustomSelect';
 
 // --- STAŁE DANYCH ---
@@ -23,7 +23,9 @@ const MUSIC_SECTIONS = [
 
 const TagMultiSelect = ({ label, options, value = [], onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [customTag, setCustomTag] = useState('');
   const wrapperRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -34,24 +36,39 @@ const TagMultiSelect = ({ label, options, value = [], onChange }) => {
   }, []);
 
   const toggleTag = (tag) => {
-    const newValue = value.includes(tag) 
-      ? value.filter(t => t !== tag) 
+    const newValue = value.includes(tag)
+      ? value.filter(t => t !== tag)
       : [...value, tag];
     onChange(newValue);
+  };
+
+  const addCustomTag = () => {
+    const trimmedTag = customTag.trim().toLowerCase();
+    if (trimmedTag && !value.includes(trimmedTag)) {
+      onChange([...value, trimmedTag]);
+      setCustomTag('');
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCustomTag();
+    }
   };
 
   return (
     <div ref={wrapperRef} className="relative w-full">
       {label && <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{label}</label>}
-      <div 
-        onClick={() => setIsOpen(!isOpen)} 
+      <div
+        onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer min-h-[50px] flex flex-wrap gap-2 hover:border-pink-400 dark:hover:border-pink-500 transition"
       >
         {value.length === 0 && <span className="text-gray-400 dark:text-gray-500 pt-0.5">Wybierz tagi...</span>}
         {value.map(tag => (
           <span key={tag} className="bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border border-orange-100 dark:border-orange-800">
             {tag}
-            <div 
+            <div
               onMouseDown={(e) => { e.stopPropagation(); toggleTag(tag); }}
               className="cursor-pointer hover:text-orange-900 dark:hover:text-white"
             >
@@ -63,12 +80,32 @@ const TagMultiSelect = ({ label, options, value = [], onChange }) => {
 
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+          <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={customTag}
+                onChange={(e) => setCustomTag(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="Dodaj własny tag..."
+                className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-pink-500"
+              />
+              <button
+                onClick={(e) => { e.stopPropagation(); addCustomTag(); }}
+                className="px-3 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition text-sm font-bold"
+              >
+                <PlusCircle size={16} />
+              </button>
+            </div>
+          </div>
           {options.map((tag) => {
             const isSelected = value.includes(tag);
             return (
-              <div 
-                key={tag} 
-                onClick={() => toggleTag(tag)} 
+              <div
+                key={tag}
+                onClick={() => toggleTag(tag)}
                 className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition
                   ${isSelected ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}
                 `}
@@ -149,7 +186,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
-      <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-gray-900 w-full max-w-5xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 flex flex-col max-h-[92vh] my-4">
         
         {/* HEADER */}
         <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
@@ -184,7 +221,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
           </div>
 
           {activeTab === 'basic' && (
-            <div className="space-y-6">
+            <div className="space-y-6 min-h-[500px]">
               {/* Rząd 1: Tytuł i Autor */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -257,7 +294,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
 
           {activeTab === 'lyrics' && (
             <div className="space-y-6 h-full">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full min-h-[450px]">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full min-h-[500px]">
                  {/* KOLUMNA 1: CZYSTY TEKST */}
                  <div className="flex flex-col h-full">
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tekst Pieśni (Lyrics)</label>

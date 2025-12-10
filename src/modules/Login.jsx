@@ -7,6 +7,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [logoUrl, setLogoUrl] = useState(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Pobierz logo organizacji przy starcie
   useEffect(() => {
@@ -39,6 +41,28 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async e => {
+    e.preventDefault();
+    if (!email) {
+      setError('Wprowadź adres e-mail');
+      return;
+    }
+    setLoading(true);
+    setError('');
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+
+    setLoading(false);
+
+    if (resetError) {
+      setError(resetError.message || 'Błąd wysyłania emaila');
+    } else {
+      setResetEmailSent(true);
+    }
+  };
+
   return (
     <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
       {/* Tło ozdobne */}
@@ -66,10 +90,12 @@ export default function Login() {
         </div>
 
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2 text-center">
-          Witaj ponownie
+          {showForgotPassword ? 'Resetuj hasło' : 'Witaj ponownie'}
         </h1>
         <p className="text-gray-500 dark:text-gray-400 text-center text-sm mb-8">
-          Zaloguj się do Church Manager
+          {showForgotPassword
+            ? 'Podaj adres e-mail, a wyślemy Ci link do zresetowania hasła'
+            : 'Zaloguj się do Church Manager'}
         </p>
 
         <div className="mb-5">
@@ -85,17 +111,19 @@ export default function Login() {
           />
         </div>
 
-        <div className="mb-6">
-          <label className="block mb-1.5 text-sm font-bold text-gray-700 dark:text-gray-300 uppercase">Hasło</label>
-          <input
-            type="password"
-            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            placeholder="••••••••"
-          />
-        </div>
+        {!showForgotPassword && (
+          <div className="mb-6">
+            <label className="block mb-1.5 text-sm font-bold text-gray-700 dark:text-gray-300 uppercase">Hasło</label>
+            <input
+              type="password"
+              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+            />
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm text-center">
@@ -103,18 +131,61 @@ export default function Login() {
           </div>
         )}
 
-        <button
-          type="submit"
-          className="w-full bg-gradient-to-r from-pink-600 to-orange-600 hover:from-pink-700 hover:to-orange-700 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-pink-500/25 transition transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
-          disabled={loading}
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Logowanie...
-            </span>
-          ) : 'Zaloguj się'}
-        </button>
+        {!showForgotPassword ? (
+          <>
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-pink-600 to-orange-600 hover:from-pink-700 hover:to-orange-700 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-pink-500/25 transition transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Logowanie...
+                </span>
+              ) : 'Zaloguj się'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setShowForgotPassword(true); setError(''); setResetEmailSent(false); }}
+              className="w-full mt-4 text-sm text-gray-500 dark:text-gray-400 hover:text-pink-600 dark:hover:text-pink-400 transition"
+            >
+              Nie pamiętam hasła
+            </button>
+          </>
+        ) : (
+          <>
+            {resetEmailSent ? (
+              <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-center">
+                <p className="font-bold mb-1">Email został wysłany!</p>
+                <p className="text-sm">Sprawdź swoją skrzynkę i kliknij link, aby zresetować hasło.</p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="w-full bg-gradient-to-r from-pink-600 to-orange-600 hover:from-pink-700 hover:to-orange-700 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-pink-500/25 transition transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Wysyłanie...
+                  </span>
+                ) : 'Wyślij link do resetu hasła'}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => { setShowForgotPassword(false); setError(''); setResetEmailSent(false); }}
+              className="w-full mt-4 text-sm text-gray-500 dark:text-gray-400 hover:text-pink-600 dark:hover:text-pink-400 transition"
+            >
+              ← Powrót do logowania
+            </button>
+          </>
+        )}
       </form>
     </div>
   );

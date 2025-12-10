@@ -1,12 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Sun, Moon, LogOut, User as UserIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Navbar({ user, darkMode, toggleTheme }) {
+  const [userProfile, setUserProfile] = useState(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.email) return;
+
+      try {
+        const { data: profile } = await supabase
+          .from('app_users')
+          .select('full_name, avatar_url')
+          .eq('email', user.email)
+          .single();
+
+        if (profile) {
+          setUserProfile(profile);
+        }
+      } catch (err) {
+        console.error('Error fetching user profile:', err);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user?.email]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = '/';
   };
+
+  const displayName = userProfile?.full_name || user?.email;
 
   return (
     // Dodano z-[1000] i relative, aby navbar był zawsze nad treścią strony
@@ -41,19 +67,27 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
         <div className="flex items-center gap-3">
           <div className="text-right hidden md:block">
             <p className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">
-              {user?.email}
+              {displayName}
             </p>
             <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-1">Online</p>
           </div>
-          
+
           {/* Kontener grupy musi być relative */}
           <div className="relative group">
             <button className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-600 p-[2px] cursor-pointer shadow-md hover:shadow-lg transition-all block">
-              <div className="w-full h-full rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
-                <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-orange-600 uppercase">
-                  {user?.email?.charAt(0) || 'U'}
-                </span>
-              </div>
+              {userProfile?.avatar_url ? (
+                <img
+                  src={userProfile.avatar_url}
+                  alt="Avatar"
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
+                  <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-orange-600 uppercase">
+                    {displayName?.charAt(0) || 'U'}
+                  </span>
+                </div>
+              )}
             </button>
 
             {/* 

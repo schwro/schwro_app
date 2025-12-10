@@ -4,7 +4,9 @@ import { supabase } from './lib/supabase';
 
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './modules/Login';
+import ResetPassword from './modules/ResetPassword';
 import Dashboard from './modules/Programs/Dashboard';
 import Members from './modules/Members';
 import WorshipModule from './modules/MusicTeam/WorshipModule';
@@ -72,7 +74,23 @@ export default function App() {
     );
   }
 
-  if (!session) return <Login />;
+  // Sprawdź czy to jest strona resetowania hasła (dostępna bez logowania przy odpowiednim tokenie)
+  const isResetPasswordPage = window.location.pathname === '/reset-password' ||
+                               window.location.hash.includes('type=recovery');
+
+  if (!session && !isResetPasswordPage) return <Login />;
+
+  // Jeśli użytkownik jest na stronie reset-password (z tokenem w URL)
+  if (isResetPasswordPage) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="*" element={<ResetPassword />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
 
   return (
     <BrowserRouter>
@@ -83,16 +101,32 @@ export default function App() {
           <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/members" element={<Members />} />
-              <Route path="/worship" element={<WorshipModule />} />
-              <Route path="/media" element={<MediaTeamModule />} />
-              <Route path="/atmosfera" element={<AtmosferaTeamModule />} /> {/* NOWY ROUTE */}
-              <Route path="/kids" element={<KidsModule />} />
-              <Route path="/home-groups" element={<HomeGroupsModule />} />
-              <Route path="/finance" element={<FinanceModule />} />
-              <Route path="/settings" element={<GlobalSettings />} />
+              <Route path="/calendar" element={<CalendarModule />} />
+              <Route path="/members" element={
+                <ProtectedRoute resource="module:members"><Members /></ProtectedRoute>
+              } />
+              <Route path="/worship" element={
+                <ProtectedRoute resource="module:worship"><WorshipModule /></ProtectedRoute>
+              } />
+              <Route path="/media" element={
+                <ProtectedRoute resource="module:media"><MediaTeamModule /></ProtectedRoute>
+              } />
+              <Route path="/atmosfera" element={
+                <ProtectedRoute resource="module:atmosfera"><AtmosferaTeamModule /></ProtectedRoute>
+              } />
+              <Route path="/kids" element={
+                <ProtectedRoute resource="module:kids"><KidsModule /></ProtectedRoute>
+              } />
+              <Route path="/home-groups" element={
+                <ProtectedRoute resource="module:homegroups"><HomeGroupsModule /></ProtectedRoute>
+              } />
+              <Route path="/finance" element={
+                <ProtectedRoute resource="module:finance"><FinanceModule /></ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute resource="module:settings"><GlobalSettings /></ProtectedRoute>
+              } />
               <Route path="/profile" element={<UserSettings />} />
-              <Route path="/calendar" element={<CalendarModule />} /> {/* <-- NOWE */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

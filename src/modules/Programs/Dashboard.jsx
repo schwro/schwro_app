@@ -862,7 +862,7 @@ export default function Dashboard() {
                       Pozdrawiam ciepło,
                     </p>
                     <p style="margin: 0; color: #db2777; font-size: 16px; font-weight: 700;">
-                      Zespół Uwielbienia
+                      Liderzy SchWro
                     </p>
                   </td>
                 </tr>
@@ -871,7 +871,7 @@ export default function Dashboard() {
                 <tr>
                   <td style="background: #f9fafb; padding: 24px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
                     <p style="margin: 0 0 4px 0; color: #9ca3af; font-size: 12px;">
-                      Wygenerowano w <strong style="background: linear-gradient(135deg, #db2777, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Church Manager</strong>
+                      Wygenerowano w <strong style="background: linear-gradient(135deg, #db2777, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">App SchWro</strong>
                     </p>
                     <p style="margin: 0; color: #d1d5db; font-size: 11px;">
                       IT Excellence • SchWro Południe
