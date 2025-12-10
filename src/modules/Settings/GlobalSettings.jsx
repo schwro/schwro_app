@@ -232,21 +232,42 @@ export default function GlobalSettings() {
     if (!tabPermissions) return;
 
     setTabPermissions(prev => {
-      const newPerms = { ...prev };
-      const currentTabPerms = newPerms[module][tab];
+      const currentTabPerms = prev[module]?.[tab];
 
       if (currentTabPerms === null) {
-        newPerms[module][tab] = [roleKey];
+        // Jeśli wszyscy mają dostęp, zmień na tylko tę jedną rolę
+        return {
+          ...prev,
+          [module]: {
+            ...prev[module],
+            [tab]: [roleKey]
+          }
+        };
       } else if (Array.isArray(currentTabPerms)) {
         if (currentTabPerms.includes(roleKey)) {
+          // Odklikuj rolę
           const newRoles = currentTabPerms.filter(r => r !== roleKey);
-          newPerms[module][tab] = newRoles.length === 0 ? null : newRoles;
+          // Nie zmieniaj pustej tablicy na null - zostaw jako pusta tablica (nikt nie ma dostępu)
+          return {
+            ...prev,
+            [module]: {
+              ...prev[module],
+              [tab]: newRoles
+            }
+          };
         } else {
-          newPerms[module][tab] = [...currentTabPerms, roleKey];
+          // Dodaj rolę
+          return {
+            ...prev,
+            [module]: {
+              ...prev[module],
+              [tab]: [...currentTabPerms, roleKey]
+            }
+          };
         }
       }
 
-      return newPerms;
+      return prev;
     });
   };
 
@@ -256,13 +277,13 @@ export default function GlobalSettings() {
     setTabPermissions(prev => {
       const currentTabPerms = prev[module]?.[tab];
 
-      // Jeśli już jest null (wszyscy mają dostęp), zmień na wszystkie role
+      // Jeśli już jest null (wszyscy mają dostęp), zmień na pustą tablicę (nikt nie ma dostępu)
       if (currentTabPerms === null) {
         return {
           ...prev,
           [module]: {
             ...prev[module],
-            [tab]: definedRoles.map(r => r.key)
+            [tab]: []
           }
         };
       }
@@ -281,8 +302,9 @@ export default function GlobalSettings() {
   const hasTabRoleAccess = (module, tab, roleKey) => {
     if (!tabPermissions) return false;
     const tabPerms = tabPermissions[module]?.[tab];
-    if (tabPerms === null) return true;
-    return Array.isArray(tabPerms) && tabPerms.includes(roleKey);
+    if (tabPerms === null) return true; // null = wszyscy mają dostęp
+    if (!Array.isArray(tabPerms)) return false;
+    return tabPerms.includes(roleKey); // pusta tablica = nikt nie ma dostępu
   };
 
   const saveTabPermissions = () => {

@@ -5,7 +5,7 @@ import {
   Plus, Search, Trash2, X, FileText, Music, Calendar, Download,
   AlertCircle, Paperclip, GripVertical, User,
   LayoutGrid, List, CheckSquare, Filter, MessageSquare, Send,
-  Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, DollarSign
+  Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, DollarSign, Tag, Upload
 } from 'lucide-react';
 import FinanceTab from './shared/FinanceTab';
 import CustomSelect from '../components/CustomSelect';
@@ -532,6 +532,8 @@ export default function MediaTeamModule() {
   const [budgetItems, setBudgetItems] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [newTag, setNewTag] = useState('');
   const [expenseForm, setExpenseForm] = useState({
     payment_date: '',
     amount: '',
@@ -591,6 +593,64 @@ export default function MediaTeamModule() {
     } catch (error) {
       console.error('Error fetching finance data:', error);
     }
+  };
+
+  const handleExpenseFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setUploadingFile(true);
+    try {
+      const uploadedDocs = [];
+
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `expense_documents/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('finance')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('finance').getPublicUrl(filePath);
+
+        uploadedDocs.push({
+          name: file.name,
+          url: data.publicUrl,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+
+      setExpenseForm({
+        ...expenseForm,
+        documents: [...expenseForm.documents, ...uploadedDocs]
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Błąd przesyłania pliku: ' + error.message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const removeExpenseDocument = (index) => {
+    setExpenseForm({
+      ...expenseForm,
+      documents: expenseForm.documents.filter((_, i) => i !== index)
+    });
+  };
+
+  const addExpenseTag = () => {
+    if (newTag.trim() && !expenseForm.tags.includes(newTag.trim())) {
+      setExpenseForm({ ...expenseForm, tags: [...expenseForm.tags, newTag.trim()] });
+      setNewTag('');
+    }
+  };
+
+  const removeExpenseTag = (tag) => {
+    setExpenseForm({ ...expenseForm, tags: expenseForm.tags.filter(t => t !== tag) });
   };
 
   const saveExpense = async () => {
@@ -1216,39 +1276,60 @@ export default function MediaTeamModule() {
 
       {/* MODAL: Add Expense */}
       {showExpenseModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-2xl p-6 border border-white/20 dark:border-gray-700">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl p-6 border border-white/20 dark:border-gray-700 my-8">
             <div className="flex justify-between mb-6">
-              <h3 className="font-bold text-xl text-gray-800 dark:text-white">
-                Dodaj wydatek - {expenseForm.ministry}
-              </h3>
+              <h3 className="font-bold text-xl text-gray-800 dark:text-white">Nowy wydatek - {expenseForm.ministry}</h3>
               <button onClick={() => setShowExpenseModal(false)} className="text-gray-500 dark:text-gray-400">
                 <X size={24} />
               </button>
             </div>
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Data</label>
-                <input
-                  type="date"
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              {/* Wiersz 1: Data i Kwota */}
+              <div className="grid grid-cols-2 gap-4">
+                <CustomDatePicker
+                  label="Data dokumentu"
                   value={expenseForm.payment_date}
-                  onChange={(e) => setExpenseForm({...expenseForm, payment_date: e.target.value})}
+                  onChange={(val) => setExpenseForm({...expenseForm, payment_date: val})}
                 />
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kwota (PLN)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kwota (PLN)</label>
-                <input
-                  type="number"
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  value={expenseForm.amount}
-                  onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
-                  placeholder="0.00"
-                />
+
+              {/* Wiersz 2: Kontrahent i Osoba odpowiedzialna */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kontrahent</label>
+                  <input
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.contractor}
+                    onChange={(e) => setExpenseForm({...expenseForm, contractor: e.target.value})}
+                    placeholder="Nazwa firmy/osoby"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Osoba odpowiedzialna</label>
+                  <input
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={expenseForm.responsible_person}
+                    onChange={(e) => setExpenseForm({...expenseForm, responsible_person: e.target.value})}
+                    placeholder="Imię i nazwisko"
+                  />
+                </div>
               </div>
+
+              {/* Wiersz 3: Pozycja budżetowa (pełna szerokość) */}
               <div>
                 <CustomSelect
-                  label="Pozycja budżetowa"
+                  label="Pozycja budżetowa (opis kosztu)"
                   value={expenseForm.description}
                   onChange={(value) => setExpenseForm({...expenseForm, description: value})}
                   options={[
@@ -1261,15 +1342,8 @@ export default function MediaTeamModule() {
                   placeholder="Wybierz pozycję"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Kontrahent</label>
-                <input
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  value={expenseForm.contractor}
-                  onChange={(e) => setExpenseForm({...expenseForm, contractor: e.target.value})}
-                  placeholder="Nazwa firmy/osoby"
-                />
-              </div>
+
+              {/* Wiersz 4: Szczegółowy opis (pełna szerokość) */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Szczegółowy opis</label>
                 <textarea
@@ -1277,32 +1351,92 @@ export default function MediaTeamModule() {
                   rows={2}
                   value={expenseForm.detailed_description}
                   onChange={(e) => setExpenseForm({...expenseForm, detailed_description: e.target.value})}
-                  placeholder="Dodatkowe informacje..."
+                  placeholder="Dodatkowe informacje o wydatku..."
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Osoba odpowiedzialna</label>
-                <input
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  value={expenseForm.responsible_person}
-                  onChange={(e) => setExpenseForm({...expenseForm, responsible_person: e.target.value})}
-                  placeholder="Imię i nazwisko"
-                />
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Załączniki (opcjonalnie)</label>
+                <div className="space-y-2">
+                  <label className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white cursor-pointer hover:border-pink-300 dark:hover:border-pink-600 transition flex items-center gap-2">
+                    <Upload size={18} className="text-gray-400" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {uploadingFile ? 'Przesyłanie...' : 'Dodaj plik(i)'}
+                    </span>
+                    <input
+                      type="file"
+                      onChange={handleExpenseFileUpload}
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                      disabled={uploadingFile}
+                      multiple
+                    />
+                  </label>
+                  {expenseForm.documents && expenseForm.documents.length > 0 && (
+                    <div className="space-y-2">
+                      {expenseForm.documents.map((doc, idx) => (
+                        <div key={idx} className="flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                          <span className="text-xs text-green-700 dark:text-green-300 flex items-center gap-1 truncate">
+                            <FileText size={14} />
+                            {doc.name}
+                          </span>
+                          <button
+                            onClick={() => removeExpenseDocument(idx)}
+                            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 ml-2 flex-shrink-0"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => setShowExpenseModal(false)}
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-              >
-                Anuluj
-              </button>
-              <button
-                onClick={saveExpense}
-                className="px-6 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition"
-              >
-                Zapisz wydatek
-              </button>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Tagi</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Dodaj tag"
+                    onKeyPress={(e) => e.key === 'Enter' && addExpenseTag()}
+                  />
+                  <button
+                    onClick={addExpenseTag}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {expenseForm.tags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300 rounded-lg text-xs flex items-center gap-1"
+                    >
+                      <Tag size={12} />
+                      {tag}
+                      <button onClick={() => removeExpenseTag(tag)}>
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowExpenseModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  Anuluj
+                </button>
+                <button
+                  onClick={saveExpense}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition font-medium"
+                >
+                  Zapisz
+                </button>
+              </div>
             </div>
           </div>
         </div>
