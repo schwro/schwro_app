@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign } from 'lucide-react';
+import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useUserRole } from '../hooks/useUserRole';
 
@@ -77,6 +77,7 @@ export default function Sidebar() {
     kids: 'module:kids',
     groups: 'module:homegroups',
     finance: 'module:finance',
+    teaching: 'module:teaching',
     settings: 'module:settings'
   };
 
@@ -95,6 +96,7 @@ export default function Sidebar() {
     { path: '/kids', icon: Baby, label: 'Małe SchWro', show: isModuleVisible('kids') },
     { path: '/home-groups', icon: UserCircle, label: 'Grupy domowe', show: isModuleVisible('groups') },
     { path: '/finance', icon: DollarSign, label: 'Finanse', show: hasModuleAccess('module:finance') },
+    { path: '/teaching', icon: BookOpen, label: 'Nauczanie', show: hasModuleAccess('module:teaching') },
   ];
 
   return (

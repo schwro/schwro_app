@@ -18,6 +18,7 @@ import FinanceModule from './modules/FinanceModule';
 import GlobalSettings from './modules/Settings/GlobalSettings';
 import UserSettings from './modules/Settings/UserSettings';
 import CalendarModule from './modules/CalendarModule'; // <-- Import
+import TeachingModule from './modules/Teaching/TeachingModule';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -122,6 +123,9 @@ export default function App() {
               } />
               <Route path="/finance" element={
                 <ProtectedRoute resource="module:finance"><FinanceModule /></ProtectedRoute>
+              } />
+              <Route path="/teaching" element={
+                <ProtectedRoute resource="module:teaching"><TeachingModule /></ProtectedRoute>
               } />
               <Route path="/settings" element={
                 <ProtectedRoute resource="module:settings"><GlobalSettings /></ProtectedRoute>

@@ -52,7 +52,8 @@ const MODULE_TABS = {
       schedule: 'Grafik',
       songs: 'Baza Pieśni',
       members: 'Członkowie',
-      finances: 'Finanse'
+      finances: 'Finanse',
+      wall: 'Tablica'
     }
   },
   atmosfera: {
@@ -68,6 +69,16 @@ const MODULE_TABS = {
     label: 'Finanse',
     resourceKey: 'module:finance',
     tabs: {}
+  },
+  teaching: {
+    label: 'Nauczanie',
+    resourceKey: 'module:teaching',
+    tabs: {
+      wall: 'Tablica',
+      schedule: 'Grafik',
+      series: 'Serie',
+      speakers: 'Mówcy'
+    }
   },
   settings: {
     label: 'Ustawienia',

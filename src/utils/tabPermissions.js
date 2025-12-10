@@ -32,7 +32,8 @@ export const TAB_PERMISSIONS = {
     schedule: null,
     songs: null,
     members: ['rada_starszych', 'koordynator', 'lider'],
-    finances: ['rada_starszych', 'koordynator']
+    finances: ['rada_starszych', 'koordynator'],
+    wall: null // Tablica dostępna dla wszystkich
   },
 
   // Moduł Atmosfera Team
@@ -40,6 +41,14 @@ export const TAB_PERMISSIONS = {
     schedule: null,
     members: ['rada_starszych', 'koordynator', 'lider'],
     finances: ['rada_starszych', 'koordynator']
+  },
+
+  // Moduł Nauczanie
+  teaching: {
+    wall: null, // Tablica dostępna dla wszystkich
+    schedule: null,
+    series: null,
+    speakers: ['rada_starszych', 'koordynator', 'lider']
   }
 };
 

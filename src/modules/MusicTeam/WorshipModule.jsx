@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown } from 'lucide-react';
+import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare } from 'lucide-react';
 import SongForm from './SongForm';
 import FinanceTab from '../shared/FinanceTab';
+import WallTab from '../shared/WallTab';
 import CustomSelect from '../../components/CustomSelect';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
@@ -921,11 +922,12 @@ function SongDetailsModal({ song, onClose, onEdit }) {
 
 export default function WorshipModule() {
   const { userRole } = useUserRole();
-  const [activeTab, setActiveTab] = useState('schedule');
+  const [activeTab, setActiveTab] = useState('wall');
   const [team, setTeam] = useState([]);
   const [songs, setSongs] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState({ email: '', name: '' });
 
   const [showSongModal, setShowSongModal] = useState(false);
   const [showSongDetails, setShowSongDetails] = useState(null);
@@ -1104,6 +1106,20 @@ export default function WorshipModule() {
       const { data: s } = await supabase.from('songs').select('*').order('title');
       const { data: p } = await supabase.from('programs').select('*').order('date', { ascending: false });
 
+      // Pobierz dane zalogowanego użytkownika
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('app_users')
+          .select('full_name')
+          .eq('email', user.email)
+          .single();
+        setCurrentUser({
+          email: user.email,
+          name: profile?.full_name || user.email
+        });
+      }
+
       setTeam(t || []);
       setSongs(s || []);
       setPrograms(p || []);
@@ -1170,6 +1186,17 @@ export default function WorshipModule() {
 
       {/* TAB NAVIGATION */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
+        <button
+          onClick={() => setActiveTab('wall')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'wall'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <MessageSquare size={16} className="inline mr-2" />
+          Tablica
+        </button>
         <button
           onClick={() => setActiveTab('schedule')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
@@ -1343,6 +1370,17 @@ export default function WorshipModule() {
           onAddExpense={() => setShowExpenseModal(true)}
           onRefresh={fetchFinanceData}
         />
+      )}
+
+      {/* WALL TAB */}
+      {activeTab === 'wall' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <WallTab
+            ministry="Grupa Uwielbienia"
+            currentUserEmail={currentUser.email}
+            currentUserName={currentUser.name}
+          />
+        </section>
       )}
 
       {/* Modale */}
