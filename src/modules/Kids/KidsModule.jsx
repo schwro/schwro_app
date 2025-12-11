@@ -471,7 +471,33 @@ export default function KidsModule() {
     setLoading(false);
   }
 
-  const saveTeacher = async () => { if (!teacherForm.full_name) return alert('Podaj imię'); if (teacherForm.id) await supabase.from('kids_teachers').update(teacherForm).eq('id', teacherForm.id); else await supabase.from('kids_teachers').insert([{ ...teacherForm, id: undefined }]); setShowTeacherModal(false); fetchData(); };
+  const saveTeacher = async () => {
+    if (!teacherForm.full_name) return alert('Podaj imię');
+    try {
+      if (teacherForm.id) {
+        const { error } = await supabase.from('kids_teachers').update({
+          full_name: teacherForm.full_name,
+          role: teacherForm.role,
+          email: teacherForm.email,
+          phone: teacherForm.phone
+        }).eq('id', teacherForm.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('kids_teachers').insert([{
+          full_name: teacherForm.full_name,
+          role: teacherForm.role || 'Nauczyciel',
+          email: teacherForm.email,
+          phone: teacherForm.phone
+        }]);
+        if (error) throw error;
+      }
+      setShowTeacherModal(false);
+      fetchData();
+    } catch (err) {
+      console.error('Błąd zapisywania nauczyciela:', err);
+      alert('Błąd zapisywania: ' + err.message);
+    }
+  };
   const deleteTeacher = async (id) => { if (confirm('Usunąć?')) { await supabase.from('kids_teachers').delete().eq('id', id); fetchData(); } };
   const saveGroup = async () => { if (!groupForm.name) return alert('Podaj nazwę'); const payload = { name: groupForm.name, room: groupForm.room, age_range: groupForm.age_range, teacher_ids: groupForm.teacher_ids }; try { if (groupForm.id) await supabase.from('kids_groups').update(payload).eq('id', groupForm.id); else await supabase.from('kids_groups').insert([{ ...payload, materials: [] }]); setShowGroupModal(false); fetchData(); } catch (err) { alert(err.message); } };
   const deleteGroup = async (id) => { if (confirm('Usunąć?')) { await supabase.from('kids_groups').delete().eq('id', id); fetchData(); } };

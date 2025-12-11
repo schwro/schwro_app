@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare, Download, Play, Pause, Volume2 } from 'lucide-react';
+import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare, Download, Play, Pause, Volume2, Users } from 'lucide-react';
 import SongForm from './SongForm';
 import FinanceTab from '../shared/FinanceTab';
 import WallTab from '../shared/WallTab';
+import RolesTab from '../../components/RolesTab';
 import CustomSelect from '../../components/CustomSelect';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
@@ -244,18 +245,20 @@ function transposeLine(line, steps) {
 
 const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef(null);
+  const triggerRef = useRef(null);
+  const coords = useDropdownPosition(triggerRef, isOpen);
   const selectedItems = value ? value.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   useEffect(() => {
+    if (!isOpen) return;
     function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+      if (triggerRef.current && !triggerRef.current.contains(event.target) && !event.target.closest('.table-multi-select-portal')) {
         setIsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   const toggleSelection = (name, isAbsent) => {
     if (isAbsent) return;
@@ -269,8 +272,8 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
   };
 
   return (
-    <div ref={wrapperRef} className="relative w-full">
-      <div 
+    <div ref={triggerRef} className="relative w-full">
+      <div
         className="w-full min-h-[32px] px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs cursor-pointer flex flex-wrap gap-1 items-center hover:border-pink-300 dark:hover:border-pink-500 transition"
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -285,16 +288,19 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
         )}
       </div>
 
-      {isOpen && (
-        <div className="absolute z-[9999] left-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+      {isOpen && coords.width > 0 && createPortal(
+        <div
+          className="table-multi-select-portal fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
+          style={{ top: coords.top, left: coords.left, width: Math.max(180, coords.width) }}
+        >
           {options.map((person) => {
             const isSelected = selectedItems.includes(person.full_name);
             const isAbsent = absentMembers.includes(person.full_name);
 
             return (
-              <div 
+              <div
                 key={person.id}
-                className={`px-3 py-1.5 text-xs cursor-pointer flex items-center justify-between transition 
+                className={`px-3 py-1.5 text-xs cursor-pointer flex items-center justify-between transition
                   ${isAbsent ? 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed' : 'hover:bg-pink-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}
                   ${isSelected ? 'bg-pink-50 dark:bg-gray-800 text-pink-700 dark:text-pink-300 font-medium' : ''}
                 `}
@@ -308,7 +314,8 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
               </div>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -316,18 +323,20 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
 
 const AbsenceMultiSelect = ({ options, value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef(null);
+  const triggerRef = useRef(null);
+  const coords = useDropdownPosition(triggerRef, isOpen);
   const selectedItems = value ? value.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   useEffect(() => {
+    if (!isOpen) return;
     function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+      if (triggerRef.current && !triggerRef.current.contains(event.target) && !event.target.closest('.absence-multi-select-portal')) {
         setIsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   const toggleSelection = (name) => {
     let newSelection;
@@ -340,8 +349,8 @@ const AbsenceMultiSelect = ({ options, value, onChange }) => {
   };
 
   return (
-    <div ref={wrapperRef} className="relative w-full">
-      <div 
+    <div ref={triggerRef} className="relative w-full">
+      <div
         className="w-full min-h-[32px] px-2 py-1 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-900/50 rounded-lg text-xs cursor-pointer flex flex-wrap gap-1 items-center hover:border-red-300 dark:hover:border-red-700 transition"
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -356,12 +365,15 @@ const AbsenceMultiSelect = ({ options, value, onChange }) => {
         )}
       </div>
 
-      {isOpen && (
-        <div className="absolute z-[9999] left-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+      {isOpen && coords.width > 0 && createPortal(
+        <div
+          className="absence-multi-select-portal fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
+          style={{ top: coords.top, left: coords.left, width: Math.max(180, coords.width) }}
+        >
           {options.map((person) => {
             const isSelected = selectedItems.includes(person.full_name);
             return (
-              <div 
+              <div
                 key={person.id}
                 className={`px-3 py-1.5 text-xs cursor-pointer flex items-center justify-between hover:bg-red-50 dark:hover:bg-red-900/30 transition ${isSelected ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
                 onClick={() => toggleSelection(person.full_name)}
@@ -371,13 +383,14 @@ const AbsenceMultiSelect = ({ options, value, onChange }) => {
               </div>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 };
 
-const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram }) => {
+const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram, roles, memberRoles = [] }) => {
   const [expandedMonths, setExpandedMonths] = useState({});
 
   const groupedPrograms = programs.reduce((acc, prog) => {
@@ -439,15 +452,36 @@ const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram }) => {
     await onUpdateProgram(programId, { zespol: updatedZespol });
   };
 
-  const columns = [
-    { key: 'lider', label: 'Lider' },
-    { key: 'piano', label: 'Piano' },
-    { key: 'wokale', label: 'Wokal' },
-    { key: 'gitara_akustyczna', label: 'Git. Akust.' },
-    { key: 'gitara_elektryczna', label: 'Git. Elektr.' },
-    { key: 'bas', label: 'Bas' },
-    { key: 'cajon', label: 'Cajon' },
-  ];
+  // Dynamiczne kolumny z zakładki Służby lub fallback do statycznych
+  const columns = roles && roles.length > 0
+    ? roles.map(role => ({ key: role.field_key, label: role.name, roleId: role.id }))
+    : [
+        { key: 'lider', label: 'Lider', roleId: null },
+        { key: 'piano', label: 'Piano', roleId: null },
+        { key: 'wokale', label: 'Wokal', roleId: null },
+        { key: 'gitara_akustyczna', label: 'Git. Akust.', roleId: null },
+        { key: 'gitara_elektryczna', label: 'Git. Elektr.', roleId: null },
+        { key: 'bas', label: 'Bas', roleId: null },
+        { key: 'cajon', label: 'Cajon', roleId: null },
+      ];
+
+  // Funkcja do filtrowania członków zespołu według przypisania do służby
+  const getMembersForRole = (roleId) => {
+    if (!roleId || memberRoles.length === 0) {
+      // Brak przypisań lub fallback - pokaż wszystkich
+      return worshipTeam;
+    }
+    const assignedMemberIds = memberRoles
+      .filter(mr => mr.role_id === roleId)
+      .map(mr => String(mr.member_id));
+
+    if (assignedMemberIds.length === 0) {
+      // Brak przypisanych osób do tej służby - pokaż wszystkich
+      return worshipTeam;
+    }
+
+    return worshipTeam.filter(member => assignedMemberIds.includes(String(member.id)));
+  };
 
   return (
     <div className="space-y-4">
@@ -495,9 +529,9 @@ const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram }) => {
                             </td>
                             {columns.map(col => (
                               <td key={col.key} className="p-2 relative">
-                                <TableMultiSelect 
-                                  options={worshipTeam} 
-                                  value={prog.zespol?.[col.key] || ''} 
+                                <TableMultiSelect
+                                  options={getMembersForRole(col.roleId)}
+                                  value={prog.zespol?.[col.key] || ''}
                                   onChange={(val) => updateRole(prog.id, col.key, val)}
                                   absentMembers={absentList}
                                 />
@@ -1089,9 +1123,14 @@ export default function WorshipModule() {
 
   const [songForm, setSongForm] = useState({});
   const [memberForm, setMemberForm] = useState({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' });
+  const [selectedMemberRoles, setSelectedMemberRoles] = useState([]);
 
   const [songFilter, setSongFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
+
+  // Służby z team_roles
+  const [worshipRoles, setWorshipRoles] = useState([]);
+  const [memberRoles, setMemberRoles] = useState([]);
 
   // Finance data
   const [budgetItems, setBudgetItems] = useState([]);
@@ -1114,6 +1153,7 @@ export default function WorshipModule() {
 
   useEffect(() => {
     fetchData();
+    fetchWorshipRoles();
   }, []);
 
   useEffect(() => {
@@ -1121,6 +1161,27 @@ export default function WorshipModule() {
       fetchFinanceData();
     }
   }, [activeTab]);
+
+  const fetchWorshipRoles = async () => {
+    try {
+      const { data: rolesData } = await supabase
+        .from('team_roles')
+        .select('*')
+        .eq('team_type', 'worship')
+        .eq('is_active', true)
+        .order('display_order');
+      setWorshipRoles(rolesData || []);
+
+      // Pobierz przypisania członków do służb
+      const { data: memberRolesData } = await supabase
+        .from('team_member_roles')
+        .select('*')
+        .eq('member_table', 'worship_team');
+      setMemberRoles(memberRolesData || []);
+    } catch (err) {
+      console.error('Błąd pobierania służb:', err);
+    }
+  };
 
   const fetchFinanceData = async () => {
     const currentYear = new Date().getFullYear();
@@ -1285,17 +1346,61 @@ export default function WorshipModule() {
 
   const saveMember = async () => {
     try {
+      let memberId = memberForm.id;
+
       if (memberForm.id) {
-        await supabase.from('worship_team').update(memberForm).eq('id', memberForm.id);
+        const { id, ...updateData } = memberForm;
+        await supabase.from('worship_team').update(updateData).eq('id', memberForm.id);
       } else {
         const { id, ...rest } = memberForm;
-        await supabase.from('worship_team').insert([rest]);
+        const { data: newMember, error } = await supabase.from('worship_team').insert([rest]).select().single();
+        if (error) throw error;
+        memberId = newMember.id;
       }
+
+      // Zapisz przypisania do służb
+      if (memberId) {
+        // Usuń obecne przypisania
+        await supabase
+          .from('team_member_roles')
+          .delete()
+          .eq('member_id', String(memberId))
+          .eq('member_table', 'worship_team');
+
+        // Dodaj nowe przypisania
+        if (selectedMemberRoles.length > 0) {
+          const assignments = selectedMemberRoles.map(roleId => ({
+            member_id: String(memberId),
+            member_table: 'worship_team',
+            role_id: roleId
+          }));
+          await supabase.from('team_member_roles').insert(assignments);
+        }
+      }
+
       setShowMemberModal(false);
+      setSelectedMemberRoles([]);
       fetchData();
+      fetchWorshipRoles(); // Odśwież przypisania
     } catch (err) {
       alert('Błąd: ' + err.message);
     }
+  };
+
+  const loadMemberRoles = (memberId) => {
+    const roles = memberRoles
+      .filter(mr => String(mr.member_id) === String(memberId))
+      .map(mr => mr.role_id);
+    setSelectedMemberRoles(roles);
+  };
+
+  const getMemberRoleNames = (memberId) => {
+    const roleIds = memberRoles
+      .filter(mr => String(mr.member_id) === String(memberId))
+      .map(mr => mr.role_id);
+    return worshipRoles
+      .filter(r => roleIds.includes(r.id))
+      .map(r => r.name);
   };
 
   const deleteMember = async (id) => {
@@ -1414,6 +1519,19 @@ export default function WorshipModule() {
             Finanse
           </button>
         )}
+        {hasTabAccess('worship', 'members', userRole) && (
+          <button
+            onClick={() => setActiveTab('roles')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'roles'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Users size={16} className="inline mr-2" />
+            Służby
+          </button>
+        )}
       </div>
 
       {/* SEKCJA 1: GRAFIK ZESPOŁU */}
@@ -1426,6 +1544,8 @@ export default function WorshipModule() {
           programs={programs}
           worshipTeam={team}
           onUpdateProgram={handleProgramUpdate}
+          roles={worshipRoles}
+          memberRoles={memberRoles}
         />
       </section>
       )}
@@ -1505,14 +1625,14 @@ export default function WorshipModule() {
       <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[30] transition-colors">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Członkowie Zespołu</h2>
-          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
+          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setSelectedMemberRoles([]); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="p-4">Imię i nazwisko</th>
-                <th className="p-4">Instrument/Rola</th>
+                <th className="p-4">Służby</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Telefon</th>
                 <th className="p-4">Email</th>
@@ -1520,19 +1640,34 @@ export default function WorshipModule() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {team.map(m => (
-                <tr key={m.id} className="hover:bg-pink-50/30 dark:hover:bg-gray-800/50 transition">
-                  <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{m.full_name}</td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{m.role}</td>
-                  <td className="p-4"><span className="bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 px-3 py-1 rounded-full text-xs font-medium border border-green-200 dark:border-green-800">{m.status}</span></td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{m.phone}</td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{m.email}</td>
-                  <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => { setMemberForm(m); setShowMemberModal(true); }} className="text-pink-600 dark:text-pink-400 hover:text-orange-600 dark:hover:text-orange-400 font-medium transition">Edytuj</button>
-                    <button onClick={() => deleteMember(m.id)} className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition">Usuń</button>
-                  </td>
-                </tr>
-              ))}
+              {team.map(m => {
+                const roleNames = getMemberRoleNames(m.id);
+                return (
+                  <tr key={m.id} className="hover:bg-pink-50/30 dark:hover:bg-gray-800/50 transition">
+                    <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{m.full_name}</td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1">
+                        {roleNames.length > 0 ? (
+                          roleNames.map((name, idx) => (
+                            <span key={idx} className="bg-pink-50 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-2 py-0.5 rounded-lg text-xs font-medium border border-pink-100 dark:border-pink-800">
+                              {name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500 text-xs italic">Brak przypisanych</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4"><span className="bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 px-3 py-1 rounded-full text-xs font-medium border border-green-200 dark:border-green-800">{m.status}</span></td>
+                    <td className="p-4 text-gray-600 dark:text-gray-400">{m.phone}</td>
+                    <td className="p-4 text-gray-600 dark:text-gray-400">{m.email}</td>
+                    <td className="p-4 text-right flex justify-end gap-2">
+                      <button onClick={() => { setMemberForm(m); loadMemberRoles(m.id); setShowMemberModal(true); }} className="text-pink-600 dark:text-pink-400 hover:text-orange-600 dark:hover:text-orange-400 font-medium transition">Edytuj</button>
+                      <button onClick={() => deleteMember(m.id)} className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition">Usuń</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1561,16 +1696,75 @@ export default function WorshipModule() {
         </section>
       )}
 
+      {/* ROLES TAB */}
+      {activeTab === 'roles' && (
+        <RolesTab
+          teamType="worship"
+          teamMembers={team}
+          memberTable="worship_team"
+        />
+      )}
+
       {/* Modale */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border border-white/20 dark:border-gray-700">
-             <div className="flex justify-between mb-6"><h3 className="font-bold text-xl text-gray-800 dark:text-white">Członek Zespołu</h3><button onClick={() => setShowMemberModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition text-gray-500 dark:text-gray-400"><X size={20}/></button></div>
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
+            <div className="flex justify-between mb-6">
+              <h3 className="font-bold text-xl text-gray-800 dark:text-white">{memberForm.id ? 'Edytuj członka' : 'Nowy członek'}</h3>
+              <button onClick={() => setShowMemberModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition text-gray-500 dark:text-gray-400"><X size={20}/></button>
+            </div>
             <div className="space-y-4">
-              <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Imię i nazwisko" value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} />
-              <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Rola (np. Wokal)" value={memberForm.role} onChange={e => setMemberForm({...memberForm, role: e.target.value})} />
-              <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Telefon" value={memberForm.phone} onChange={e => setMemberForm({...memberForm, phone: e.target.value})} />
-              <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Email" value={memberForm.email} onChange={e => setMemberForm({...memberForm, email: e.target.value})} />
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Imię i nazwisko</label>
+                <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Jan Kowalski" value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Służby / Instrumenty</label>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {worshipRoles.map(role => {
+                      const isSelected = selectedMemberRoles.includes(role.id);
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedMemberRoles(prev => prev.filter(id => id !== role.id));
+                            } else {
+                              setSelectedMemberRoles(prev => [...prev, role.id]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {isSelected && <Check size={14} />}
+                          {role.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {worshipRoles.length === 0 && (
+                    <p className="text-gray-400 dark:text-gray-500 text-sm text-center py-2">Brak zdefiniowanych służb. Dodaj je w zakładce "Służby".</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Telefon</label>
+                  <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="+48 123 456 789" value={memberForm.phone} onChange={e => setMemberForm({...memberForm, phone: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Email</label>
+                  <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="jan@example.com" value={memberForm.email} onChange={e => setMemberForm({...memberForm, email: e.target.value})} />
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3 mt-6">
                 <button onClick={() => setShowMemberModal(false)} className="px-5 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Anuluj</button>
                 <button onClick={saveMember} className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg hover:shadow-pink-500/50 transition font-medium">Zapisz</button>

@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import {
-  Plus, Search, Trash2, X, Calendar, User,
+  Plus, Search, Trash2, X, Calendar, User, Users,
   Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, HeartHandshake, DollarSign, Tag, Upload, FileText
 } from 'lucide-react';
 import FinanceTab from './shared/FinanceTab';
+import RolesTab from '../components/RolesTab';
 import CustomSelect from '../components/CustomSelect';
 import { useUserRole } from '../hooks/useUserRole';
 import { hasTabAccess } from '../utils/tabPermissions';
@@ -202,7 +203,7 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
 
 // --- TABLE COMPONENT ---
 
-const ScheduleTable = ({ programs, team, onUpdateProgram }) => {
+const ScheduleTable = ({ programs, team, onUpdateProgram, roles, memberRoles = [] }) => {
   const [expandedMonths, setExpandedMonths] = useState({});
 
   const groupedPrograms = programs.reduce((acc, prog) => {
@@ -247,8 +248,32 @@ const ScheduleTable = ({ programs, team, onUpdateProgram }) => {
      const programToUpdate = programs.find(p => p.id === programId);
      if (!programToUpdate) return;
      const currentData = programToUpdate.atmosfera_team || {};
-     const updatedData = { ...currentData, notatki: value }; // Dodajemy pole notatki, jeśli nie istnieje w schemacie to trzeba dodać w bazie lub JSON
+     const updatedData = { ...currentData, notatki: value };
      await onUpdateProgram(programId, { atmosfera_team: updatedData });
+  };
+
+  // Dynamiczne kolumny z zakładki Służby lub fallback do statycznych
+  const columns = roles && roles.length > 0
+    ? roles.map(role => ({ key: role.field_key, label: role.name, roleId: role.id }))
+    : [
+        { key: 'przygotowanie', label: 'Przygotowanie', roleId: null },
+        { key: 'witanie', label: 'Witanie', roleId: null },
+      ];
+
+  // Funkcja do filtrowania członków zespołu według przypisania do służby
+  const getMembersForRole = (roleId) => {
+    if (!roleId || memberRoles.length === 0) {
+      return team;
+    }
+    const assignedMemberIds = memberRoles
+      .filter(mr => mr.role_id === roleId)
+      .map(mr => mr.member_id);
+
+    if (assignedMemberIds.length === 0) {
+      return team;
+    }
+
+    return team.filter(member => assignedMemberIds.includes(member.id));
   };
 
   return (
@@ -257,22 +282,23 @@ const ScheduleTable = ({ programs, team, onUpdateProgram }) => {
         const isExpanded = expandedMonths[monthKey];
         return (
           <div key={monthKey} className={`bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-sm relative z-0 transition-all duration-300 ${isExpanded ? 'mb-8' : 'mb-0'}`}>
-            <button 
+            <button
               onClick={() => toggleMonth(monthKey)}
               className={`w-full px-6 py-4 bg-white/50 dark:bg-gray-800/50 hover:bg-white/80 dark:hover:bg-gray-800/80 flex justify-between items-center transition border-b border-gray-100 dark:border-gray-700 ${isExpanded ? 'rounded-t-2xl' : 'rounded-2xl'}`}
             >
               <span className="font-bold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wider">{formatMonthName(monthKey)}</span>
               {isExpanded ? <ChevronUp size={18} className="text-gray-500 dark:text-gray-400"/> : <ChevronDown size={18} className="text-gray-500 dark:text-gray-400"/>}
             </button>
-            
+
             {isExpanded && (
               <div className="overflow-visible pb-4">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-50/50 dark:bg-gray-800/50 text-xs text-gray-500 dark:text-gray-400 uppercase">
                       <th className="p-3 font-semibold w-24 min-w-[90px]">Data</th>
-                      <th className="p-3 font-semibold min-w-[130px]">Przygotowanie</th>
-                      <th className="p-3 font-semibold min-w-[130px]">Witanie</th>
+                      {columns.map(col => (
+                        <th key={col.key} className="p-3 font-semibold min-w-[130px]">{col.label}</th>
+                      ))}
                       <th className="p-3 font-semibold min-w-[150px]">Notatki</th>
                     </tr>
                   </thead>
@@ -284,22 +310,17 @@ const ScheduleTable = ({ programs, team, onUpdateProgram }) => {
                           <td className="p-3 font-medium text-gray-700 dark:text-gray-300 font-mono text-xs">
                             {formatDateShort(prog.date)}
                           </td>
-                          <td className="p-2 relative">
-                            <TableMultiSelect 
-                              options={team} 
-                              value={prog.atmosfera_team?.przygotowanie || ''} 
-                              onChange={(val) => updateRole(prog.id, 'przygotowanie', val)}
-                            />
-                          </td>
-                          <td className="p-2 relative">
-                            <TableMultiSelect 
-                              options={team} 
-                              value={prog.atmosfera_team?.witanie || ''} 
-                              onChange={(val) => updateRole(prog.id, 'witanie', val)}
-                            />
-                          </td>
+                          {columns.map(col => (
+                            <td key={col.key} className="p-2 relative">
+                              <TableMultiSelect
+                                options={getMembersForRole(col.roleId)}
+                                value={prog.atmosfera_team?.[col.key] || ''}
+                                onChange={(val) => updateRole(prog.id, col.key, val)}
+                              />
+                            </td>
+                          ))}
                           <td className="p-2">
-                            <input 
+                            <input
                               className="w-full bg-transparent border-b border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-pink-500 dark:focus:border-pink-400 text-xs p-1 outline-none transition placeholder-gray-300 dark:placeholder-gray-600 text-gray-700 dark:text-gray-300"
                               placeholder="Wpisz..."
                               defaultValue={prog.atmosfera_team?.notatki || ''}
@@ -332,6 +353,10 @@ export default function AtmosferaTeamModule() {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [memberForm, setMemberForm] = useState({ id: null, full_name: '', role: 'Atmosfera', email: '', phone: '' });
 
+  // Służby z team_roles
+  const [atmosferaRoles, setAtmosferaRoles] = useState([]);
+  const [memberRoles, setMemberRoles] = useState([]);
+
   // Finance data
   const [budgetItems, setBudgetItems] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -353,6 +378,7 @@ export default function AtmosferaTeamModule() {
 
   useEffect(() => {
     fetchData();
+    fetchAtmosferaRoles();
   }, []);
 
   useEffect(() => {
@@ -360,6 +386,27 @@ export default function AtmosferaTeamModule() {
       fetchFinanceData();
     }
   }, [activeTab]);
+
+  const fetchAtmosferaRoles = async () => {
+    try {
+      const { data: rolesData } = await supabase
+        .from('team_roles')
+        .select('*')
+        .eq('team_type', 'atmosfera')
+        .eq('is_active', true)
+        .order('display_order');
+      setAtmosferaRoles(rolesData || []);
+
+      // Pobierz przypisania członków do służb
+      const { data: memberRolesData } = await supabase
+        .from('team_member_roles')
+        .select('*')
+        .eq('member_table', 'atmosfera_members');
+      setMemberRoles(memberRolesData || []);
+    } catch (err) {
+      console.error('Błąd pobierania służb:', err);
+    }
+  };
 
   const fetchFinanceData = async () => {
     const currentYear = new Date().getFullYear();
@@ -618,6 +665,19 @@ export default function AtmosferaTeamModule() {
             Finanse
           </button>
         )}
+        {hasTabAccess('atmosfera', 'members', userRole) && (
+          <button
+            onClick={() => setActiveTab('roles')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'roles'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Users size={16} className="inline mr-2" />
+            Służby
+          </button>
+        )}
       </div>
 
       {/* GRAFIK */}
@@ -630,6 +690,8 @@ export default function AtmosferaTeamModule() {
           programs={programs}
           team={team}
           onUpdateProgram={handleProgramUpdate}
+          roles={atmosferaRoles}
+          memberRoles={memberRoles}
         />
       </section>
       )}
@@ -670,6 +732,15 @@ export default function AtmosferaTeamModule() {
           expenses={expenses}
           onAddExpense={() => setShowExpenseModal(true)}
           onRefresh={fetchFinanceData}
+        />
+      )}
+
+      {/* ROLES TAB */}
+      {activeTab === 'roles' && (
+        <RolesTab
+          teamType="atmosfera"
+          teamMembers={team}
+          memberTable="atmosfera_members"
         />
       )}
 

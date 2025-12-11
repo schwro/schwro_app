@@ -595,6 +595,270 @@ const SortableRow = ({ row, index, program, setProgram, songs }) => {
   );
 };
 
+// --- DYNAMICZNA SEKCJA ZESPOŁU Z MULTISELECT ---
+
+const DynamicTeamSection = ({ title, dataKey, program, setProgram, roles, teamMembers, fallbackFields, absentList, memberRoles = [] }) => {
+  const fields = roles.length > 0
+    ? roles.map(role => ({ key: role.field_key, label: role.name, roleId: role.id }))
+    : fallbackFields;
+
+  const handleChange = (fieldKey, newValue) => {
+    setProgram(prev => ({
+      ...prev,
+      [dataKey]: {
+        ...prev[dataKey],
+        [fieldKey]: newValue
+      }
+    }));
+  };
+
+  // Funkcja filtrująca członków zespołu na podstawie przypisanych służb
+  const getMembersForRole = (roleId) => {
+    if (!roleId || memberRoles.length === 0) {
+      return teamMembers;
+    }
+    const assignedMemberIds = memberRoles
+      .filter(mr => mr.role_id === roleId)
+      .map(mr => String(mr.member_id));
+
+    if (assignedMemberIds.length === 0) {
+      return teamMembers;
+    }
+
+    return teamMembers.filter(member => assignedMemberIds.includes(String(member.id)));
+  };
+
+  return (
+    <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-6 h-full hover:shadow-xl transition relative z-0">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">{title}</h3>
+      </div>
+      <div className="space-y-4">
+        {teamMembers.length > 0 ? (
+          // Użyj MultiSelect gdy mamy członków zespołu
+          fields.map(field => (
+            <MultiSelect
+              key={field.key}
+              label={field.label}
+              options={getMembersForRole(field.roleId)}
+              value={program[dataKey]?.[field.key] || ''}
+              onChange={(newValue) => handleChange(field.key, newValue)}
+              absentMembers={absentList}
+            />
+          ))
+        ) : (
+          // Fallback do zwykłych pól tekstowych
+          fields.map(field => (
+            <div key={field.key}>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{field.label}</label>
+              <input
+                className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200"
+                value={program[dataKey]?.[field.key] || ''}
+                onChange={e => handleChange(field.key, e.target.value)}
+              />
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- SEKCJA SZKÓŁKI Z DYNAMICZNYMI POLAMI ---
+
+const SzkolkaSection = ({ program, setProgram, kidsGroups, kidsTeachers }) => {
+  const absentList = program.szkolka?.absencja
+    ? program.szkolka.absencja.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const handleTeacherChange = (groupId, newValue) => {
+    setProgram(prev => ({
+      ...prev,
+      szkolka: {
+        ...prev.szkolka,
+        [groupId]: newValue
+      }
+    }));
+  };
+
+  const handleFieldChange = (fieldKey, newValue) => {
+    setProgram(prev => ({
+      ...prev,
+      szkolka: {
+        ...prev.szkolka,
+        [fieldKey]: newValue
+      }
+    }));
+  };
+
+  return (
+    <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-6 h-full hover:shadow-xl transition relative z-0">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Szkółka Niedzielna</h3>
+      </div>
+      <div className="space-y-4">
+        {/* Temat lekcji */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Temat lekcji</label>
+          <input
+            className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
+            value={program.szkolka?.temat || ''}
+            onChange={e => handleFieldChange('temat', e.target.value)}
+            placeholder="Temat lekcji..."
+          />
+        </div>
+
+        {/* Dynamiczne grupy z Kids module */}
+        {kidsGroups.length > 0 ? (
+          kidsGroups.map(group => (
+            <MultiSelect
+              key={group.id}
+              label={group.name}
+              options={kidsTeachers}
+              value={program.szkolka?.[group.id] || ''}
+              onChange={(newValue) => handleTeacherChange(group.id, newValue)}
+              absentMembers={absentList}
+            />
+          ))
+        ) : (
+          // Fallback do statycznych pól gdy brak grup w bazie
+          <>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Grupa Młodsza</label>
+              <input
+                className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200"
+                value={program.szkolka?.mlodsza || ''}
+                onChange={e => handleFieldChange('mlodsza', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Grupa Średnia</label>
+              <input
+                className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200"
+                value={program.szkolka?.srednia || ''}
+                onChange={e => handleFieldChange('srednia', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Grupa Starsza</label>
+              <input
+                className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200"
+                value={program.szkolka?.starsza || ''}
+                onChange={e => handleFieldChange('starsza', e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Absencja nauczycieli */}
+        <div>
+          <label className="block text-xs font-bold text-red-500 dark:text-red-400 uppercase mb-1 ml-1">Absencja nauczycieli</label>
+          <div className="relative">
+            <AbsenceMultiSelectDashboard
+              options={kidsTeachers}
+              value={program.szkolka?.absencja || ''}
+              onChange={(newValue) => handleFieldChange('absencja', newValue)}
+            />
+          </div>
+        </div>
+
+        {/* Notatki */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Notatki</label>
+          <input
+            className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
+            value={program.szkolka?.notatki || ''}
+            onChange={e => handleFieldChange('notatki', e.target.value)}
+            placeholder="Notatki..."
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Komponent absencji dla Dashboard ---
+
+const AbsenceMultiSelectDashboard = ({ options, value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+  const coords = useDropdownPosition(wrapperRef, isOpen);
+  const selectedItems = value ? value.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (isOpen && wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        const portal = document.getElementById('absence-multiselect-portal');
+        if (portal && !portal.contains(e.target)) setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [isOpen]);
+
+  const toggleSelection = (name) => {
+    const newSelection = selectedItems.includes(name)
+      ? selectedItems.filter(i => i !== name)
+      : [...selectedItems, name];
+    onChange(newSelection.join(', '));
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative group">
+      <div
+        className="w-full min-h-[42px] px-4 py-2 bg-red-50/50 dark:bg-red-900/20 backdrop-blur-sm border border-red-200/50 dark:border-red-700/50 rounded-xl focus-within:ring-2 focus-within:ring-red-500/20 cursor-pointer flex flex-wrap gap-2 items-center"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {selectedItems.length === 0 ? (
+          <span className="text-gray-400 dark:text-gray-500 text-sm">Wybierz nieobecnych...</span>
+        ) : (
+          selectedItems.map((item, idx) => (
+            <span key={idx} className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-lg text-xs font-medium border border-red-200 dark:border-red-800 flex items-center gap-1">
+              {item}
+              <span
+                onClick={(e) => { e.stopPropagation(); toggleSelection(item); }}
+                className="hover:bg-red-200 dark:hover:bg-red-800 rounded-full p-0.5 cursor-pointer"
+              >
+                <X size={10} />
+              </span>
+            </span>
+          ))
+        )}
+        <div className="ml-auto">
+          <ChevronDown size={16} className="text-gray-400" />
+        </div>
+      </div>
+
+      {isOpen && coords.width > 0 && createPortal(
+        <div
+          id="absence-multiselect-portal"
+          className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
+          style={{ top: coords.top, left: coords.left, width: coords.width }}
+        >
+          {options.map((person) => {
+            const isSelected = selectedItems.includes(person.full_name);
+            return (
+              <div
+                key={person.id}
+                className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between transition
+                  hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-700 dark:text-gray-300
+                  ${isSelected ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium' : ''}
+                `}
+                onClick={() => toggleSelection(person.full_name)}
+              >
+                <span>{person.full_name}</span>
+                {isSelected && <UserX size={16} className="text-red-500" />}
+              </div>
+            );
+          })}
+          {options.length === 0 && <div className="p-3 text-center text-gray-400 text-xs">Brak nauczycieli w bazie</div>}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
 // --- GŁÓWNY KOMPONENT ---
 
 export default function Dashboard() {
@@ -609,6 +873,22 @@ export default function Dashboard() {
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Dane z modułu Małe SchWro
+  const [kidsGroups, setKidsGroups] = useState([]);
+  const [kidsTeachers, setKidsTeachers] = useState([]);
+
+  // Dane służb z team_roles
+  const [worshipRoles, setWorshipRoles] = useState([]);
+  const [mediaRoles, setMediaRoles] = useState([]);
+  const [atmosferaRoles, setAtmosferaRoles] = useState([]);
+  const [mediaTeam, setMediaTeam] = useState([]);
+  const [atmosferaTeam, setAtmosferaTeam] = useState([]);
+
+  // Przypisania członków do służb
+  const [worshipMemberRoles, setWorshipMemberRoles] = useState([]);
+  const [mediaMemberRoles, setMediaMemberRoles] = useState([]);
+  const [atmosferaMemberRoles, setAtmosferaMemberRoles] = useState([]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -618,7 +898,21 @@ export default function Dashboard() {
     fetchPrograms();
     fetchSongs();
     fetchWorshipTeam();
+    fetchKidsData();
+    fetchTeamRoles();
+    fetchAllTeams();
   }, []);
+
+  const fetchKidsData = async () => {
+    try {
+      const { data: groupsData } = await supabase.from('kids_groups').select('*').order('created_at');
+      const { data: teachersData } = await supabase.from('kids_teachers').select('*').order('full_name');
+      setKidsGroups(groupsData || []);
+      setKidsTeachers(teachersData || []);
+    } catch (err) {
+      console.error('Błąd pobierania danych Kids:', err);
+    }
+  };
 
   useEffect(() => {
     if (selectedId) {
@@ -656,6 +950,38 @@ export default function Dashboard() {
     setWorshipTeam(data || []);
   };
 
+  const fetchTeamRoles = async () => {
+    try {
+      const { data } = await supabase.from('team_roles').select('*').eq('is_active', true).order('display_order');
+      if (data) {
+        setWorshipRoles(data.filter(r => r.team_type === 'worship'));
+        setMediaRoles(data.filter(r => r.team_type === 'media'));
+        setAtmosferaRoles(data.filter(r => r.team_type === 'atmosfera'));
+      }
+
+      // Pobierz przypisania członków do służb
+      const { data: memberRolesData } = await supabase.from('team_member_roles').select('*');
+      if (memberRolesData) {
+        setWorshipMemberRoles(memberRolesData.filter(mr => mr.member_table === 'worship_team'));
+        setMediaMemberRoles(memberRolesData.filter(mr => mr.member_table === 'media_team'));
+        setAtmosferaMemberRoles(memberRolesData.filter(mr => mr.member_table === 'atmosfera_members'));
+      }
+    } catch (err) {
+      console.error('Błąd pobierania służb:', err);
+    }
+  };
+
+  const fetchAllTeams = async () => {
+    try {
+      const { data: media } = await supabase.from('media_team').select('*').order('full_name');
+      const { data: atmosfera } = await supabase.from('atmosfera_members').select('*').order('full_name');
+      setMediaTeam(media || []);
+      setAtmosferaTeam(atmosfera || []);
+    } catch (err) {
+      console.error('Błąd pobierania zespołów:', err);
+    }
+  };
+
   const handleSave = async () => {
     if (program.id) {
       await supabase.from('programs').update(program).eq('id', program.id);
@@ -685,11 +1011,19 @@ export default function Dashboard() {
       const freshSongsMap = {};
       (allSongsData || []).forEach(s => { freshSongsMap[s.id] = s; });
 
+      // Przygotuj obiekt z dynamicznymi rolami zespołów
+      const teamRolesForPDF = {
+        worship: worshipRoles,
+        media: mediaRoles,
+        atmosfera: atmosferaRoles,
+        kidsGroups: kidsGroups
+      };
+
       // 1. Pobierz PDF na dysk lokalny
-      await downloadPDF(program, freshSongsMap);
+      await downloadPDF(program, freshSongsMap, teamRolesForPDF);
 
       // 2. Wyślij PDF do Supabase Storage
-      const result = await savePDFToSupabase(program, freshSongsMap);
+      const result = await savePDFToSupabase(program, freshSongsMap, teamRolesForPDF);
 
       if (result.success) {
         alert('PDF został pobrany i zapisany w chmurze!');
@@ -1141,27 +1475,68 @@ export default function Dashboard() {
                 <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zespół Uwielbienia</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[{ key: 'lider', label: 'Lider Uwielbienia' }, { key: 'piano', label: 'Piano' }, { key: 'gitara_akustyczna', label: 'Gitara Akustyczna' }, { key: 'gitara_elektryczna', label: 'Gitara Elektryczna' }, { key: 'bas', label: 'Gitara Basowa' }, { key: 'wokale', label: 'Wokale' }, { key: 'cajon', label: 'Cajon / Perkusja' }].map(field => (
-                  <MultiSelect 
-                    key={field.key} 
-                    label={field.label} 
-                    options={worshipTeam} 
-                    value={program.zespol?.[field.key] || ''} 
-                    onChange={(newValue) => setProgram(prev => ({ ...prev, zespol: { ...prev.zespol, [field.key]: newValue } }))} 
-                    absentMembers={absentList} 
-                  />
-                ))}
+                {(worshipRoles.length > 0
+                  ? worshipRoles.map(role => ({ key: role.field_key, label: role.name, roleId: role.id }))
+                  : [{ key: 'lider', label: 'Lider Uwielbienia', roleId: null }, { key: 'piano', label: 'Piano', roleId: null }, { key: 'gitara_akustyczna', label: 'Gitara Akustyczna', roleId: null }, { key: 'gitara_elektryczna', label: 'Gitara Elektryczna', roleId: null }, { key: 'bas', label: 'Gitara Basowa', roleId: null }, { key: 'wokale', label: 'Wokale', roleId: null }, { key: 'cajon', label: 'Cajon / Perkusja', roleId: null }]
+                ).map(field => {
+                  // Filtrowanie członków zespołu na podstawie przypisanych służb
+                  const getMembersForRole = (roleId) => {
+                    if (!roleId || worshipMemberRoles.length === 0) {
+                      return worshipTeam;
+                    }
+                    const assignedMemberIds = worshipMemberRoles
+                      .filter(mr => mr.role_id === roleId)
+                      .map(mr => String(mr.member_id));
+
+                    if (assignedMemberIds.length === 0) {
+                      return worshipTeam;
+                    }
+
+                    return worshipTeam.filter(member => assignedMemberIds.includes(String(member.id)));
+                  };
+
+                  return (
+                    <MultiSelect
+                      key={field.key}
+                      label={field.label}
+                      options={getMembersForRole(field.roleId)}
+                      value={program.zespol?.[field.key] || ''}
+                      onChange={(newValue) => setProgram(prev => ({ ...prev, zespol: { ...prev.zespol, [field.key]: newValue } }))}
+                      absentMembers={absentList}
+                    />
+                  );
+                })}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
-              <SectionCard title="Atmosfera Team" dataKey="atmosfera_team" program={program} setProgram={setProgram} fields={[{ key: 'przygotowanie', label: 'Przygotowanie:' }, { key: 'witanie', label: 'Witanie:' }]} />
-              <SectionCard title="Produkcja" dataKey="produkcja" program={program} setProgram={setProgram} fields={[{ key: 'naglosnienie', label: 'Nagłośnienie:' }, { key: 'propresenter', label: 'ProPresenter:' }, { key: 'social', label: 'Social Media:' }, { key: 'host', label: 'Host wydarzenia:' }]} />
+              <DynamicTeamSection
+                title="Atmosfera Team"
+                dataKey="atmosfera_team"
+                program={program}
+                setProgram={setProgram}
+                roles={atmosferaRoles}
+                teamMembers={atmosferaTeam}
+                fallbackFields={[{ key: 'przygotowanie', label: 'Przygotowanie' }, { key: 'witanie', label: 'Witanie' }]}
+                absentList={absentList}
+                memberRoles={atmosferaMemberRoles}
+              />
+              <DynamicTeamSection
+                title="MediaTeam"
+                dataKey="produkcja"
+                program={program}
+                setProgram={setProgram}
+                roles={mediaRoles}
+                teamMembers={mediaTeam}
+                fallbackFields={[{ key: 'naglosnienie', label: 'Nagłośnienie' }, { key: 'propresenter', label: 'ProPresenter' }, { key: 'social', label: 'Social Media' }, { key: 'host', label: 'Host wydarzenia' }]}
+                absentList={absentList}
+                memberRoles={mediaMemberRoles}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
               <SectionCard title="Scena" dataKey="scena" program={program} setProgram={setProgram} fields={[{ key: 'prowadzenie', label: 'Prowadzenie:' }, { key: 'modlitwa', label: 'Modlitwa:' }, { key: 'kazanie', label: 'Kazanie:' }, { key: 'wieczerza', label: 'Wieczerza:' }, { key: 'ogloszenia', label: 'Ogłoszenia:' }]} />
-              <SectionCard title="Szkółka Niedzielna" dataKey="szkolka" program={program} setProgram={setProgram} fields={[{ key: 'mlodsza', label: 'Grupa Młodsza:' }, { key: 'srednia', label: 'Grupa Średnia:' }, { key: 'starsza', label: 'Grupa Starsza:' }]} />
+              <SzkolkaSection program={program} setProgram={setProgram} kidsGroups={kidsGroups} kidsTeachers={kidsTeachers} />
             </div>
           </div>
         </div>

@@ -6,7 +6,7 @@ import {
   Plus, CheckCircle, Clock, Video, Music, X, Save,
   Users, HeartHandshake, Home, Baby, GripVertical, Trash2,
   ChevronDown, MapPin, AlignLeft, Search, Check, UserX,
-  FileText, LayoutGrid, List, LayoutList, Columns
+  FileText, LayoutGrid, List, LayoutList, Columns, CalendarPlus, ListTodo
 } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -483,6 +483,262 @@ const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
 };
 
 
+// --- MODAL WYBORU TYPU (WYDARZENIE VS ZADANIE) ---
+
+const ModalSelectType = ({ date, onClose, onSelectTask, onSelectEvent }) => {
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 dark:border-gray-700 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+          <X size={20} className="text-gray-500" />
+        </button>
+
+        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-2">
+          <Plus size={24} className="text-pink-600" /> Co chcesz dodać?
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          {date ? new Date(date).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Wybierz typ'}
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={onSelectEvent}
+            className="flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-pink-50 to-orange-50 dark:from-pink-900/20 dark:to-orange-900/20 border-2 border-pink-200 dark:border-pink-800 rounded-2xl hover:border-pink-400 dark:hover:border-pink-600 hover:shadow-lg transition group"
+          >
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-pink-500/30 group-hover:scale-110 transition">
+              <CalendarPlus size={28} />
+            </div>
+            <div className="text-center">
+              <div className="font-bold text-gray-800 dark:text-white">Wydarzenie</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Nabożeństwo, spotkanie...</div>
+            </div>
+          </button>
+
+          <button
+            onClick={onSelectTask}
+            className="flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-2xl hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-lg transition group"
+          >
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/30 group-hover:scale-110 transition">
+              <ListTodo size={28} />
+            </div>
+            <div className="text-center">
+              <div className="font-bold text-gray-800 dark:text-white">Zadanie</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Do zrobienia, reminder...</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>, document.body
+  );
+};
+
+// --- MODAL WYBORU KATEGORII WYDARZENIA ---
+
+const ModalSelectEventCategory = ({ date, categories, onClose, onSelectCategory }) => {
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-white/20 dark:border-gray-700 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+          <X size={20} className="text-gray-500" />
+        </button>
+
+        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-2">
+          <CalendarPlus size={24} className="text-pink-600" /> Wybierz kategorię wydarzenia
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          {date ? new Date(date).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+        </p>
+
+        <div className="space-y-2">
+          {/* Nabożeństwo - zawsze na górze */}
+          <button
+            onClick={() => onSelectCategory('nabożeństwo')}
+            className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-pink-50 to-orange-50 dark:from-pink-900/20 dark:to-orange-900/20 border-2 border-pink-200 dark:border-pink-800 rounded-xl hover:border-pink-400 dark:hover:border-pink-600 hover:shadow-md transition group"
+          >
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-pink-500/30 group-hover:scale-105 transition">
+              <Music size={24} />
+            </div>
+            <div className="text-left flex-1">
+              <div className="font-bold text-gray-800 dark:text-white">Nabożeństwo</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Pełny program z pieśniami i służbami</div>
+            </div>
+          </button>
+
+          {/* Kategorie ze słownika */}
+          {categories.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => onSelectCategory(cat.label)}
+              className="w-full flex items-center gap-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-pink-300 dark:hover:border-pink-600 hover:bg-pink-50/50 dark:hover:bg-pink-900/10 transition group"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:bg-pink-100 dark:group-hover:bg-pink-900/30 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition">
+                <CalIcon size={24} />
+              </div>
+              <div className="text-left flex-1">
+                <div className="font-bold text-gray-800 dark:text-white">{cat.label}</div>
+              </div>
+            </button>
+          ))}
+
+          {categories.length === 0 && (
+            <div className="text-center py-6 text-gray-400 dark:text-gray-500 text-sm">
+              <p>Brak dodatkowych kategorii.</p>
+              <p className="text-xs mt-1">Dodaj kategorie w Ustawienia → Słowniki → Kategorie Wydarzeń</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>, document.body
+  );
+};
+
+// --- MODAL OGÓLNEGO WYDARZENIA (nie Nabożeństwo) ---
+
+const ModalAddEvent = ({ initialEvent, category, onClose, onSave, onDelete }) => {
+  const [event, setEvent] = useState(initialEvent || {
+    title: '',
+    description: '',
+    category: category || '',
+    date: new Date().toISOString().split('T')[0],
+    time: '10:00',
+    end_time: '12:00',
+    location: ''
+  });
+
+  useEffect(() => {
+    if (initialEvent) {
+      setEvent({
+        ...initialEvent,
+        category: initialEvent.category || category || '',
+        location: initialEvent.location || '',
+        description: initialEvent.description || ''
+      });
+    }
+  }, [initialEvent, category]);
+
+  const handleSubmit = async () => {
+    if (!event.title) return alert('Podaj tytuł wydarzenia');
+
+    const payload = {
+      title: event.title,
+      description: event.description || '',
+      category: event.category || category,
+      date: event.date,
+      time: event.time || '10:00',
+      end_time: event.end_time || '',
+      location: event.location || ''
+    };
+
+    if (event.id) payload.id = event.id;
+
+    onSave(payload);
+    onClose();
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-white/20 dark:border-gray-700 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+          <X size={20} className="text-gray-500" />
+        </button>
+
+        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-2">
+          <CalendarPlus size={24} className="text-pink-600" />
+          {event.id ? 'Edytuj Wydarzenie' : 'Nowe Wydarzenie'}
+        </h2>
+        <div className="mb-6">
+          <span className="inline-block px-3 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-xs font-bold rounded-full">
+            {event.category || category}
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tytuł</label>
+            <input
+              autoFocus
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none"
+              value={event.title}
+              onChange={e => setEvent({...event, title: e.target.value})}
+              placeholder="Nazwa wydarzenia"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data</label>
+            <CustomDatePicker value={event.date} onChange={v => setEvent({...event, date: v})} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina rozpoczęcia</label>
+              <div className="relative">
+                <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="time"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm"
+                  value={event.time}
+                  onChange={e => setEvent({...event, time: e.target.value})}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina zakończenia</label>
+              <div className="relative">
+                <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="time"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm"
+                  value={event.end_time || ''}
+                  onChange={e => setEvent({...event, end_time: e.target.value})}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Miejsce</label>
+            <div className="relative">
+              <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm"
+                value={event.location || ''}
+                onChange={e => setEvent({...event, location: e.target.value})}
+                placeholder="np. Sala główna"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Opis</label>
+            <textarea
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm h-24 resize-none"
+              value={event.description || ''}
+              onChange={e => setEvent({...event, description: e.target.value})}
+              placeholder="Szczegóły wydarzenia..."
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-between items-center">
+          {event.id && onDelete ? (
+            <button onClick={() => onDelete(event.id)} className="text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1">
+              <Trash2 size={16}/> Usuń
+            </button>
+          ) : <div></div>}
+
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition">Anuluj</button>
+            <button onClick={handleSubmit} className="px-4 py-2 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl hover:shadow-lg shadow-pink-500/30 flex items-center gap-2 transition">
+              <Save size={16} /> Zapisz
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>, document.body
+  );
+};
+
 // --- TASK MODAL ---
 
 const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
@@ -615,13 +871,26 @@ export default function CalendarModule() {
   const [events, setEvents] = useState([]);
   const [songs, setSongs] = useState([]);
   const [visibleTeams, setVisibleTeams] = useState(Object.keys(TEAMS));
-  const [modals, setModals] = useState({ addTask: null, editProgram: null });
-  const [view, setView] = useState('month'); 
+  const [modals, setModals] = useState({
+    addTask: null,
+    editProgram: null,
+    selectType: null,      // { date: 'YYYY-MM-DD' } - modal wyboru typu
+    selectCategory: null,  // { date: 'YYYY-MM-DD' } - modal wyboru kategorii wydarzenia
+    addEvent: null         // { date, category } - modal dodawania ogólnego wydarzenia
+  });
+  const [view, setView] = useState('month');
+  const [eventCategories, setEventCategories] = useState([]);
 
-  useEffect(() => { 
-      fetchEvents(); 
-      fetchSongs(); 
+  useEffect(() => {
+      fetchEvents();
+      fetchSongs();
+      fetchEventCategories();
   }, [currentDate.getMonth()]);
+
+  const fetchEventCategories = async () => {
+    const { data } = await supabase.from('app_dictionaries').select('*').eq('category', 'event_category');
+    if (data) setEventCategories(data);
+  };
 
   const fetchSongs = async () => {
       const { data } = await supabase.from('songs').select('*');
@@ -631,10 +900,30 @@ export default function CalendarModule() {
   const fetchEvents = async () => {
     const { data: prog } = await supabase.from('programs').select('*');
     const { data: task } = await supabase.from('tasks').select('*');
+    const { data: eventsData } = await supabase.from('events').select('*');
     const all = [];
-    
+
     prog?.forEach(p => all.push({ id: p.id, type: 'program', team: 'program', title: p.title || 'Nabożeństwo', date: new Date(p.date), raw: p }));
-    
+
+    // Ogólne wydarzenia (nie-nabożeństwa)
+    eventsData?.forEach(ev => {
+        if (!ev.date) return;
+        const d = new Date(ev.date);
+        if (isNaN(d.getTime())) return;
+
+        all.push({
+            id: ev.id,
+            type: 'event',
+            team: 'program', // Wyświetlamy jak program (różowe)
+            title: ev.title,
+            date: d,
+            raw: {
+                ...ev,
+                due_time: ev.time || '10:00'
+            }
+        });
+    });
+
     task?.forEach(t => {
         if (!t.due_date) return;
         const d = new Date(t.due_date);
@@ -651,19 +940,19 @@ export default function CalendarModule() {
            timeStr = `${h}:${m}`;
         }
 
-        all.push({ 
-            id: t.id, 
-            type: 'task', 
-            team: t.team || 'media', 
-            title: t.title, 
-            date: d, 
-            status: t.status, 
+        all.push({
+            id: t.id,
+            type: 'task',
+            team: t.team || 'media',
+            title: t.title,
+            date: d,
+            status: t.status,
             // Przekazujemy "surową" godzinę i datę do edycji
-            raw: { 
-                ...t, 
-                due_time: timeStr, 
-                due_date: dateStr 
-            } 
+            raw: {
+                ...t,
+                due_time: timeStr,
+                due_date: dateStr
+            }
         });
     });
     setEvents(all.filter(e => e.date));
@@ -697,6 +986,98 @@ export default function CalendarModule() {
 
   const handleSaveProgram = async () => { fetchEvents(); };
 
+  // Obsługa zapisywania ogólnych wydarzeń
+  const handleSaveEvent = async (eventData) => {
+    let error = null;
+    if (eventData.id) {
+      const { error: e } = await supabase.from('events').update(eventData).eq('id', eventData.id);
+      error = e;
+    } else {
+      const { error: e } = await supabase.from('events').insert([eventData]);
+      error = e;
+    }
+
+    if (error) {
+      alert(`Błąd zapisu wydarzenia: ${error.message}`);
+      console.error(error);
+    } else {
+      fetchEvents();
+    }
+  };
+
+  const handleDeleteEvent = async (id) => {
+    if (confirm("Czy na pewno chcesz usunąć to wydarzenie?")) {
+      await supabase.from('events').delete().eq('id', id);
+      setModals({...modals, addEvent: null});
+      fetchEvents();
+    }
+  };
+
+  // Flow dodawania: kliknięcie na + otwiera modal wyboru typu
+  const handleAddClick = (dateStr) => {
+    setModals({...modals, selectType: { date: dateStr }});
+  };
+
+  // Po wyborze "Wydarzenie" - otwórz modal kategorii
+  const handleSelectEvent = () => {
+    const date = modals.selectType?.date;
+    setModals({...modals, selectType: null, selectCategory: { date }});
+  };
+
+  // Po wyborze "Zadanie" - otwórz modal zadania
+  const handleSelectTask = () => {
+    const date = modals.selectType?.date;
+    setModals({
+      ...modals,
+      selectType: null,
+      addTask: { due_date: date, due_time: '10:00', team: 'media' }
+    });
+  };
+
+  // Po wyborze kategorii wydarzenia
+  const handleSelectCategory = async (category) => {
+    const date = modals.selectCategory?.date;
+
+    if (category.toLowerCase() === 'nabożeństwo') {
+      // Utwórz nowy program i otwórz edytor
+      const { data, error } = await supabase.from('programs').insert([{
+        date: date,
+        schedule: [],
+        zespol: { lider: '', piano: '', gitara_akustyczna: '', gitara_elektryczna: '', bas: '', wokale: '', cajon: '', notatki: '', absencja: '' },
+        atmosfera_team: { przygotowanie: '', witanie: '' },
+        produkcja: { naglosnienie: '', propresenter: '', social: '', host: '' },
+        scena: { prowadzenie: '', czytanie: '', kazanie: '', modlitwa: '', wieczerza: '', ogloszenia: '' },
+        szkolka: { mlodsza: '', srednia: '', starsza: '' }
+      }]).select().single();
+
+      if (error) {
+        alert('Błąd tworzenia nabożeństwa: ' + error.message);
+        return;
+      }
+
+      setModals({...modals, selectCategory: null, editProgram: data.id});
+      fetchEvents();
+    } else {
+      // Otwórz modal ogólnego wydarzenia
+      setModals({
+        ...modals,
+        selectCategory: null,
+        addEvent: { date, category, title: '', time: '10:00' }
+      });
+    }
+  };
+
+  // Obsługa kliknięcia w wydarzenie na kalendarzu
+  const handleEventClick = (ev) => {
+    if (ev.type === 'program') {
+      setModals({...modals, editProgram: ev.id});
+    } else if (ev.type === 'event') {
+      setModals({...modals, addEvent: ev.raw});
+    } else {
+      setModals({...modals, addTask: ev.raw});
+    }
+  };
+
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const today = () => setCurrentDate(new Date());
@@ -723,11 +1104,11 @@ export default function CalendarModule() {
             <div key={d} className="bg-white dark:bg-gray-900 min-h-[100px] p-2 relative group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
               <div className="flex justify-between items-center mb-1">
                 <span className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${d === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() ? 'bg-pink-600 text-white' : 'text-gray-700 dark:text-gray-300'}`}>{d}</span>
-                <button onClick={() => setModals({...modals, addTask: { due_date: dateStr, due_time: '10:00', team: 'media' }})} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-400"><Plus size={14} /></button>
+                <button onClick={() => handleAddClick(dateStr)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-400"><Plus size={14} /></button>
               </div>
               <div className="space-y-1 overflow-y-auto max-h-[100px] custom-scrollbar">
                 {dayEvents.map(ev => (
-                  <EventBadge key={ev.id} event={ev} onClick={() => ev.type === 'program' ? setModals({...modals, editProgram: ev.id}) : setModals({...modals, addTask: ev.raw})} />
+                  <EventBadge key={ev.id} event={ev} onClick={() => handleEventClick(ev)} />
                 ))}
               </div>
             </div>
@@ -761,8 +1142,8 @@ export default function CalendarModule() {
                  const dayEvents = filteredEvents.filter(e => e.date.getDate() === d.getDate() && e.date.getMonth() === d.getMonth());
                  return (
                     <div key={d.toString()} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition min-h-[200px]">
-                        {dayEvents.map(ev => <EventBadge key={ev.id} event={ev} onClick={() => ev.type === 'program' ? setModals({...modals, editProgram: ev.id}) : setModals({...modals, addTask: ev.raw})} />)}
-                        <button onClick={() => setModals({...modals, addTask: { due_date: dateStr, due_time: '10:00', team: 'media' }})} className="w-full mt-2 py-2 text-xs text-gray-300 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg transition flex items-center justify-center gap-1"><Plus size={12}/> Dodaj</button>
+                        {dayEvents.map(ev => <EventBadge key={ev.id} event={ev} onClick={() => handleEventClick(ev)} />)}
+                        <button onClick={() => handleAddClick(dateStr)} className="w-full mt-2 py-2 text-xs text-gray-300 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg transition flex items-center justify-center gap-1"><Plus size={12}/> Dodaj</button>
                     </div>
                  )
              })}
@@ -808,14 +1189,14 @@ export default function CalendarModule() {
                     const top = (startMin / 60) * 80; 
                     
                     return (
-                        <div 
-                            key={ev.id} 
-                            onClick={() => ev.type === 'program' ? setModals({...modals, editProgram: ev.id}) : setModals({...modals, addTask: ev.raw})}
+                        <div
+                            key={ev.id}
+                            onClick={() => handleEventClick(ev)}
                             className={`absolute left-2 right-2 rounded-xl p-3 shadow-sm border cursor-pointer hover:shadow-md transition z-10 ${ev.team === 'program' ? 'bg-pink-50 border-pink-200 text-pink-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}
                             style={{ top: `${top}px`, height: '70px' }}
                         >
                             <div className="flex items-center gap-2 text-xs font-bold opacity-70 mb-1">
-                                <Clock size={12}/> 
+                                <Clock size={12}/>
                                 {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}
                             </div>
                             <div className="font-bold truncate">{ev.title}</div>
@@ -844,7 +1225,7 @@ export default function CalendarModule() {
         <div className="flex-1 bg-white dark:bg-gray-900 overflow-y-auto custom-scrollbar p-6">
              <div className="max-w-4xl mx-auto space-y-2">
                  {sortedEvents.map(ev => (
-                     <div key={ev.id} onClick={() => ev.type === 'program' ? setModals({...modals, editProgram: ev.id}) : setModals({...modals, addTask: ev.raw})} className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer transition">
+                     <div key={ev.id} onClick={() => handleEventClick(ev)} className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer transition">
                          <div className="w-16 text-center">
                              <div className="text-xs text-gray-400 uppercase font-bold">{ev.date.toLocaleDateString('pl-PL', {month: 'short'})}</div>
                              <div className="text-xl font-bold text-gray-800 dark:text-white">{ev.date.getDate()}</div>
@@ -853,8 +1234,7 @@ export default function CalendarModule() {
                          <div className="flex-1">
                              <h4 className="font-bold text-gray-800 dark:text-gray-200">{ev.title}</h4>
                              <div className="text-xs text-gray-500 flex gap-3 mt-0.5">
-                                 <span>{TEAMS[ev.team]?.label}</span>
-                                 {/* FIX 3: Wyświetlanie czasu w widoku listy */}
+                                 <span>{TEAMS[ev.team]?.label || ev.raw?.category}</span>
                                  {ev.raw?.due_time && <span>• {ev.raw.due_time}</span>}
                              </div>
                          </div>
@@ -932,8 +1312,8 @@ export default function CalendarModule() {
                 </label>
               ))}
             </div>
-            <button onClick={() => setModals({ ...modals, addTask: { due_date: new Date().toISOString().split('T')[0], due_time: '10:00', team: 'media' } })} className="w-full mt-6 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 hover:shadow-pink-500/50 transition transform hover:-translate-y-0.5">
-              <Plus size={18} /> Dodaj zadanie
+            <button onClick={() => handleAddClick(new Date().toISOString().split('T')[0])} className="w-full mt-6 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 hover:shadow-pink-500/50 transition transform hover:-translate-y-0.5">
+              <Plus size={18} /> Dodaj
             </button>
           </div>
         </div>
@@ -946,6 +1326,35 @@ export default function CalendarModule() {
           {view === 'list' && renderListView()}
         </div>
       </div>
+
+      {/* Modale */}
+      {modals.selectType && (
+        <ModalSelectType
+          date={modals.selectType.date}
+          onClose={() => setModals({...modals, selectType: null})}
+          onSelectTask={handleSelectTask}
+          onSelectEvent={handleSelectEvent}
+        />
+      )}
+
+      {modals.selectCategory && (
+        <ModalSelectEventCategory
+          date={modals.selectCategory.date}
+          categories={eventCategories}
+          onClose={() => setModals({...modals, selectCategory: null})}
+          onSelectCategory={handleSelectCategory}
+        />
+      )}
+
+      {modals.addEvent && (
+        <ModalAddEvent
+          initialEvent={modals.addEvent}
+          category={modals.addEvent.category}
+          onClose={() => setModals({...modals, addEvent: null})}
+          onSave={handleSaveEvent}
+          onDelete={handleDeleteEvent}
+        />
+      )}
 
       {modals.addTask && <ModalAddTask initialTask={modals.addTask} onClose={() => setModals({...modals, addTask: null})} onSave={handleSaveTask} onDelete={handleDeleteTask} />}
       {modals.editProgram && <ModalFullProgramEditor eventId={modals.editProgram} onClose={() => setModals({...modals, editProgram: null})} onSave={handleSaveProgram} songs={songs} />}

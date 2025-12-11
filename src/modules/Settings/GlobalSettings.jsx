@@ -967,6 +967,7 @@ export default function GlobalSettings() {
             <DictionaryEditor title="Role w Zespole" category="team_role" items={dictionaries} onAdd={addDict} onDelete={delDict} />
             <DictionaryEditor title="Typy Materiałów" category="material_type" items={dictionaries} onAdd={addDict} onDelete={delDict} />
             <DictionaryEditor title="Kategorie Pieśni" category="song_category" items={dictionaries} onAdd={addDict} onDelete={delDict} />
+            <DictionaryEditor title="Kategorie Wydarzeń" category="event_category" items={dictionaries} onAdd={addDict} onDelete={delDict} />
           </div>
         )}
 

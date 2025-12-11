@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import {
   Plus, Search, Trash2, X, FileText, Music, Calendar, Download,
-  AlertCircle, Paperclip, GripVertical, User,
+  AlertCircle, Paperclip, GripVertical, User, Users,
   LayoutGrid, List, CheckSquare, Filter, MessageSquare, Send,
   Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, DollarSign, Tag, Upload
 } from 'lucide-react';
 import FinanceTab from './shared/FinanceTab';
+import RolesTab from '../components/RolesTab';
 import CustomSelect from '../components/CustomSelect';
 import { useUserRole } from '../hooks/useUserRole';
 import { hasTabAccess } from '../utils/tabPermissions';
@@ -340,7 +341,7 @@ const AbsenceMultiSelect = ({ options, value, onChange }) => {
   );
 };
 
-const ScheduleTable = ({ programs, mediaTeam, onUpdateProgram }) => {
+const ScheduleTable = ({ programs, mediaTeam, onUpdateProgram, roles, memberRoles = [] }) => {
   const [expandedMonths, setExpandedMonths] = useState({});
 
   const groupedPrograms = programs.reduce((acc, prog) => {
@@ -402,13 +403,32 @@ const ScheduleTable = ({ programs, mediaTeam, onUpdateProgram }) => {
     await onUpdateProgram(programId, { produkcja: updatedProdukcja });
   };
 
-  const columns = [
-    { key: 'propresenter', label: 'Prezentacja' },
-    { key: 'social', label: 'SocialMedia' },
-    { key: 'video', label: 'Video' },
-    { key: 'foto', label: 'Foto' },
-    { key: 'naglosnienie', label: 'Nagłośnienie' },
-  ];
+  // Dynamiczne kolumny z zakładki Służby lub fallback do statycznych
+  const columns = roles && roles.length > 0
+    ? roles.map(role => ({ key: role.field_key, label: role.name, roleId: role.id }))
+    : [
+        { key: 'propresenter', label: 'Prezentacja', roleId: null },
+        { key: 'social', label: 'SocialMedia', roleId: null },
+        { key: 'video', label: 'Video', roleId: null },
+        { key: 'foto', label: 'Foto', roleId: null },
+        { key: 'naglosnienie', label: 'Nagłośnienie', roleId: null },
+      ];
+
+  // Funkcja do filtrowania członków zespołu według przypisania do służby
+  const getMembersForRole = (roleId) => {
+    if (!roleId || memberRoles.length === 0) {
+      return mediaTeam;
+    }
+    const assignedMemberIds = memberRoles
+      .filter(mr => mr.role_id === roleId)
+      .map(mr => String(mr.member_id));
+
+    if (assignedMemberIds.length === 0) {
+      return mediaTeam;
+    }
+
+    return mediaTeam.filter(member => assignedMemberIds.includes(String(member.id)));
+  };
 
   return (
     <div className="space-y-4">
@@ -456,9 +476,9 @@ const ScheduleTable = ({ programs, mediaTeam, onUpdateProgram }) => {
                             </td>
                             {columns.map(col => (
                               <td key={col.key} className="p-2 relative">
-                                <TableMultiSelect 
-                                  options={mediaTeam} 
-                                  value={prog.produkcja?.[col.key] || ''} 
+                                <TableMultiSelect
+                                  options={getMembersForRole(col.roleId)}
+                                  value={prog.produkcja?.[col.key] || ''}
                                   onChange={(val) => updateRole(prog.id, col.key, val)}
                                   absentMembers={absentList}
                                 />
@@ -528,6 +548,10 @@ export default function MediaTeamModule() {
   const [draggedTask, setDraggedTask] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
 
+  // Służby z team_roles
+  const [mediaRoles, setMediaRoles] = useState([]);
+  const [memberRoles, setMemberRoles] = useState([]);
+
   // Finance data
   const [budgetItems, setBudgetItems] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -550,6 +574,7 @@ export default function MediaTeamModule() {
   useEffect(() => {
     fetchData();
     getCurrentUser();
+    fetchMediaRoles();
   }, []);
 
   useEffect(() => {
@@ -557,6 +582,27 @@ export default function MediaTeamModule() {
       fetchFinanceData();
     }
   }, [activeTab]);
+
+  const fetchMediaRoles = async () => {
+    try {
+      const { data: rolesData } = await supabase
+        .from('team_roles')
+        .select('*')
+        .eq('team_type', 'media')
+        .eq('is_active', true)
+        .order('display_order');
+      setMediaRoles(rolesData || []);
+
+      // Pobierz przypisania członków do służb
+      const { data: memberRolesData } = await supabase
+        .from('team_member_roles')
+        .select('*')
+        .eq('member_table', 'media_team');
+      setMemberRoles(memberRolesData || []);
+    } catch (err) {
+      console.error('Błąd pobierania służb:', err);
+    }
+  };
 
   async function getCurrentUser() {
     const { data } = await supabase.auth.getUser();
@@ -1012,6 +1058,19 @@ export default function MediaTeamModule() {
             Finanse
           </button>
         )}
+        {hasTabAccess('media', 'members', userRole) && (
+          <button
+            onClick={() => setActiveTab('roles')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'roles'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Users size={16} className="inline mr-2" />
+            Służby
+          </button>
+        )}
       </div>
 
       {/* SEKCJA 1: GRAFIK MEDIA TEAM */}
@@ -1024,6 +1083,8 @@ export default function MediaTeamModule() {
           programs={programs}
           mediaTeam={team}
           onUpdateProgram={handleProgramUpdate}
+          roles={mediaRoles}
+          memberRoles={memberRoles}
         />
       </section>
       )}
@@ -1163,6 +1224,15 @@ export default function MediaTeamModule() {
           expenses={expenses}
           onAddExpense={() => setShowExpenseModal(true)}
           onRefresh={fetchFinanceData}
+        />
+      )}
+
+      {/* ROLES TAB */}
+      {activeTab === 'roles' && (
+        <RolesTab
+          teamType="media"
+          teamMembers={team}
+          memberTable="media_team"
         />
       )}
 

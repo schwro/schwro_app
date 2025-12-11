@@ -15,7 +15,7 @@ const formatDateFull = (dateString) => {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 };
 
-const getPDFHtmlContent = (program, songsMap) => {
+const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
   let songCounter = 0;
   const songNumberMap = {};
 
@@ -184,12 +184,30 @@ const getPDFHtmlContent = (program, songsMap) => {
   };
 
   const renderSections = () => {
+    // Dynamiczne pola dla zespołów - używa teamRoles jeśli dostępne, lub fallback do statycznych
+    const worshipFields = teamRoles.worship?.length > 0
+      ? teamRoles.worship.map(r => ({ key: r.field_key, label: r.name }))
+      : [{ key: 'lider', label: 'Lider Uwielbienia' }, { key: 'piano', label: 'Piano' }, { key: 'gitara_akustyczna', label: 'Gitara Akustyczna' }, { key: 'gitara_elektryczna', label: 'Gitara Elektryczna' }, { key: 'bas', label: 'Gitara Basowa' }, { key: 'wokale', label: 'Wokale' }, { key: 'cajon', label: 'Cajon / Perkusja' }];
+
+    const mediaFields = teamRoles.media?.length > 0
+      ? teamRoles.media.map(r => ({ key: r.field_key, label: r.name }))
+      : [{ key: 'naglosnienie', label: 'Nagłośnienie' }, { key: 'propresenter', label: 'ProPresenter' }, { key: 'social', label: 'Social Media' }, { key: 'host', label: 'Host' }];
+
+    const atmosferaFields = teamRoles.atmosfera?.length > 0
+      ? teamRoles.atmosfera.map(r => ({ key: r.field_key, label: r.name }))
+      : [{ key: 'przygotowanie', label: 'Przygotowanie' }, { key: 'witanie', label: 'Witanie' }];
+
+    // Dynamiczne pola dla szkółki - używa kidsGroups jeśli dostępne
+    const szkolkaFields = teamRoles.kidsGroups?.length > 0
+      ? [{ key: 'temat', label: 'Temat lekcji' }, ...teamRoles.kidsGroups.map(g => ({ key: g.id, label: g.name }))]
+      : [{ key: 'temat', label: 'Temat lekcji' }, { key: 'mlodsza', label: 'Grupa Młodsza' }, { key: 'srednia', label: 'Grupa Średnia' }, { key: 'starsza', label: 'Grupa Starsza' }];
+
     const sectionConfigs = [
-      { title: 'Atmosfera Team', data: program.atmosfera_team, fields: [{ key: 'przygotowanie', label: 'Przygotowanie' }, { key: 'witanie', label: 'Witanie' }] },
-      { title: 'Produkcja', data: program.produkcja, fields: [{ key: 'naglosnienie', label: 'Nagłośnienie' }, { key: 'propresenter', label: 'ProPresenter' }, { key: 'social', label: 'Social Media' }, { key: 'host', label: 'Host' }] },
+      { title: 'Atmosfera Team', data: program.atmosfera_team, fields: atmosferaFields },
+      { title: 'MediaTeam', data: program.produkcja, fields: mediaFields },
       { title: 'Scena', data: program.scena, fields: [{ key: 'prowadzenie', label: 'Prowadzenie' }, { key: 'modlitwa', label: 'Modlitwa' }, { key: 'kazanie', label: 'Kazanie' }, { key: 'wieczerza', label: 'Wieczerza' }, { key: 'ogloszenia', label: 'Ogłoszenia' }] },
-      { title: 'Szkółka Niedzielna', data: program.szkolka, fields: [{ key: 'mlodsza', label: 'Grupa Młodsza' }, { key: 'srednia', label: 'Grupa Średnia' }, { key: 'starsza', label: 'Grupa Starsza' }] },
-      { title: 'Zespół Uwielbienia', data: program.zespol, fields: [{ key: 'lider', label: 'Lider Uwielbienia' }, { key: 'piano', label: 'Piano' }, { key: 'gitara_akustyczna', label: 'Gitara Akustyczna' }, { key: 'gitara_elektryczna', label: 'Gitara Elektryczna' }, { key: 'bas', label: 'Gitara Basowa' }, { key: 'wokale', label: 'Wokale' }, { key: 'cajon', label: 'Cajon / Perkusja' }] }
+      { title: 'Szkółka Niedzielna', data: program.szkolka, fields: szkolkaFields },
+      { title: 'Zespół Uwielbienia', data: program.zespol, fields: worshipFields }
     ];
 
     return sectionConfigs.map(section => {
@@ -405,8 +423,8 @@ const getPDFHtmlContent = (program, songsMap) => {
   `;
 };
 
-export const generatePDF = async (program, songsMap) => {
-  const htmlContent = getPDFHtmlContent(program, songsMap);
+export const generatePDF = async (program, songsMap, teamRoles = {}) => {
+  const htmlContent = getPDFHtmlContent(program, songsMap, teamRoles);
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlContent, 'text/html');
@@ -589,13 +607,13 @@ export const generatePDFBase64 = async (program, songsMap) => {
   });
 };
 
-export const downloadPDF = async (program, songsMap) => {
-  return generatePDF(program, songsMap);
+export const downloadPDF = async (program, songsMap, teamRoles = {}) => {
+  return generatePDF(program, songsMap, teamRoles);
 };
 
-export const savePDFToSupabase = async (program, songsMap) => {
+export const savePDFToSupabase = async (program, songsMap, teamRoles = {}) => {
   try {
-    const htmlContent = getPDFHtmlContent(program, songsMap);
+    const htmlContent = getPDFHtmlContent(program, songsMap, teamRoles);
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, 'text/html');
