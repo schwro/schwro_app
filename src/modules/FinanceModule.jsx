@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DollarSign, TrendingUp, Receipt, Calendar, Plus, Upload, Tag, X, FileText, Trash2, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { DollarSign, TrendingUp, Receipt, Calendar, Plus, Upload, Tag, X, FileText, Trash2, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, BarChart3, PieChart, ArrowUpRight, ArrowDownRight, Users, Building2, Settings, Banknote, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 import CustomSelect from '../components/CustomSelect';
@@ -229,6 +229,23 @@ const FinanceModule = () => {
     dateTo: ''
   });
 
+  // Stan początkowy - salda kont
+  const [accountBalances, setAccountBalances] = useState({
+    bank_pln: 0,
+    bank_currency: 0,
+    cash_pln: 0,
+    cash_currency: 0,
+    currency_type: 'EUR'
+  });
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
+  const [balanceForm, setBalanceForm] = useState({
+    bank_pln: '',
+    bank_currency: '',
+    cash_pln: '',
+    cash_currency: '',
+    currency_type: 'EUR'
+  });
+
   // Fetch budget items
   useEffect(() => {
     if (activeTab === 'budget') {
@@ -249,6 +266,99 @@ const FinanceModule = () => {
       fetchExpenseTransactions();
     }
   }, [activeTab, selectedYear]);
+
+  // Fetch all data for reports
+  useEffect(() => {
+    if (activeTab === 'reports') {
+      fetchBudgetItems();
+      fetchIncomeTransactions();
+      fetchExpenseTransactions();
+      fetchAccountBalances();
+    }
+  }, [activeTab, selectedYear]);
+
+  // Fetch account balances on mount
+  useEffect(() => {
+    fetchAccountBalances();
+  }, [selectedYear]);
+
+  const fetchAccountBalances = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('finance_balances')
+        .select('*')
+        .eq('year', selectedYear)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching balances:', error);
+        return;
+      }
+
+      if (data) {
+        setAccountBalances({
+          bank_pln: data.bank_pln || 0,
+          bank_currency: data.bank_currency || 0,
+          cash_pln: data.cash_pln || 0,
+          cash_currency: data.cash_currency || 0,
+          currency_type: data.currency_type || 'EUR'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching account balances:', error);
+    }
+  };
+
+  const saveAccountBalances = async () => {
+    try {
+      const balanceData = {
+        year: selectedYear,
+        bank_pln: parseFloat(balanceForm.bank_pln) || 0,
+        bank_currency: parseFloat(balanceForm.bank_currency) || 0,
+        cash_pln: parseFloat(balanceForm.cash_pln) || 0,
+        cash_currency: parseFloat(balanceForm.cash_currency) || 0,
+        currency_type: balanceForm.currency_type
+      };
+
+      // Check if record exists
+      const { data: existing } = await supabase
+        .from('finance_balances')
+        .select('id')
+        .eq('year', selectedYear)
+        .single();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('finance_balances')
+          .update(balanceData)
+          .eq('year', selectedYear);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('finance_balances')
+          .insert([balanceData]);
+        if (error) throw error;
+      }
+
+      setAccountBalances(balanceData);
+      setShowBalanceModal(false);
+      alert('Stan kont zapisany pomyślnie');
+    } catch (error) {
+      console.error('Error saving balances:', error);
+      alert('Błąd zapisywania: ' + error.message);
+    }
+  };
+
+  const openBalanceModal = () => {
+    setBalanceForm({
+      bank_pln: accountBalances.bank_pln.toString(),
+      bank_currency: accountBalances.bank_currency.toString(),
+      cash_pln: accountBalances.cash_pln.toString(),
+      cash_currency: accountBalances.cash_currency.toString(),
+      currency_type: accountBalances.currency_type
+    });
+    setShowBalanceModal(true);
+  };
 
   const fetchBudgetItems = async () => {
     setLoading(true);
@@ -649,6 +759,17 @@ const FinanceModule = () => {
         >
           <Receipt size={16} className="inline mr-2" />
           Wydatki
+        </button>
+        <button
+          onClick={() => setActiveTab('reports')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'reports'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <BarChart3 size={16} className="inline mr-2" />
+          Raporty
         </button>
       </div>
 
@@ -1270,6 +1391,396 @@ const FinanceModule = () => {
         </section>
       )}
 
+      {/* REPORTS TAB */}
+      {activeTab === 'reports' && (
+        <section className="space-y-6">
+          {/* Podsumowanie finansowe - kompaktowy widok */}
+          {(() => {
+            const totalIncome = incomeTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+            const totalExpenses = expenseTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+            const yearBalance = totalIncome - totalExpenses;
+            const currentBankPln = accountBalances.bank_pln + yearBalance;
+            const currentCashPln = accountBalances.cash_pln;
+            const totalPln = currentBankPln + currentCashPln;
+            const totalPlanned = budgetItems.reduce((sum, item) => sum + (item.planned_amount || 0), 0);
+            const budgetExecution = totalPlanned > 0 ? (totalExpenses / totalPlanned) * 100 : 0;
+
+            return (
+              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                {/* Header z aktualnym saldem */}
+                <div className="bg-gradient-to-r from-pink-600 to-orange-600 p-6 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-pink-100 text-sm font-medium mb-1">Aktualny stan finansów • {selectedYear}</p>
+                      <p className="text-4xl font-bold">{totalPln.toLocaleString('pl-PL')} zł</p>
+                    </div>
+                    <button
+                      onClick={openBalanceModal}
+                      className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition"
+                      title="Edytuj stany początkowe"
+                    >
+                      <Settings size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Szczegóły w gridzie */}
+                <div className="p-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {/* Rachunek bankowy */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                        <CreditCard size={16} />
+                        <span className="text-xs font-medium uppercase">Bank PLN</span>
+                      </div>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">{currentBankPln.toLocaleString('pl-PL')} zł</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Start: {accountBalances.bank_pln.toLocaleString('pl-PL')} zł
+                      </p>
+                    </div>
+
+                    {/* Gotówka */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                        <Banknote size={16} />
+                        <span className="text-xs font-medium uppercase">Gotówka</span>
+                      </div>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">{currentCashPln.toLocaleString('pl-PL')} zł</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Start: {accountBalances.cash_pln.toLocaleString('pl-PL')} zł
+                      </p>
+                    </div>
+
+                    {/* Bilans roku */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                        {yearBalance >= 0 ? <ArrowUpRight size={16} className="text-green-500" /> : <ArrowDownRight size={16} className="text-red-500" />}
+                        <span className="text-xs font-medium uppercase">Bilans {selectedYear}</span>
+                      </div>
+                      <p className={`text-xl font-bold ${yearBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {yearBalance >= 0 ? '+' : ''}{yearBalance.toLocaleString('pl-PL')} zł
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        +{totalIncome.toLocaleString('pl-PL')} / -{totalExpenses.toLocaleString('pl-PL')}
+                      </p>
+                    </div>
+
+                    {/* Wykonanie budżetu */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                        <PieChart size={16} />
+                        <span className="text-xs font-medium uppercase">Budżet</span>
+                      </div>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">{budgetExecution.toFixed(1)}%</p>
+                      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full ${budgetExecution < 80 ? 'bg-green-500' : budgetExecution <= 100 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                          style={{ width: `${Math.min(budgetExecution, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sekcja walutowa - tylko jeśli jest saldo */}
+                  {(accountBalances.bank_currency > 0 || accountBalances.cash_currency > 0) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Waluta ({accountBalances.currency_type})</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                          <CreditCard size={18} className="text-amber-600 dark:text-amber-400" />
+                          <div>
+                            <p className="text-xs text-amber-600 dark:text-amber-400">Rachunek</p>
+                            <p className="font-bold text-gray-900 dark:text-white">{accountBalances.bank_currency.toLocaleString('pl-PL')} {accountBalances.currency_type}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                          <Banknote size={18} className="text-cyan-600 dark:text-cyan-400" />
+                          <div>
+                            <p className="text-xs text-cyan-600 dark:text-cyan-400">Gotówka</p>
+                            <p className="font-bold text-gray-900 dark:text-white">{accountBalances.cash_currency.toLocaleString('pl-PL')} {accountBalances.currency_type}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+
+          {/* Monthly Chart - Wpływy vs Wydatki */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <BarChart3 size={20} className="text-pink-600" />
+              Wpływy vs Wydatki - miesięcznie
+            </h3>
+            <div className="space-y-3">
+              {(() => {
+                const months = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
+                const monthlyData = months.map((name, idx) => {
+                  const monthNum = String(idx + 1).padStart(2, '0');
+                  const monthStart = `${selectedYear}-${monthNum}-01`;
+                  const monthEnd = `${selectedYear}-${monthNum}-31`;
+
+                  const income = incomeTransactions
+                    .filter(t => t.date >= monthStart && t.date <= monthEnd)
+                    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+                  const expense = expenseTransactions
+                    .filter(t => t.payment_date >= monthStart && t.payment_date <= monthEnd)
+                    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+                  return { name, income, expense };
+                });
+
+                const maxValue = Math.max(
+                  ...monthlyData.map(d => Math.max(d.income, d.expense)),
+                  1
+                );
+
+                return (
+                  <div className="grid grid-cols-12 gap-2">
+                    {monthlyData.map((data, idx) => (
+                      <div key={idx} className="flex flex-col items-center">
+                        <div className="h-32 w-full flex items-end justify-center gap-1">
+                          <div
+                            className="w-3 bg-gradient-to-t from-green-500 to-green-400 rounded-t transition-all hover:opacity-80"
+                            style={{ height: `${(data.income / maxValue) * 100}%`, minHeight: data.income > 0 ? '4px' : '0' }}
+                            title={`Wpływy: ${data.income.toLocaleString('pl-PL')} zł`}
+                          />
+                          <div
+                            className="w-3 bg-gradient-to-t from-red-500 to-red-400 rounded-t transition-all hover:opacity-80"
+                            style={{ height: `${(data.expense / maxValue) * 100}%`, minHeight: data.expense > 0 ? '4px' : '0' }}
+                            title={`Wydatki: ${data.expense.toLocaleString('pl-PL')} zł`}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">{data.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-green-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Wpływy</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-red-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Wydatki</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Two columns: Categories & Top Contractors */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Expenses by Category */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <PieChart size={20} className="text-pink-600" />
+                Wydatki wg kategorii
+              </h3>
+              {(() => {
+                const categoryTotals = expenseTransactions.reduce((acc, t) => {
+                  acc[t.category] = (acc[t.category] || 0) + (t.amount || 0);
+                  return acc;
+                }, {});
+
+                const sortedCategories = Object.entries(categoryTotals)
+                  .sort(([,a], [,b]) => b - a);
+
+                const total = sortedCategories.reduce((sum, [,val]) => sum + val, 0);
+                const colors = [
+                  'from-pink-500 to-rose-500',
+                  'from-blue-500 to-indigo-500',
+                  'from-green-500 to-emerald-500',
+                  'from-yellow-500 to-orange-500',
+                  'from-purple-500 to-violet-500',
+                  'from-cyan-500 to-teal-500'
+                ];
+
+                return sortedCategories.length > 0 ? (
+                  <div className="space-y-3">
+                    {sortedCategories.map(([category, amount], idx) => {
+                      const percentage = total > 0 ? (amount / total) * 100 : 0;
+                      return (
+                        <div key={category}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">{category}</span>
+                            <span className="text-gray-900 dark:text-white font-bold">{amount.toLocaleString('pl-PL')} zł</span>
+                          </div>
+                          <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2.5">
+                            <div
+                              className={`h-2.5 rounded-full bg-gradient-to-r ${colors[idx % colors.length]} transition-all`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {percentage.toFixed(1)}%
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 dark:text-gray-400 py-8">Brak danych o wydatkach</p>
+                );
+              })()}
+            </div>
+
+            {/* Top Contractors */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <Building2 size={20} className="text-pink-600" />
+                Top kontrahenci
+              </h3>
+              {(() => {
+                const contractorTotals = expenseTransactions.reduce((acc, t) => {
+                  acc[t.contractor] = (acc[t.contractor] || 0) + (t.amount || 0);
+                  return acc;
+                }, {});
+
+                const sortedContractors = Object.entries(contractorTotals)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 8);
+
+                const total = sortedContractors.reduce((sum, [,val]) => sum + val, 0);
+
+                return sortedContractors.length > 0 ? (
+                  <div className="space-y-2">
+                    {sortedContractors.map(([contractor, amount], idx) => {
+                      const percentage = total > 0 ? (amount / total) * 100 : 0;
+                      return (
+                        <div key={contractor} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white text-sm font-bold">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{contractor}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{percentage.toFixed(1)}% całości</p>
+                          </div>
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">{amount.toLocaleString('pl-PL')} zł</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 dark:text-gray-400 py-8">Brak danych o kontrahentach</p>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Budget Execution Table */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <DollarSign size={20} className="text-pink-600" />
+              Realizacja budżetu wg służb
+            </h3>
+            {budgetItems.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 text-gray-600 dark:text-gray-400 font-medium text-sm">Służba</th>
+                      <th className="text-right py-3 px-4 text-gray-600 dark:text-gray-400 font-medium text-sm">Planowany</th>
+                      <th className="text-right py-3 px-4 text-gray-600 dark:text-gray-400 font-medium text-sm">Zrealizowany</th>
+                      <th className="text-center py-3 px-4 text-gray-600 dark:text-gray-400 font-medium text-sm">Realizacja</th>
+                      <th className="text-right py-3 px-4 text-gray-600 dark:text-gray-400 font-medium text-sm">Pozostało</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const categoryStats = {};
+                      budgetItems.forEach(item => {
+                        if (!categoryStats[item.category]) {
+                          categoryStats[item.category] = { planned: 0, realized: 0 };
+                        }
+                        categoryStats[item.category].planned += item.planned_amount || 0;
+
+                        const realized = expenseTransactions
+                          .filter(exp => exp.category === item.category && exp.description === item.description)
+                          .reduce((sum, exp) => sum + (exp.amount || 0), 0);
+                        categoryStats[item.category].realized += realized;
+                      });
+
+                      return Object.entries(categoryStats).map(([category, stats]) => {
+                        const percentage = stats.planned > 0 ? (stats.realized / stats.planned) * 100 : 0;
+                        const remaining = stats.planned - stats.realized;
+                        const progressColor = percentage < 80 ? 'from-green-500 to-green-600' : percentage <= 100 ? 'from-yellow-500 to-yellow-600' : 'from-red-500 to-red-600';
+
+                        return (
+                          <tr key={category} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
+                            <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{category}</td>
+                            <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{stats.planned.toLocaleString('pl-PL')} zł</td>
+                            <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{stats.realized.toLocaleString('pl-PL')} zł</td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-2">
+                                  <div
+                                    className={`h-2 rounded-full bg-gradient-to-r ${progressColor} transition-all`}
+                                    style={{ width: `${Math.min(percentage, 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm font-bold text-gray-900 dark:text-white w-14 text-right">{percentage.toFixed(0)}%</span>
+                              </div>
+                            </td>
+                            <td className={`py-3 px-4 text-right font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {remaining.toLocaleString('pl-PL')} zł
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 dark:text-gray-400 py-8">Brak pozycji budżetowych</p>
+            )}
+          </div>
+
+          {/* Income by Type */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <Users size={20} className="text-pink-600" />
+              Wpływy wg typu
+            </h3>
+            {(() => {
+              const typeTotals = incomeTransactions.reduce((acc, t) => {
+                acc[t.type] = (acc[t.type] || 0) + (t.amount || 0);
+                return acc;
+              }, {});
+
+              const sortedTypes = Object.entries(typeTotals).sort(([,a], [,b]) => b - a);
+              const total = sortedTypes.reduce((sum, [,val]) => sum + val, 0);
+
+              return sortedTypes.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {sortedTypes.map(([type, amount]) => {
+                    const percentage = total > 0 ? (amount / total) * 100 : 0;
+                    const bgColor = type === 'Kolekta' ? 'from-green-500 to-emerald-600' :
+                                   type === 'Darowizny' ? 'from-blue-500 to-indigo-600' :
+                                   'from-purple-500 to-violet-600';
+                    return (
+                      <div key={type} className={`bg-gradient-to-br ${bgColor} rounded-xl p-4 text-white`}>
+                        <p className="text-white/80 text-sm font-medium">{type}</p>
+                        <p className="text-2xl font-bold mt-1">{amount.toLocaleString('pl-PL')} zł</p>
+                        <p className="text-white/60 text-sm mt-2">{percentage.toFixed(1)}% całości</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">Brak danych o wpływach</p>
+              );
+            })()}
+          </div>
+        </section>
+      )}
+
       {/* MODAL: Budget Item */}
       {showBudgetModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
@@ -1602,6 +2113,130 @@ const FinanceModule = () => {
                 </button>
                 <button
                   onClick={saveExpense}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition font-medium"
+                >
+                  Zapisz
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Account Balances */}
+      {showBalanceModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
+            <div className="flex justify-between mb-6">
+              <h3 className="font-bold text-xl text-gray-800 dark:text-white">Stan początkowy kont - {selectedYear}</h3>
+              <button onClick={() => setShowBalanceModal(false)} className="text-gray-500 dark:text-gray-400">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="space-y-5">
+              {/* PLN Section */}
+              <div>
+                <h4 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                  Złotówki (PLN)
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
+                      <CreditCard size={12} className="inline mr-1" />
+                      Rachunek bankowy
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      value={balanceForm.bank_pln}
+                      onChange={(e) => setBalanceForm({...balanceForm, bank_pln: e.target.value})}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
+                      <Banknote size={12} className="inline mr-1" />
+                      Gotówka
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      value={balanceForm.cash_pln}
+                      onChange={(e) => setBalanceForm({...balanceForm, cash_pln: e.target.value})}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Currency Section */}
+              <div>
+                <h4 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                  Waluta obca
+                </h4>
+                <div className="mb-3">
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Typ waluty</label>
+                  <select
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={balanceForm.currency_type}
+                    onChange={(e) => setBalanceForm({...balanceForm, currency_type: e.target.value})}
+                  >
+                    <option value="EUR">EUR - Euro</option>
+                    <option value="USD">USD - Dolar amerykański</option>
+                    <option value="GBP">GBP - Funt brytyjski</option>
+                    <option value="CHF">CHF - Frank szwajcarski</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
+                      <CreditCard size={12} className="inline mr-1" />
+                      Rachunek walutowy
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      value={balanceForm.bank_currency}
+                      onChange={(e) => setBalanceForm({...balanceForm, bank_currency: e.target.value})}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
+                      <Banknote size={12} className="inline mr-1" />
+                      Gotówka walutowa
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      value={balanceForm.cash_currency}
+                      onChange={(e) => setBalanceForm({...balanceForm, cash_currency: e.target.value})}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-sm text-blue-700 dark:text-blue-300">
+                <p className="font-medium mb-1">💡 Wskazówka</p>
+                <p>Wprowadź stany kont na początek roku {selectedYear}. System automatycznie doliczy wpływy i wydatki, aby pokazać aktualny stan.</p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowBalanceModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  Anuluj
+                </button>
+                <button
+                  onClick={saveAccountBalances}
                   className="flex-1 px-4 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition font-medium"
                 >
                   Zapisz
