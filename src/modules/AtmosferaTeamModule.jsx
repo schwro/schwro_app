@@ -352,6 +352,7 @@ export default function AtmosferaTeamModule() {
 
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [memberForm, setMemberForm] = useState({ id: null, full_name: '', role: 'Atmosfera', email: '', phone: '' });
+  const [selectedMemberRoles, setSelectedMemberRoles] = useState([]);
 
   // Służby z team_roles
   const [atmosferaRoles, setAtmosferaRoles] = useState([]);
@@ -588,20 +589,68 @@ export default function AtmosferaTeamModule() {
   const saveMember = async () => {
     try {
       if (!memberForm.full_name.trim()) return alert('Imię wymagane');
-      
+      let memberId = memberForm.id;
+
       if (memberForm.id) {
-        const { error } = await supabase.from('atmosfera_members').update(memberForm).eq('id', memberForm.id);
+        const { error } = await supabase.from('atmosfera_members').update({
+          full_name: memberForm.full_name,
+          role: memberForm.role,
+          email: memberForm.email,
+          phone: memberForm.phone
+        }).eq('id', memberForm.id);
         if (error) throw error;
       } else {
-        const { id, ...rest } = memberForm;
-        const { error } = await supabase.from('atmosfera_members').insert([rest]);
+        const { data: newMember, error } = await supabase.from('atmosfera_members').insert([{
+          full_name: memberForm.full_name,
+          role: memberForm.role,
+          email: memberForm.email,
+          phone: memberForm.phone
+        }]).select().single();
         if (error) throw error;
+        memberId = newMember.id;
       }
+
+      // Zapisz przypisania do służb
+      if (memberId) {
+        await supabase
+          .from('team_member_roles')
+          .delete()
+          .eq('member_id', String(memberId))
+          .eq('member_table', 'atmosfera_members');
+
+        if (selectedMemberRoles.length > 0) {
+          const assignments = selectedMemberRoles.map(roleId => ({
+            member_id: String(memberId),
+            member_table: 'atmosfera_members',
+            role_id: roleId
+          }));
+          await supabase.from('team_member_roles').insert(assignments);
+        }
+      }
+
       setShowMemberModal(false);
+      setSelectedMemberRoles([]);
       fetchData();
+      fetchAtmosferaRoles();
     } catch (err) {
-      alert('Błąd zapisu (sprawdź czy tabela atmosfera_members istnieje): ' + err.message);
+      alert('Błąd zapisu: ' + err.message);
     }
+  };
+
+  const loadMemberRoles = (memberId) => {
+    const roles = memberRoles
+      .filter(mr => String(mr.member_id) === String(memberId))
+      .map(mr => mr.role_id);
+    setSelectedMemberRoles(roles);
+  };
+
+  const getMemberRoleNames = (memberId) => {
+    const roleIds = memberRoles
+      .filter(mr => String(mr.member_id) === String(memberId))
+      .map(mr => mr.role_id);
+    return atmosferaRoles
+      .filter(r => roleIds.includes(r.id))
+      .map(r => r.name);
   };
 
   const deleteMember = async (id) => {
@@ -701,23 +750,41 @@ export default function AtmosferaTeamModule() {
       <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[30] transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Członkowie ({team.length})</h2>
-          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: 'Atmosfera', email: '', phone: '' }); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj</button>
+          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: 'Atmosfera', email: '', phone: '' }); setSelectedMemberRoles([]); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj</button>
         </div>
         <div className="bg-white/50 dark:bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
           <table className="w-full text-left text-sm">
             <thead className="bg-gradient-to-r from-pink-50/80 to-orange-50/80 dark:from-pink-900/20 dark:to-orange-900/20 text-gray-700 dark:text-gray-300 font-bold border-b border-gray-200/50 dark:border-gray-700/50">
-              <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Rola</th><th className="p-4">Email</th><th className="p-4">Telefon</th><th className="p-4 text-right">Akcje</th></tr>
+              <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Służby</th><th className="p-4">Email</th><th className="p-4">Telefon</th><th className="p-4 text-right">Akcje</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
-              {team.map(m => (
-                <tr key={m.id} className="hover:bg-pink-50/30 dark:hover:bg-pink-900/10 transition text-gray-700 dark:text-gray-300">
-                  <td className="p-4 font-medium">{m.full_name}</td><td className="p-4">{m.role}</td><td className="p-4">{m.email}</td><td className="p-4">{m.phone}</td>
-                  <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => { setMemberForm(m); setShowMemberModal(true); }} className="text-pink-600 dark:text-pink-400 font-medium">Edytuj</button>
-                    <button onClick={() => deleteMember(m.id)} className="text-red-500 dark:text-red-400 font-medium">Usuń</button>
-                  </td>
-                </tr>
-              ))}
+              {team.map(m => {
+                const roleNames = getMemberRoleNames(m.id);
+                return (
+                  <tr key={m.id} className="hover:bg-pink-50/30 dark:hover:bg-pink-900/10 transition text-gray-700 dark:text-gray-300">
+                    <td className="p-4 font-medium">{m.full_name}</td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1">
+                        {roleNames.length > 0 ? (
+                          roleNames.map((name, idx) => (
+                            <span key={idx} className="bg-pink-50 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-2 py-0.5 rounded-lg text-xs font-medium border border-pink-100 dark:border-pink-800">
+                              {name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500 text-xs italic">Brak przypisanych</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4">{m.email}</td>
+                    <td className="p-4">{m.phone}</td>
+                    <td className="p-4 text-right flex justify-end gap-2">
+                      <button onClick={() => { setMemberForm(m); loadMemberRoles(m.id); setShowMemberModal(true); }} className="text-pink-600 dark:text-pink-400 font-medium">Edytuj</button>
+                      <button onClick={() => deleteMember(m.id)} className="text-red-500 dark:text-red-400 font-medium">Usuń</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -746,20 +813,67 @@ export default function AtmosferaTeamModule() {
 
       {/* MODAL CZŁONKA */}
       {showMemberModal && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] transition-opacity">
-          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md p-6 border border-white/20 dark:border-gray-700/50 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6">
-              <h3 className="font-bold text-xl text-gray-800 dark:text-gray-200">{memberForm.id ? 'Edytuj członka' : 'Nowy członek'}</h3>
-              <button onClick={() => setShowMemberModal(false)} className="p-2 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition"><X size={20} className="text-gray-500 dark:text-gray-400"/></button>
+              <h3 className="font-bold text-xl text-gray-800 dark:text-white">{memberForm.id ? 'Edytuj członka' : 'Nowy członek'}</h3>
+              <button onClick={() => setShowMemberModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition text-gray-500 dark:text-gray-400"><X size={20}/></button>
             </div>
             <div className="space-y-4">
-              <input className="w-full px-4 py-3 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-gray-100" placeholder="Imię i nazwisko *" value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} />
-              <input className="w-full px-4 py-3 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-gray-100" placeholder="Rola (np. Atmosfera)" value={memberForm.role} onChange={e => setMemberForm({...memberForm, role: e.target.value})} />
-              <input className="w-full px-4 py-3 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-gray-100" placeholder="Email" type="email" value={memberForm.email} onChange={e => setMemberForm({...memberForm, email: e.target.value})} />
-              <input className="w-full px-4 py-3 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-gray-100" placeholder="Telefon" value={memberForm.phone} onChange={e => setMemberForm({...memberForm, phone: e.target.value})} />
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Imię i nazwisko</label>
+                <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Jan Kowalski" value={memberForm.full_name} onChange={e => setMemberForm({...memberForm, full_name: e.target.value})} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Służby</label>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {atmosferaRoles.map(role => {
+                      const isSelected = selectedMemberRoles.includes(role.id);
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedMemberRoles(prev => prev.filter(id => id !== role.id));
+                            } else {
+                              setSelectedMemberRoles(prev => [...prev, role.id]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {isSelected && <Check size={14} />}
+                          {role.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {atmosferaRoles.length === 0 && (
+                    <p className="text-gray-400 dark:text-gray-500 text-sm text-center py-2">Brak zdefiniowanych służb. Dodaj je w zakładce "Służby".</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Telefon</label>
+                  <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="+48 123 456 789" value={memberForm.phone} onChange={e => setMemberForm({...memberForm, phone: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Email</label>
+                  <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="jan@example.com" value={memberForm.email} onChange={e => setMemberForm({...memberForm, email: e.target.value})} />
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setShowMemberModal(false)} className="px-5 py-2.5 border border-gray-200/50 dark:border-gray-700/50 rounded-xl bg-white/50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-700 transition text-gray-600 dark:text-gray-300">Anuluj</button>
-                <button onClick={saveMember} className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition font-medium">Zapisz</button>
+                <button onClick={() => setShowMemberModal(false)} className="px-5 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Anuluj</button>
+                <button onClick={saveMember} className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg hover:shadow-pink-500/50 transition font-medium">Zapisz</button>
               </div>
             </div>
           </div>
