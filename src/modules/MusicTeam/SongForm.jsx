@@ -34,7 +34,8 @@ const DEGREE_LABELS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 const DEFAULT_CHORD_TYPES = ['', 'm', 'm', '', '', 'm', 'dim'];
 
 // Stała komórka HTML (80px) - używana w szablonach
-const SPACER_CELL = '<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 80px; text-align: center;">\u00A0</span>';
+// width + max-width = stała szerokość, overflow: hidden = tekst nie wychodzi poza komórkę
+const SPACER_CELL = '<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>';
 
 // Szablony sekcji muzycznych z komórkami o stałej szerokości
 const MUSIC_SECTIONS = [
@@ -427,18 +428,84 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
     setShowColorPicker(false);
   };
 
+  // Sprawdź czy kursor jest wewnątrz komórki chord-spacer
+  const isInsideChordSpacer = () => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return false;
+    let node = selection.anchorNode;
+    while (node && node !== chordsTextareaRef.current) {
+      if (node.nodeType === 1 && node.classList?.contains('chord-spacer')) {
+        return true;
+      }
+      node = node.parentNode;
+    }
+    return false;
+  };
+
+  // Znajdź najbliższą komórkę chord-spacer i przenieś do niej kursor
+  const moveToNearestSpacer = () => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return false;
+
+    const range = selection.getRangeAt(0);
+    const editor = chordsTextareaRef.current;
+    if (!editor) return false;
+
+    // Znajdź wszystkie spacery
+    const spacers = editor.querySelectorAll('.chord-spacer');
+    if (spacers.length === 0) return false;
+
+    // Znajdź najbliższy spacer po pozycji kursora
+    for (const spacer of spacers) {
+      const spacerRange = document.createRange();
+      spacerRange.selectNodeContents(spacer);
+
+      // Sprawdź czy spacer jest po kursorze lub zawiera kursor
+      if (range.compareBoundaryPoints(Range.START_TO_START, spacerRange) <= 0) {
+        // Przenieś kursor do tego spacera
+        const newRange = document.createRange();
+        newRange.selectNodeContents(spacer);
+        newRange.collapse(false); // Na koniec zawartości
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+        return true;
+      }
+    }
+
+    // Jeśli nie znaleziono - przenieś do ostatniego spacera
+    const lastSpacer = spacers[spacers.length - 1];
+    const newRange = document.createRange();
+    newRange.selectNodeContents(lastSpacer);
+    newRange.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    return true;
+  };
+
   // Obsługa skrótów klawiszowych (WYSIWYG)
   const handleKeyDown = (e) => {
+    // Dla zwykłych znaków (litery, cyfry, #, b) - sprawdź czy jesteśmy w komórce
+    // Jeśli nie - przenieś do najbliższej komórki
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (!isInsideChordSpacer()) {
+        // Kursor nie jest w komórce - spróbuj przenieść
+        if (moveToNearestSpacer()) {
+          // Kursor przeniesiony - pozwól na normalne wpisanie znaku
+          return;
+        }
+      }
+    }
+
     // Tab = wstaw stałą "komórkę" o szerokości 80px (duży odstęp)
-    // Używamy inline-block span żeby tekst wpisywany w środku nie przesuwał kolejnych elementów
+    // width + max-width = stała szerokość niezależnie od zawartości
     if (e.key === 'Tab') {
       e.preventDefault();
       if (e.shiftKey) {
         // Shift+Tab = mniejsza komórka (40px)
-        insertHtmlAtCursor('<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 40px; text-align: center;">\u00A0</span>');
+        insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>');
       } else {
         // Tab = duża komórka (80px)
-        insertHtmlAtCursor('<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 80px; text-align: center;">\u00A0</span>');
+        insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>');
       }
       return;
     }
@@ -922,14 +989,14 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                           |
                         </button>
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 80px; text-align: center;">\u00A0</span>'); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>'); }}
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
                           title="Stała komórka (80px) - tekst wewnątrz nie przesuwa reszty"
                         >
                           TAB
                         </button>
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 40px; text-align: center;">\u00A0</span>'); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>'); }}
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
                           title="Mała komórka (40px) - tekst wewnątrz nie przesuwa reszty"
                         >
