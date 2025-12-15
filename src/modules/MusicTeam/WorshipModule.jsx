@@ -186,17 +186,17 @@ const CustomDatePicker = ({ label, value, onChange }) => {
 
 // --- ZAAWANSOWANA LOGIKA TRANSPOZYCJI ---
 
-// Baza chromatyczna - domyślny format wyjściowy (używamy bemole: Db, Eb, Gb, Ab, Bb)
-const CHORDS_SCALE = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+// Baza chromatyczna - domyślny format wyjściowy (używamy krzyżyki: C#, D#, F#, G#, A#)
+const CHORDS_SCALE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
 // Mapa normalizacji wejścia (żeby C# i Db były traktowane tak samo przy wyszukiwaniu)
 const NORMALIZE_MAP = {
   "Cb": "B",
-  "C#": "Db",
+  "Db": "C#",
   "D#": "Eb",
   "Fb": "E",
   "E#": "F",
-  "F#": "Gb",
+  "Gb": "F#",
   "G#": "Ab",
   "A#": "Bb",
   "B#": "C"
@@ -1165,7 +1165,10 @@ function SongDetailsModal({ song, onClose, onEdit }) {
   };
 
   // Obliczamy transponowane wartości do wyświetlenia
-  const displayKey = transposeChord(song.key, transposeSteps);
+  // Mapowanie krzyżyków na bemole tylko dla wyświetlanej tonacji
+  const SHARP_TO_FLAT_KEY = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb" };
+  const transposedKey = transposeChord(song.key, transposeSteps);
+  const displayKey = SHARP_TO_FLAT_KEY[transposedKey] || transposedKey;
   const displayChords = song.chords_bars 
     ? transposeLine(song.chords_bars, transposeSteps)
     : (song.chords || "Brak układu...");

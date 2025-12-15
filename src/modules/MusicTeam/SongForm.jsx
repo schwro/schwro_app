@@ -33,19 +33,24 @@ const DEGREE_LABELS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 // I=dur, II=moll, III=moll, IV=dur, V=dur, VI=moll, VII=zmniejszony
 const DEFAULT_CHORD_TYPES = ['', 'm', 'm', '', '', 'm', 'dim'];
 
+// Kreska taktowa - nieedytowalny separator (contenteditable=false)
+const BAR_LINE = '<span class="bar-line" contenteditable="false" style="user-select: none; pointer-events: none;">|</span>';
+
 // Stała komórka HTML (80px) - używana w szablonach
 // width + max-width = stała szerokość, overflow: hidden = tekst nie wychodzi poza komórkę
-const SPACER_CELL = '<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>';
+// text-align: left + padding-left = tekst wyrównany do lewej z małym odstępem
+const SPACER_CELL = '<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>';
 
 // Szablony sekcji muzycznych z komórkami o stałej szerokości
+// Struktura: |komórka|komórka|komórka|komórka| - kreski są nieedytowalne
 const MUSIC_SECTIONS = [
-  { label: 'Intro', template: `<br>[INTRO]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
-  { label: 'Zwrotka', template: `<br>[ZWROTKA]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
-  { label: 'Refren', template: `<br>[REFREN]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
-  { label: 'Bridge', template: `<br>[BRIDGE]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
-  { label: 'Solo', template: `<br>[SOLO]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
-  { label: 'Outro', template: `<br>[OUTRO]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
-  { label: 'Pusty Takt', template: `|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|` },
+  { label: 'Intro', template: `<br>[INTRO]<br>${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}<br>` },
+  { label: 'Zwrotka', template: `<br>[ZWROTKA]<br>${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}<br>` },
+  { label: 'Refren', template: `<br>[REFREN]<br>${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}<br>` },
+  { label: 'Bridge', template: `<br>[BRIDGE]<br>${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}<br>` },
+  { label: 'Solo', template: `<br>[SOLO]<br>${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}<br>` },
+  { label: 'Outro', template: `<br>[OUTRO]<br>${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}<br>` },
+  { label: 'Pusty Takt', template: `${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}${SPACER_CELL}${BAR_LINE}` },
 ];
 
 // Kolory do wyboru dla czcionki
@@ -455,44 +460,89 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
     const spacers = editor.querySelectorAll('.chord-spacer');
     if (spacers.length === 0) return false;
 
-    // Znajdź najbliższy spacer po pozycji kursora
-    for (const spacer of spacers) {
-      const spacerRange = document.createRange();
-      spacerRange.selectNodeContents(spacer);
+    // Pobierz pozycję kursora
+    const cursorRect = range.getBoundingClientRect();
 
-      // Sprawdź czy spacer jest po kursorze lub zawiera kursor
-      if (range.compareBoundaryPoints(Range.START_TO_START, spacerRange) <= 0) {
-        // Przenieś kursor do tego spacera
-        const newRange = document.createRange();
-        newRange.selectNodeContents(spacer);
-        newRange.collapse(false); // Na koniec zawartości
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-        return true;
+    // Znajdź najbliższy spacer na podstawie pozycji wizualnej
+    let closestSpacer = null;
+    let closestDistance = Infinity;
+
+    for (const spacer of spacers) {
+      const spacerRect = spacer.getBoundingClientRect();
+
+      // Oblicz odległość - preferuj spacery po prawej stronie kursora na tej samej linii
+      const sameRow = Math.abs(spacerRect.top - cursorRect.top) < 20;
+      const isAfterCursor = spacerRect.left >= cursorRect.left;
+
+      let distance;
+      if (sameRow && isAfterCursor) {
+        // Spacer jest na tej samej linii i po prawej - najwyższy priorytet
+        distance = spacerRect.left - cursorRect.left;
+      } else if (sameRow) {
+        // Spacer jest na tej samej linii ale po lewej
+        distance = (cursorRect.left - spacerRect.left) + 1000;
+      } else {
+        // Spacer jest na innej linii
+        distance = Math.abs(spacerRect.top - cursorRect.top) * 100 + Math.abs(spacerRect.left - cursorRect.left);
+      }
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestSpacer = spacer;
       }
     }
 
-    // Jeśli nie znaleziono - przenieś do ostatniego spacera
-    const lastSpacer = spacers[spacers.length - 1];
-    const newRange = document.createRange();
-    newRange.selectNodeContents(lastSpacer);
-    newRange.collapse(false);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-    return true;
+    if (closestSpacer) {
+      const newRange = document.createRange();
+      // Znajdź pierwszy text node w spacerze lub użyj samego spacera
+      const textNode = closestSpacer.firstChild;
+      if (textNode) {
+        newRange.setStart(textNode, 0);
+        newRange.setEnd(textNode, 0);
+      } else {
+        newRange.selectNodeContents(closestSpacer);
+        newRange.collapse(true);
+      }
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+      return true;
+    }
+
+    return false;
   };
 
   // Obsługa skrótów klawiszowych (WYSIWYG)
   const handleKeyDown = (e) => {
+    // | (pipe) = kreska taktowa - wstaw jako nieedytowalny element
+    // WAŻNE: musi być przed blokiem zwykłych znaków!
+    if (e.key === '|') {
+      e.preventDefault();
+      insertHtmlAtCursor('<span class="bar-line" contenteditable="false" style="user-select: none; pointer-events: none;">|</span>');
+      return;
+    }
+
     // Dla zwykłych znaków (litery, cyfry, #, b) - sprawdź czy jesteśmy w komórce
-    // Jeśli nie - przenieś do najbliższej komórki
+    // Jeśli nie - przenieś do najbliższej komórki i wstaw znak ręcznie
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (!isInsideChordSpacer()) {
-        // Kursor nie jest w komórce - spróbuj przenieść
+        // Kursor nie jest w komórce - zablokuj domyślne działanie
+        e.preventDefault();
+        // Przenieś kursor do komórki
         if (moveToNearestSpacer()) {
-          // Kursor przeniesiony - pozwól na normalne wpisanie znaku
-          return;
+          // Wstaw znak ręcznie w nowym miejscu (wewnątrz komórki)
+          const selection = window.getSelection();
+          if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const textNode = document.createTextNode(e.key);
+            range.insertNode(textNode);
+            // Przesuń kursor za wstawiony znak
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
         }
+        return;
       }
     }
 
@@ -502,10 +552,10 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
       e.preventDefault();
       if (e.shiftKey) {
         // Shift+Tab = mniejsza komórka (40px)
-        insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>');
+        insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>');
       } else {
         // Tab = duża komórka (80px)
-        insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>');
+        insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>');
       }
       return;
     }
@@ -555,12 +605,6 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
     if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
       e.preventDefault();
       execFormat('justifyRight');
-      return;
-    }
-    // | (pipe) = kreska taktowa - wstaw z odstępami
-    if (e.key === '|') {
-      e.preventDefault();
-      insertTextAtCursor('|');
       return;
     }
   };
@@ -982,21 +1026,21 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
 
                         {/* Szybkie znaki */}
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertTextAtCursor('|'); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="bar-line" contenteditable="false" style="user-select: none; pointer-events: none;">|</span>'); }}
                           className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 text-[11px] font-bold rounded-md border border-orange-200 dark:border-orange-800 transition font-mono"
                           title="Kreska taktowa"
                         >
                           |
                         </button>
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>'); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>'); }}
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
                           title="Stała komórka (80px) - tekst wewnątrz nie przesuwa reszty"
                         >
                           TAB
                         </button>
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: center; overflow: hidden; vertical-align: middle;">\u00A0</span>'); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>'); }}
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
                           title="Mała komórka (40px) - tekst wewnątrz nie przesuwa reszty"
                         >
@@ -1041,6 +1085,14 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                       style={{ lineHeight: chordsLineHeight, whiteSpace: 'pre-wrap' }}
                       onInput={handleEditorInput}
                       onKeyDown={handleKeyDown}
+                      onClick={() => {
+                        // Po kliknięciu - jeśli kursor jest poza komórką, przenieś go do najbliższej
+                        setTimeout(() => {
+                          if (!isInsideChordSpacer()) {
+                            moveToNearestSpacer();
+                          }
+                        }, 0);
+                      }}
                       suppressContentEditableWarning
                       data-placeholder="Wpisz chwyty tutaj... Zaznacz tekst i użyj przycisków powyżej do formatowania."
                     />
