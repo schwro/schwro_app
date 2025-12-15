@@ -226,27 +226,39 @@ function transposeChord(chord, steps) {
 
 function transposeLine(line, steps) {
   if (!line) return "";
-  
-  // NOWY, LEPSZY REGEX:
-  // 1. Grupa (Root): [A-G] opcjonalnie z '#' lub 'b'
-  // 2. Grupa (Suffix): Wszystko co NIE jest ukośnikiem '/' ani spacją '\s' (to łapie 'm', '7', '2', 'sus4', 'maj7', 'dim' itd.)
-  // 3. Grupa (Bass): Opcjonalnie '/' i [A-G] z opcjonalnym '#' lub 'b'
-  const chordRegex = /\b([A-G][#b]?)([^/\s]*)(\/[A-G][#b]?)?\b/g;
 
-  return line.replace(chordRegex, (match, root, suffix, bass) => {
+  // Rozdzielamy tekst na części: tagi HTML i tekst między nimi
+  // Tagi HTML nie powinny być przetwarzane pod kątem akordów
+  const htmlTagRegex = /(<[^>]+>)/g;
+  const parts = line.split(htmlTagRegex);
+
+  // Regex dla akordów - prosty pattern bez lookbehind (dla kompatybilności)
+  // Szukamy: [A-G] + opcjonalnie # lub b + suffix (m, maj7, 7, sus4, dim, aug, add9 itp.) + opcjonalnie /bas
+  // Suffix może zawierać: m, M, maj, min, cyfry, sus, add, dim, aug
+  const chordRegex = /([A-G][#b]?)([mM]?(?:aj|in)?[0-9]*(?:sus[24]?)?(?:add[0-9]+)?(?:dim|aug)?[0-9]*)(\/[A-G][#b]?)?/g;
+
+  return parts.map(part => {
+    // Jeśli to tag HTML - nie przetwarzaj
+    if (part.startsWith('<') && part.endsWith('>')) {
+      return part;
+    }
+
+    // Przetwórz tekst - szukaj akordów
+    return part.replace(chordRegex, (_, root, suffix, bass) => {
       // Transponujemy korzeń
       const newRoot = transposeChord(root, steps);
-      
+
       // Transponujemy bas (jeśli istnieje)
       let newBass = "";
       if (bass) {
-          // bass to np. "/F#" -> ucinamy "/" i transponujemy resztę
-          const bassNote = bass.substring(1);
-          newBass = "/" + transposeChord(bassNote, steps);
+        // bass to np. "/F#" -> ucinamy "/" i transponujemy resztę
+        const bassNote = bass.substring(1);
+        newBass = "/" + transposeChord(bassNote, steps);
       }
 
       return newRoot + (suffix || "") + newBass;
-  });
+    });
+  }).join('');
 }
 
 // --- KOMPONENTY POMOCNICZE DLA GRAFIKU ---
