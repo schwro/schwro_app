@@ -39,7 +39,11 @@ const BAR_LINE = '<span class="bar-line" contenteditable="false" style="user-sel
 // Stała komórka HTML (80px) - używana w szablonach
 // width + max-width = stała szerokość, overflow: hidden = tekst nie wychodzi poza komórkę
 // text-align: left + padding-left = tekst wyrównany do lewej z małym odstępem
-const SPACER_CELL = '<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>';
+// background: rgba(255,192,203,0.15) = lekkie różowe tło dla wizualnego odróżnienia komórek
+const SPACER_CELL = '<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box; background: rgba(255,192,203,0.15); border-radius: 2px; color: inherit;">\u00A0</span>';
+
+// Mała komórka (40px) - do mniejszych odstępów
+const SMALL_SPACER_CELL = '<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box; background: rgba(255,192,203,0.15); border-radius: 2px; color: inherit;">\u00A0</span>';
 
 // Szablony sekcji muzycznych z komórkami o stałej szerokości
 // Struktura: |komórka|komórka|komórka|komórka| - kreski są nieedytowalne
@@ -513,35 +517,30 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
 
   // Obsługa skrótów klawiszowych (WYSIWYG)
   const handleKeyDown = (e) => {
-    // | (pipe) = kreska taktowa - wstaw jako nieedytowalny element
-    // WAŻNE: musi być przed blokiem zwykłych znaków!
-    if (e.key === '|') {
+    // Enter = nowa linia
+    if (e.key === 'Enter') {
       e.preventDefault();
-      insertHtmlAtCursor('<span class="bar-line" contenteditable="false" style="user-select: none; pointer-events: none;">|</span>');
+      insertHtmlAtCursor('<br><br>');
       return;
     }
 
-    // Dla zwykłych znaków (litery, cyfry, #, b) - sprawdź czy jesteśmy w komórce
-    // Jeśli nie - przenieś do najbliższej komórki i wstaw znak ręcznie
+    // | (pipe) = kreska taktowa + komórka (żeby było gdzie pisać)
+    // WAŻNE: musi być przed blokiem zwykłych znaków!
+    if (e.key === '|') {
+      e.preventDefault();
+      // Wstaw kreskę + pustą komórkę za nią
+      insertHtmlAtCursor(BAR_LINE + SPACER_CELL);
+      // Przenieś kursor do nowo utworzonej komórki
+      setTimeout(() => moveToNearestSpacer(), 0);
+      return;
+    }
+
+    // Dla zwykłych znaków (litery, cyfry, #, b) - sprawdź czy jesteśmy w komórce chord-spacer
+    // Jeśli nie - po prostu zablokuj wpisywanie (użytkownik musi kliknąć w różową komórkę)
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (!isInsideChordSpacer()) {
-        // Kursor nie jest w komórce - zablokuj domyślne działanie
+        // Kursor nie jest w komórce chord-spacer - zablokuj wpisywanie
         e.preventDefault();
-        // Przenieś kursor do komórki
-        if (moveToNearestSpacer()) {
-          // Wstaw znak ręcznie w nowym miejscu (wewnątrz komórki)
-          const selection = window.getSelection();
-          if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            const textNode = document.createTextNode(e.key);
-            range.insertNode(textNode);
-            // Przesuń kursor za wstawiony znak
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            selection.removeAllRanges();
-            selection.addRange(range);
-          }
-        }
         return;
       }
     }
@@ -552,10 +551,10 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
       e.preventDefault();
       if (e.shiftKey) {
         // Shift+Tab = mniejsza komórka (40px)
-        insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>');
+        insertHtmlAtCursor(SMALL_SPACER_CELL);
       } else {
         // Tab = duża komórka (80px)
-        insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>');
+        insertHtmlAtCursor(SPACER_CELL);
       }
       return;
     }
@@ -1026,21 +1025,21 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
 
                         {/* Szybkie znaki */}
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="bar-line" contenteditable="false" style="user-select: none; pointer-events: none;">|</span>'); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor(BAR_LINE + SPACER_CELL); }}
                           className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 text-[11px] font-bold rounded-md border border-orange-200 dark:border-orange-800 transition font-mono"
-                          title="Kreska taktowa"
+                          title="Kreska taktowa + komórka"
                         >
                           |
                         </button>
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 80px; max-width: 80px; min-width: 80px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>'); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor(SPACER_CELL); }}
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
                           title="Stała komórka (80px) - tekst wewnątrz nie przesuwa reszty"
                         >
                           TAB
                         </button>
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" style="display: inline-block; width: 40px; max-width: 40px; min-width: 40px; text-align: left; padding-left: 4px; overflow: hidden; vertical-align: middle; box-sizing: border-box;">\u00A0</span>'); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor(SMALL_SPACER_CELL); }}
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
                           title="Mała komórka (40px) - tekst wewnątrz nie przesuwa reszty"
                         >
@@ -1078,21 +1077,27 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                     </div>
 
                     {/* EDYTOR WYSIWYG - contentEditable */}
+                    {/* Style dla edytora - tylko komórki chord-spacer są edytowalne */}
+                    <style>{`
+                      .chord-editor-container .chord-spacer {
+                        cursor: text;
+                        color: #1f2937 !important;
+                      }
+                      .dark .chord-editor-container .chord-spacer {
+                        color: #f3f4f6 !important;
+                      }
+                      .chord-editor-container .bar-line {
+                        cursor: default;
+                        color: #9ca3af;
+                      }
+                    `}</style>
                     <div
                       ref={chordsTextareaRef}
                       contentEditable
-                      className="flex-1 w-full px-4 py-3 border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:ring-inset min-h-[300px] overflow-auto font-mono text-sm"
+                      className="chord-editor-container flex-1 w-full px-4 py-3 border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:ring-inset min-h-[300px] overflow-auto font-mono text-sm"
                       style={{ lineHeight: chordsLineHeight, whiteSpace: 'pre-wrap' }}
                       onInput={handleEditorInput}
                       onKeyDown={handleKeyDown}
-                      onClick={() => {
-                        // Po kliknięciu - jeśli kursor jest poza komórką, przenieś go do najbliższej
-                        setTimeout(() => {
-                          if (!isInsideChordSpacer()) {
-                            moveToNearestSpacer();
-                          }
-                        }, 0);
-                      }}
                       suppressContentEditableWarning
                       data-placeholder="Wpisz chwyty tutaj... Zaznacz tekst i użyj przycisków powyżej do formatowania."
                     />

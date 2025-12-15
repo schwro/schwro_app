@@ -189,6 +189,26 @@ const CustomDatePicker = ({ label, value, onChange }) => {
 // Baza chromatyczna - domyślny format wyjściowy (używamy krzyżyki: C#, D#, F#, G#, A#)
 const CHORDS_SCALE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
+// Mapa krzyżyków na bemole dla wyświetlania (C# -> Db, F# -> Gb)
+const SHARP_TO_FLAT = {
+  "C#": "Db",
+  "F#": "Gb"
+};
+
+// Funkcja konwersji tonacji na format z bemolami
+function toFlatKey(key) {
+  if (!key) return key;
+  // Sprawdź czy główna nuta (bez m, maj, 7 itp) ma krzyżyk do zamiany
+  const match = key.match(/^([A-G][#b]?)(.*)/);
+  if (match) {
+    const [, root, suffix] = match;
+    if (SHARP_TO_FLAT[root]) {
+      return SHARP_TO_FLAT[root] + suffix;
+    }
+  }
+  return key;
+}
+
 // Mapa normalizacji wejścia (żeby C# i Db były traktowane tak samo przy wyszukiwaniu)
 const NORMALIZE_MAP = {
   "Cb": "B",
@@ -1046,10 +1066,21 @@ function SongDetailsModal({ song, onClose, onEdit }) {
 
   // FUNKCJA GENEROWANIA I POBIERANIA PDF
   const handleDownloadPDF = async () => {
-      const transposedChords = song.chords_bars
+      let transposedChords = song.chords_bars
         ? transposeLine(song.chords_bars, transposeSteps)
         : "";
-      const currentKey = transposeChord(song.key, transposeSteps);
+      // Usuń różowe tło z komórek chord-spacer dla PDF, ustaw kolor tekstu na różowy i zmniejsz szerokość komórek
+      transposedChords = transposedChords
+        .replace(/background:\s*rgba\(255,\s*192,\s*203,\s*0\.15\)\s*;?/gi, '')
+        .replace(/color:\s*inherit\s*;?/gi, 'color: #ec4899;')
+        .replace(/width:\s*80px/gi, 'width: 38px')
+        .replace(/max-width:\s*80px/gi, 'max-width: 38px')
+        .replace(/min-width:\s*80px/gi, 'min-width: 38px')
+        .replace(/width:\s*40px/gi, 'width: 20px')
+        .replace(/max-width:\s*40px/gi, 'max-width: 20px')
+        .replace(/min-width:\s*40px/gi, 'min-width: 20px')
+        .replace(/overflow:\s*hidden/gi, 'overflow: visible');
+      const currentKey = toFlatKey(transposeChord(song.key, transposeSteps));
 
       // Tworzymy element HTML z pieśnią
       const container = document.createElement('div');
@@ -1082,17 +1113,17 @@ function SongDetailsModal({ song, onClose, onEdit }) {
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-          <div style="background: #fafafa; border-radius: 6px; padding: 15px; border: 1px solid #e5e5e5;">
-            <div style="font-size: 9px; text-transform: uppercase; color: #999; font-weight: 700; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5;">Tekst</div>
-            <pre style="font-family: Arial, sans-serif; white-space: pre-wrap; font-size: 10px; line-height: 1.6; color: #333; margin: 0;">${song.lyrics || 'Brak tekstu'}</pre>
+          <div style="background: #fafafa; border-radius: 6px; padding: 12px; border: 1px solid #e5e5e5;">
+            <div style="font-size: 9px; text-transform: uppercase; color: #999; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5;">Tekst</div>
+            <pre style="font-family: Arial, sans-serif; white-space: pre-wrap; font-size: 9px; line-height: 1.6; color: #333; margin: 0;">${song.lyrics || 'Brak tekstu'}</pre>
           </div>
 
-          <div style="background: #fafafa; border-radius: 6px; padding: 15px; border: 1px solid #e5e5e5;">
-            <div style="font-size: 9px; text-transform: uppercase; color: #999; font-weight: 700; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5;">
+          <div style="background: #fef3f8; border-radius: 6px; padding: 12px; border: 1px solid #fce7f3;">
+            <div style="font-size: 9px; text-transform: uppercase; color: #999; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #fce7f3;">
               Akordy w taktach
               ${transposeSteps !== 0 ? `<span style="background: #ec4899; color: white; padding: 2px 5px; border-radius: 3px; font-size: 7px; margin-left: 6px; text-transform: none;">transp. ${transposeSteps > 0 ? '+' + transposeSteps : transposeSteps}</span>` : ''}
             </div>
-            <pre style="font-family: 'Courier New', monospace; white-space: pre-wrap; font-size: 10px; line-height: 1.6; color: #ec4899; font-weight: 600; margin: 0;">${transposedChords || 'Brak akordów'}</pre>
+            <div style="font-family: 'Courier New', monospace; font-size: 8px; line-height: 1.8; color: #ec4899;">${transposedChords || 'Brak akordów'}</div>
           </div>
         </div>
 
@@ -1281,8 +1312,14 @@ function SongDetailsModal({ song, onClose, onEdit }) {
                                 <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Akordy w taktach</h3>
                                 {transposeSteps !== 0 && <span className="text-[10px] font-bold text-pink-600 dark:text-pink-400 bg-pink-100 dark:bg-pink-900 px-2 py-0.5 rounded">TRANSPONOWANO ({transposeSteps > 0 ? `+${transposeSteps}` : transposeSteps})</span>}
                             </div>
+                            {/* Ukryj różowe tło komórek w widoku szczegółów */}
+                            <style>{`
+                                .chords-display-view .chord-spacer {
+                                    background: transparent !important;
+                                }
+                            `}</style>
                             <div
-                                className="whitespace-pre-wrap font-mono text-pink-800 dark:text-pink-300 text-sm leading-relaxed"
+                                className="chords-display-view whitespace-pre-wrap font-mono text-pink-800 dark:text-pink-300 text-sm leading-relaxed"
                                 dangerouslySetInnerHTML={{ __html: displayChords || 'Brak układu...' }}
                             />
                         </div>
