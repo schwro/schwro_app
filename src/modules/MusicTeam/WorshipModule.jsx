@@ -13,22 +13,29 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { PitchShifter } from 'soundtouchjs';
 
-const TAGS = [
-  "intymna", "modlitewna", "niedzielna", "popularna", "szybko", "uwielbienie", "wolna"
-];
 
-// Hook to calculate dropdown position
+// Hook to calculate dropdown position with smart positioning (up/down)
 function useDropdownPosition(triggerRef, isOpen) {
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUpward: false });
 
   useEffect(() => {
     if (isOpen && triggerRef.current) {
       const updatePosition = () => {
         const rect = triggerRef.current.getBoundingClientRect();
+        const dropdownMaxHeight = 240; // max-h-60 = 15rem = 240px
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        // Otwórz w górę jeśli nie ma miejsca na dole, ale jest na górze
+        const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+
         setCoords({
-          top: rect.bottom + window.scrollY + 4,
+          top: openUpward
+            ? rect.top + window.scrollY - 4
+            : rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX,
-          width: rect.width
+          width: rect.width,
+          openUpward
         });
       };
 
@@ -124,7 +131,7 @@ const CustomDatePicker = ({ label, value, onChange }) => {
         </div>
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
           className="portal-datepicker fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100"
           style={{
@@ -289,10 +296,16 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
         )}
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
           className="table-multi-select-portal fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
-          style={{ top: coords.top, left: coords.left, width: Math.max(180, coords.width) }}
+          style={{
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
+            left: coords.left,
+            width: Math.max(180, coords.width)
+          }}
         >
           {options.map((person) => {
             const isSelected = selectedItems.includes(person.full_name);
@@ -366,10 +379,16 @@ const AbsenceMultiSelect = ({ options, value, onChange }) => {
         )}
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
           className="absence-multi-select-portal fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
-          style={{ top: coords.top, left: coords.left, width: Math.max(180, coords.width) }}
+          style={{
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
+            left: coords.left,
+            width: Math.max(180, coords.width)
+          }}
         >
           {options.map((person) => {
             const isSelected = selectedItems.includes(person.full_name);
@@ -1413,6 +1432,11 @@ export default function WorshipModule() {
 
   const [songFilter, setSongFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
+  const [allUniqueTags, setAllUniqueTags] = useState([]);
+  const [showTagsModal, setShowTagsModal] = useState(false);
+  const [editingTag, setEditingTag] = useState(null);
+  const [editingTagValue, setEditingTagValue] = useState('');
+  const [newTagInput, setNewTagInput] = useState('');
 
   // Służby z team_roles
   const [worshipRoles, setWorshipRoles] = useState([]);
@@ -1624,6 +1648,15 @@ export default function WorshipModule() {
       setTeam(t || []);
       setSongs(s || []);
       setPrograms(p || []);
+
+      // Pobierz unikalne tagi z wszystkich pieśni
+      const tagsSet = new Set();
+      (s || []).forEach(song => {
+        if (Array.isArray(song.tags)) {
+          song.tags.forEach(tag => tagsSet.add(tag));
+        }
+      });
+      setAllUniqueTags([...tagsSet].sort());
     } catch (err) {
       console.error('Błąd pobierania danych:', err);
     }
@@ -1718,6 +1751,87 @@ export default function WorshipModule() {
     }
   };
 
+  // Zmiana nazwy tagu we wszystkich pieśniach
+  const renameTagGlobally = async (oldTag, newTag) => {
+    if (!newTag.trim() || oldTag === newTag) return;
+
+    const songsWithTag = songs.filter(s => Array.isArray(s.tags) && s.tags.includes(oldTag));
+
+    try {
+      for (const song of songsWithTag) {
+        const updatedTags = song.tags.map(t => t === oldTag ? newTag.trim() : t);
+        await supabase.from('songs').update({ tags: updatedTags }).eq('id', song.id);
+      }
+
+      // Aktualizuj stan lokalnie
+      setSongs(prev => prev.map(s => {
+        if (Array.isArray(s.tags) && s.tags.includes(oldTag)) {
+          return { ...s, tags: s.tags.map(t => t === oldTag ? newTag.trim() : t) };
+        }
+        return s;
+      }));
+
+      // Aktualizuj listę unikalnych tagów
+      setAllUniqueTags(prev => {
+        const updated = prev.map(t => t === oldTag ? newTag.trim() : t);
+        return [...new Set(updated)].sort();
+      });
+
+      setEditingTag(null);
+      setEditingTagValue('');
+    } catch (err) {
+      console.error('Błąd zmiany nazwy tagu:', err);
+    }
+  };
+
+  // Usunięcie tagu ze wszystkich pieśni
+  const deleteTagGlobally = async (tagToDelete) => {
+    if (!confirm(`Czy na pewno chcesz usunąć tag "${tagToDelete}" ze wszystkich pieśni?`)) return;
+
+    const songsWithTag = songs.filter(s => Array.isArray(s.tags) && s.tags.includes(tagToDelete));
+
+    try {
+      for (const song of songsWithTag) {
+        const updatedTags = song.tags.filter(t => t !== tagToDelete);
+        await supabase.from('songs').update({ tags: updatedTags }).eq('id', song.id);
+      }
+
+      // Aktualizuj stan lokalnie
+      setSongs(prev => prev.map(s => {
+        if (Array.isArray(s.tags) && s.tags.includes(tagToDelete)) {
+          return { ...s, tags: s.tags.filter(t => t !== tagToDelete) };
+        }
+        return s;
+      }));
+
+      // Usuń z listy unikalnych tagów
+      setAllUniqueTags(prev => prev.filter(t => t !== tagToDelete));
+
+      // Wyczyść filtr jeśli był ustawiony na usunięty tag
+      if (tagFilter === tagToDelete) {
+        setTagFilter('');
+      }
+    } catch (err) {
+      console.error('Błąd usuwania tagu:', err);
+    }
+  };
+
+  // Dodanie nowego tagu (globalnie - będzie dostępny w liście)
+  const addNewTag = () => {
+    const trimmedTag = newTagInput.trim().toLowerCase();
+    if (!trimmedTag) return;
+
+    // Sprawdź czy tag już istnieje
+    if (allUniqueTags.includes(trimmedTag)) {
+      alert(`Tag "${trimmedTag}" już istnieje w bazie.`);
+      return;
+    }
+
+    // Dodaj do listy unikalnych tagów
+    setAllUniqueTags(prev => [...prev, trimmedTag].sort());
+    setNewTagInput('');
+  };
+
   const handleProgramUpdate = async (id, updates) => {
     setPrograms(prev => prev.map(p => {
       if (p.id === id) {
@@ -1733,7 +1847,11 @@ export default function WorshipModule() {
 
   const filteredSongs = songs.filter(s =>
     (s.title || '').toLowerCase().includes(songFilter.toLowerCase()) &&
-    (tagFilter ? (Array.isArray(s.tags) ? s.tags.map(String).map(t => t.toLowerCase()).includes(tagFilter.toLowerCase()) : false) : true)
+    (tagFilter
+      ? (Array.isArray(s.tags)
+        ? s.tags.some(t => String(t).toLowerCase().includes(tagFilter.toLowerCase()))
+        : false)
+      : true)
   );
 
   if (loading) return <div className="p-10 text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div></div>;
@@ -1841,21 +1959,44 @@ export default function WorshipModule() {
       <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[40] transition-colors">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Baza Pieśni</h2>
-          <button onClick={() => { setSongForm({}); setShowSongModal(true); }} className="bg-gradient-to-r from-orange-600 to-pink-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj pieśń</button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowTagsModal(true)} className="bg-gradient-to-r from-pink-50 to-orange-50 dark:from-pink-900/40 dark:to-orange-900/40 text-pink-700 dark:text-pink-300 text-sm px-4 py-2.5 rounded-xl font-medium border border-pink-200 dark:border-pink-800 hover:from-pink-100 hover:to-orange-100 dark:hover:from-pink-900/60 dark:hover:to-orange-900/60 transition flex items-center gap-2"><Tag size={16}/> Zarządzaj tagami</button>
+            <button onClick={() => { setSongForm({}); setShowSongModal(true); }} className="bg-gradient-to-r from-orange-600 to-pink-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj pieśń</button>
+          </div>
         </div>
         
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 mb-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-col md:flex-row gap-3">
-          <div className="flex-1 flex items-center gap-2">
-            <Search className="text-gray-400 dark:text-gray-500" size={20} />
-            <input className="w-full outline-none text-sm bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500" placeholder="Szukaj pieśni..." value={songFilter} onChange={e => setSongFilter(e.target.value)} />
+        <div className="bg-gray-50 dark:bg-gray-800 p-4 mb-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1 flex items-center gap-2">
+              <Search className="text-gray-400 dark:text-gray-500" size={20} />
+              <input className="w-full outline-none text-sm bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500" placeholder="Szukaj pieśni..." value={songFilter} onChange={e => setSongFilter(e.target.value)} />
+            </div>
+            <div className="flex gap-2 items-center">
+              <input className="px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400" placeholder="Filtruj po tagach..." value={tagFilter} onChange={e => setTagFilter(e.target.value)} />
+              {tagFilter && <button onClick={() => setTagFilter('')} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition">Wyczyść</button>}
+            </div>
           </div>
-          <div className="flex gap-2 flex-wrap items-center">
-            <input className="px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400" placeholder="Szukaj po tagach..." value={tagFilter} onChange={e => setTagFilter(e.target.value)} />
-            {TAGS.map(tag => tagFilter !== tag && (
-              <button key={tag} onClick={() => setTagFilter(tag)} className="bg-gradient-to-r from-pink-50 to-orange-50 dark:from-pink-900/40 dark:to-orange-900/40 px-3 py-1.5 rounded-xl text-xs text-pink-800 dark:text-pink-300 border border-pink-200 dark:border-pink-800 hover:from-pink-100 hover:to-orange-100 dark:hover:from-pink-900/60 dark:hover:to-orange-900/60 transition font-medium">{tag}</button>
-            ))}
-            {tagFilter && <button onClick={() => setTagFilter('')} className="ml-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition">Wyczyść</button>}
-          </div>
+          {/* Lista wszystkich tagów z bazy - filtrowane po wpisanym tekście */}
+          {allUniqueTags.length > 0 && (
+            <div className="flex gap-2 flex-wrap items-center">
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Tagi:</span>
+              {allUniqueTags
+                .filter(tag => !tagFilter || tag.toLowerCase().includes(tagFilter.toLowerCase()))
+                .map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => setTagFilter(tag)}
+                    className={`px-3 py-1.5 rounded-xl text-xs border transition font-medium ${
+                      tagFilter === tag
+                        ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white border-pink-500'
+                        : 'bg-gradient-to-r from-pink-50 to-orange-50 dark:from-pink-900/40 dark:to-orange-900/40 text-pink-800 dark:text-pink-300 border-pink-200 dark:border-pink-800 hover:from-pink-100 hover:to-orange-100 dark:hover:from-pink-900/60 dark:hover:to-orange-900/60'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
@@ -1992,7 +2133,7 @@ export default function WorshipModule() {
       )}
 
       {/* Modale */}
-      {showMemberModal && (
+      {showMemberModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6">
@@ -2057,12 +2198,14 @@ export default function WorshipModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showSongModal && (
-        <SongForm 
-          initialData={songForm} 
+      {showSongModal && document.body && createPortal(
+        <SongForm
+          initialData={songForm}
+          allTags={allUniqueTags}
           onSave={async (data) => {
             try {
               const cleanData = {
@@ -2091,10 +2234,11 @@ export default function WorshipModule() {
             }
           }}
           onCancel={() => setShowSongModal(false)}
-        />
+        />,
+        document.body
       )}
 
-      {showSongDetails && (
+      {showSongDetails && document.body && createPortal(
         <SongDetailsModal
           song={showSongDetails}
           onClose={() => setShowSongDetails(null)}
@@ -2103,11 +2247,133 @@ export default function WorshipModule() {
             setShowSongModal(true);
             setShowSongDetails(null);
           }}
-        />
+        />,
+        document.body
+      )}
+
+      {/* MODAL: Zarządzanie Tagami */}
+      {showTagsModal && document.body && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
+            <div className="flex justify-between mb-6">
+              <h3 className="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
+                <Tag size={20} className="text-pink-500" />
+                Zarządzanie Tagami
+              </h3>
+              <button onClick={() => { setShowTagsModal(false); setEditingTag(null); setEditingTagValue(''); setNewTagInput(''); }} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white transition">
+                <X size={24} />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Dodaj nowe tagi lub edytuj/usuń istniejące. Zmiany zostaną zastosowane globalnie.
+            </p>
+
+            {/* Pole dodawania nowego tagu */}
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addNewTag(); }}
+                placeholder="Wpisz nowy tag..."
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition"
+              />
+              <button
+                onClick={addNewTag}
+                disabled={!newTagInput.trim()}
+                className="px-4 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/30 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus size={16} />
+                Dodaj
+              </button>
+            </div>
+
+            <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-2">
+              {allUniqueTags.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+                  Brak tagów w bazie pieśni
+                </div>
+              ) : (
+                allUniqueTags.map(tag => {
+                  const songCount = songs.filter(s => Array.isArray(s.tags) && s.tags.includes(tag)).length;
+                  const isEditing = editingTag === tag;
+
+                  return (
+                    <div key={tag} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                      {isEditing ? (
+                        <div className="flex-1 flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editingTagValue}
+                            onChange={(e) => setEditingTagValue(e.target.value)}
+                            className="flex-1 px-3 py-2 rounded-lg border border-pink-300 dark:border-pink-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-pink-500/20 outline-none"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') renameTagGlobally(tag, editingTagValue);
+                              if (e.key === 'Escape') { setEditingTag(null); setEditingTagValue(''); }
+                            }}
+                          />
+                          <button
+                            onClick={() => renameTagGlobally(tag, editingTagValue)}
+                            className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                            title="Zapisz"
+                          >
+                            <Check size={16} />
+                          </button>
+                          <button
+                            onClick={() => { setEditingTag(null); setEditingTagValue(''); }}
+                            className="p-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition"
+                            title="Anuluj"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-800 dark:text-gray-200">{tag}</span>
+                            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                              ({songCount} {songCount === 1 ? 'pieśń' : songCount < 5 ? 'pieśni' : 'pieśni'})
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => { setEditingTag(tag); setEditingTagValue(tag); }}
+                            className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition"
+                            title="Edytuj nazwę"
+                          >
+                            <Hash size={16} />
+                          </button>
+                          <button
+                            onClick={() => deleteTagGlobally(tag)}
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
+                            title="Usuń tag"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => { setShowTagsModal(false); setEditingTag(null); setEditingTagValue(''); setNewTagInput(''); }}
+                className="w-full py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/30 transition"
+              >
+                Zamknij
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL: Add Expense */}
-      {showExpenseModal && (
+      {showExpenseModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl p-6 border border-white/20 dark:border-gray-700 my-8">
             <div className="flex justify-between mb-6">
@@ -2271,7 +2537,8 @@ export default function WorshipModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import {
   Plus, Search, Trash2, Edit2, X, User,
@@ -276,8 +277,8 @@ export default function Members() {
       </section>
 
       {/* MODAL */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
+      {showModal && document.body && createPortal(
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] transition-opacity">
           <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-lg p-8 border border-white/20 dark:border-gray-700/50 relative animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
             
             <div className="flex justify-between items-center mb-8">
@@ -383,7 +384,8 @@ export default function Members() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

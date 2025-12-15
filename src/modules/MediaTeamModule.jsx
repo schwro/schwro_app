@@ -19,16 +19,26 @@ const STATUSES = ['Do zrobienia', 'W trakcie', 'Gotowe'];
 
 // Hook do obliczania pozycji dropdowna (przyklejony do elementu, ale w body)
 function useDropdownPosition(triggerRef, isOpen) {
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUpward: false });
 
   useEffect(() => {
     if (isOpen && triggerRef.current) {
       const updatePosition = () => {
         const rect = triggerRef.current.getBoundingClientRect();
+        const dropdownMaxHeight = 240; // max-h-60 = 15rem = 240px
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        // Otwórz w górę jeśli nie ma miejsca na dole, ale jest na górze
+        const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+
         setCoords({
-          top: rect.bottom + window.scrollY + 4, // 4px odstępu w dół
+          top: openUpward
+            ? rect.top + window.scrollY - 4
+            : rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX,
-          width: rect.width
+          width: rect.width,
+          openUpward
         });
       };
 
@@ -126,11 +136,13 @@ const CustomDatePicker = ({ label, value, onChange }) => {
         </div>
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
           className="portal-datepicker fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100"
           style={{
-            top: coords.top,
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
             left: coords.left,
             width: '280px'
           }}
@@ -230,11 +242,13 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
         )}
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
           className="portal-table-multiselect fixed z-[9999] w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
           style={{
-            top: coords.top,
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
             left: coords.left
           }}
         >
@@ -313,11 +327,13 @@ const AbsenceMultiSelect = ({ options, value, onChange }) => {
         )}
       </div>
 
-      {isOpen && createPortal(
-        <div 
+      {isOpen && document.body && createPortal(
+        <div
           className="portal-absence-multiselect fixed z-[9999] w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
-          style={{ 
-            top: coords.top, 
+          style={{
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
             left: coords.left
           }}
         >
@@ -1307,7 +1323,7 @@ export default function MediaTeamModule() {
       )}
 
       {/* MODAL ZADANIA */}
-      {showTaskModal && (
+      {showTaskModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto transition-opacity">
           <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-4xl p-0 border border-white/20 dark:border-gray-700/50 my-8 flex overflow-hidden h-[80vh] animate-in fade-in zoom-in duration-200">
             
@@ -1384,11 +1400,12 @@ export default function MediaTeamModule() {
               {taskForm.id && <div className="mt-auto"><div className="relative"><textarea className="w-full pl-4 pr-12 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-pink-500/20 outline-none text-sm resize-none text-gray-800 dark:text-gray-200" placeholder="Napisz komentarz..." rows={2} value={newComment} onChange={e => setNewComment(e.target.value)} onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); }}} /><button onClick={addComment} disabled={!newComment.trim()} className="absolute right-2 bottom-2 p-2 bg-pink-600 dark:bg-pink-500 text-white rounded-lg hover:bg-pink-700 dark:hover:bg-pink-600 transition disabled:opacity-50 disabled:cursor-not-allowed"><Send size={16} /></button></div></div>}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL CZŁONKA */}
-      {showMemberModal && (
+      {showMemberModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6">
@@ -1453,11 +1470,12 @@ export default function MediaTeamModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL: Add Expense */}
-      {showExpenseModal && (
+      {showExpenseModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl p-6 border border-white/20 dark:border-gray-700 my-8">
             <div className="flex justify-between mb-6">
@@ -1621,7 +1639,8 @@ export default function MediaTeamModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

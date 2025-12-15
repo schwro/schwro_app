@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import CustomSelect from '../../components/CustomSelect';
+import CustomDatePicker from '../../components/CustomDatePicker';
 import {
   Plus, Search, Trash2, X, Users, MapPin, Calendar,
   UserPlus, BookOpen, Upload, Link as LinkIcon,

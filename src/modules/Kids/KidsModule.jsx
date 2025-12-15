@@ -11,18 +11,26 @@ import CustomSelect from '../../components/CustomSelect';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
 
-// Hook to calculate dropdown position
+// Hook to calculate dropdown position with smart positioning (up/down)
 function useDropdownPosition(triggerRef, isOpen) {
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUpward: false });
 
   useEffect(() => {
     if (isOpen && triggerRef.current) {
       const updatePosition = () => {
         const rect = triggerRef.current.getBoundingClientRect();
+        const dropdownMaxHeight = 240;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+
         setCoords({
-          top: rect.bottom + window.scrollY + 4,
+          top: openUpward
+            ? rect.top + window.scrollY - 4
+            : rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX,
-          width: rect.width
+          width: rect.width,
+          openUpward
         });
       };
 
@@ -118,11 +126,13 @@ const CustomDatePicker = ({ label, value, onChange }) => {
         </div>
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
           className="portal-datepicker fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100"
           style={{
-            top: coords.top,
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
             left: coords.left,
             width: '280px'
           }}
@@ -714,7 +724,7 @@ export default function KidsModule() {
       )}
 
       {/* MODALE - BEZ ZMIAN */}
-      {showGroupModal && (
+      {showGroupModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6"><h3 className="font-bold text-xl text-gray-800 dark:text-white">Grupa Wiekowa</h3><button onClick={() => setShowGroupModal(false)} className="text-gray-500 dark:text-gray-400"><X/></button></div>
@@ -726,9 +736,10 @@ export default function KidsModule() {
               <button onClick={saveGroup} className="w-full py-3 bg-pink-600 text-white rounded-xl font-bold mt-4">Zapisz</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {showGlobalStudentModal && (
+      {showGlobalStudentModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6"><h3 className="font-bold text-xl text-gray-800 dark:text-white">Uczeń</h3><button onClick={() => setShowGlobalStudentModal(false)} className="text-gray-500 dark:text-gray-400"><X/></button></div>
@@ -741,9 +752,10 @@ export default function KidsModule() {
               <button onClick={saveGlobalStudent} className="w-full py-3 bg-pink-600 text-white rounded-xl font-bold mt-2">Zapisz</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {showTeacherModal && (
+      {showTeacherModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6"><h3 className="font-bold text-xl text-gray-800 dark:text-white">Nauczyciel</h3><button onClick={() => setShowTeacherModal(false)} className="text-gray-500 dark:text-gray-400"><X/></button></div>
@@ -755,9 +767,10 @@ export default function KidsModule() {
               <button onClick={saveTeacher} className="w-full py-3 bg-pink-600 text-white rounded-xl font-bold mt-4">Zapisz</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {showGroupStudentsModal && currentGroup && (
+      {showGroupStudentsModal && currentGroup && document.body && createPortal(
          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-3xl p-6 border border-white/20 dark:border-gray-700 flex flex-col max-h-[80vh]">
             <div className="flex justify-between mb-4 pb-4 border-b dark:border-gray-700"><h3 className="font-bold text-xl text-gray-800 dark:text-white">Uczniowie: {currentGroup.name}</h3><button onClick={() => setShowGroupStudentsModal(false)} className="text-gray-500 dark:text-gray-400"><X/></button></div>
@@ -779,9 +792,10 @@ export default function KidsModule() {
               </table>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {showMaterialsModal && currentGroup && (
+      {showMaterialsModal && currentGroup && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-2xl p-6 border border-white/20 dark:border-gray-700 flex flex-col max-h-[80vh]">
             <div className="flex justify-between mb-4 pb-4 border-b dark:border-gray-700"><h3 className="font-bold text-xl text-gray-800 dark:text-white">Materiały</h3><button onClick={() => setShowMaterialsModal(false)} className="text-gray-500 dark:text-gray-400"><X/></button></div>
@@ -803,11 +817,12 @@ export default function KidsModule() {
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL: Add Expense */}
-      {showExpenseModal && (
+      {showExpenseModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl p-6 border border-white/20 dark:border-gray-700 my-8">
             <div className="flex justify-between mb-6">
@@ -971,7 +986,8 @@ export default function KidsModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

@@ -1,13 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, PlusCircle, Music, Hash, AlignLeft, Check, Upload, FileText, Link as LinkIcon, Trash2, Edit3 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, PlusCircle, Music, Hash, Check, Upload, FileText, Link as LinkIcon, Trash2, Edit3, Type, AlignJustify, Minus, Plus, CornerDownLeft, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Undo2, Redo2, Strikethrough, Superscript, Subscript, Palette, Keyboard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import CustomSelect from '../../components/CustomSelect';
 
 // --- STAŁE DANYCH ---
-const KEYS = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
-const DEFAULT_CATEGORIES = ["Uwielbienie", "Modlitwa", "Na wejście", "Na ofiarowanie", "Komunia", "Uwielbienie (szybkie)", "Kolęda", "Inne"];
-const METERS = ["4/4", "3/4", "2/4", "6/8", "12/8", "Inne"];
-const AVAILABLE_TAGS = ["intymna", "modlitewna", "niedzielna", "popularna", "szybko", "wolna", "nowość", "klasyk"];
+const KEYS = ["C", "C#", "Db", "D", "Eb", "E", "F", "F#", "Gb", "G", "Ab", "A", "Bb", "B"];
+
+// Mapowanie stopni na akordy dla każdej tonacji (poprawny zapis enharmoniczny)
+// Format: { tonacja: [I, II, III, IV, V, VI, VII] }
+const SCALE_DEGREES = {
+  'C':  ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
+  'C#': ['C#', 'D#', 'E#', 'F#', 'G#', 'A#', 'B#'],
+  'Db': ['Db', 'Eb', 'F', 'Gb', 'Ab', 'Bb', 'C'],
+  'D':  ['D', 'E', 'F#', 'G', 'A', 'B', 'C#'],
+  'Eb': ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D'],
+  'E':  ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#'],
+  'F':  ['F', 'G', 'A', 'Bb', 'C', 'D', 'E'],
+  'F#': ['F#', 'G#', 'A#', 'B', 'C#', 'D#', 'E#'],
+  'Gb': ['Gb', 'Ab', 'Bb', 'Cb', 'Db', 'Eb', 'F'],
+  'G':  ['G', 'A', 'B', 'C', 'D', 'E', 'F#'],
+  'Ab': ['Ab', 'Bb', 'C', 'Db', 'Eb', 'F', 'G'],
+  'A':  ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#'],
+  'Bb': ['Bb', 'C', 'D', 'Eb', 'F', 'G', 'A'],
+  'B':  ['B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#'],
+};
+
+// Etykiety stopni (rzymskie)
+const DEGREE_LABELS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+
+// Typowe akordy dla stopni w durze (domyślne typy)
+// I=dur, II=moll, III=moll, IV=dur, V=dur, VI=moll, VII=zmniejszony
+const DEFAULT_CHORD_TYPES = ['', 'm', 'm', '', '', 'm', 'dim'];
 
 // Szablony sekcji muzycznych
 const MUSIC_SECTIONS = [
@@ -18,6 +42,20 @@ const MUSIC_SECTIONS = [
   { label: 'Solo', template: '\n[SOLO]\n|      |      |      |      |\n' },
   { label: 'Outro', template: '\n[OUTRO]\n|      |      |      |      |\n' },
   { label: 'Pusty Takt', template: '|      |      |      |      |' },
+];
+
+// Kolory do wyboru dla czcionki
+const FONT_COLORS = [
+  { label: 'Czarny', value: '#000000' },
+  { label: 'Biały', value: '#ffffff' },
+  { label: 'Szary', value: '#6b7280' },
+  { label: 'Czerwony', value: '#ef4444' },
+  { label: 'Pomarańczowy', value: '#f97316' },
+  { label: 'Żółty', value: '#eab308' },
+  { label: 'Zielony', value: '#22c55e' },
+  { label: 'Niebieski', value: '#3b82f6' },
+  { label: 'Fioletowy', value: '#8b5cf6' },
+  { label: 'Różowy', value: '#ec4899' },
 ];
 
 // --- KOMPONENTY POMOCNICZE ---
@@ -124,7 +162,7 @@ const TagMultiSelect = ({ label, options, value = [], onChange }) => {
 
 // --- GŁÓWNY FORMULARZ ---
 
-export default function SongForm({ initialData, onSave, onCancel }) {
+export default function SongForm({ initialData, onSave, onCancel, allTags = [] }) {
   const [formData, setFormData] = useState({
     id: null,
     title: '',
@@ -135,13 +173,13 @@ export default function SongForm({ initialData, onSave, onCancel }) {
     meter: '',
     tags: [],
     lyrics: '',
-    chords_bars: '', // ZMIANA NAZWY POLA NA ZGODNĄ Z BAZĄ
+    chords_bars: '',
     sheet_music_url: '',
     attachments: []
   });
 
   const [activeTab, setActiveTab] = useState('basic'); // basic | lyrics | attachments
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [availableTags, setAvailableTags] = useState([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [newLink, setNewLink] = useState('');
   const [newLinkDescription, setNewLinkDescription] = useState('');
@@ -149,24 +187,23 @@ export default function SongForm({ initialData, onSave, onCancel }) {
   const [editingDescription, setEditingDescription] = useState('');
   const chordsTextareaRef = useRef(null);
 
-  // Pobierz kategorie ze słownika
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data } = await supabase
-          .from('app_dictionaries')
-          .select('label')
-          .eq('category', 'song_category');
+  // Ustawienia edytora akordów
+  const [chordsLineHeight, setChordsLineHeight] = useState(1.8);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [editorKey, setEditorKey] = useState(''); // Tonacja wybrana w edytorze (domyślnie z formData.key)
+  const colorPickerRef = useRef(null);
 
-        if (data && data.length > 0) {
-          setCategories(data.map(d => d.label));
-        }
-      } catch (err) {
-        console.error('Błąd pobierania kategorii:', err);
-      }
-    };
-    fetchCategories();
-  }, []);
+  // Historia dla undo/redo
+  const [chordsHistory, setChordsHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoRedoRef = useRef(false);
+  const shouldUpdateDOMRef = useRef(true); // Flaga do kontrolowania aktualizacji DOM
+
+  // Używaj tylko tagów z bazy (przekazanych przez props)
+  useEffect(() => {
+    setAvailableTags([...allTags].sort());
+  }, [allTags]);
 
   useEffect(() => {
     if (initialData) {
@@ -180,10 +217,23 @@ export default function SongForm({ initialData, onSave, onCancel }) {
         tempo: initialData.tempo || '',
         meter: initialData.meter || '',
         lyrics: initialData.lyrics || '',
-        chords_bars: initialData.chords_bars || '' // ZMIANA
+        chords_bars: initialData.chords_bars || ''
       });
+      // Ustaw tonację edytora na tonację pieśni
+      if (initialData.key) {
+        setEditorKey(initialData.key);
+      }
+      // Aktualizuj DOM edytora przy zmianie initialData
+      shouldUpdateDOMRef.current = true;
     }
   }, [initialData]);
+
+  // Synchronizuj editorKey gdy zmieni się formData.key
+  useEffect(() => {
+    if (formData.key && !editorKey) {
+      setEditorKey(formData.key);
+    }
+  }, [formData.key, editorKey]);
 
   const handleSubmit = () => {
     if (!formData.title) return alert("Podaj tytuł pieśni");
@@ -277,27 +327,231 @@ export default function SongForm({ initialData, onSave, onCancel }) {
     setEditingDescription(formData.attachments[index]?.description || '');
   };
 
-  // Funkcja wstawiająca szablon w miejscu kursora (DLA POLA CHORDS_BARS)
-  const insertAtCursor = (template) => {
-    const textarea = chordsTextareaRef.current;
-    if (!textarea) return;
+  // Funkcja zapisująca stan do historii
+  const saveToHistory = (newText) => {
+    if (isUndoRedoRef.current) {
+      isUndoRedoRef.current = false;
+      return;
+    }
+    const newHistory = chordsHistory.slice(0, historyIndex + 1);
+    newHistory.push(newText);
+    // Limit historii do 50 elementów
+    if (newHistory.length > 50) newHistory.shift();
+    setChordsHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = formData.chords_bars || ''; // ZMIANA
+  // Funkcja undo
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      isUndoRedoRef.current = true;
+      shouldUpdateDOMRef.current = true; // Wymuszamy aktualizację DOM przy undo
+      const prevIndex = historyIndex - 1;
+      setHistoryIndex(prevIndex);
+      setFormData({ ...formData, chords_bars: chordsHistory[prevIndex] });
+    }
+  };
 
-    const newText = text.substring(0, start) + template + text.substring(end);
-    
-    setFormData({ ...formData, chords_bars: newText }); // ZMIANA
+  // Funkcja redo
+  const handleRedo = () => {
+    if (historyIndex < chordsHistory.length - 1) {
+      isUndoRedoRef.current = true;
+      shouldUpdateDOMRef.current = true; // Wymuszamy aktualizację DOM przy redo
+      const nextIndex = historyIndex + 1;
+      setHistoryIndex(nextIndex);
+      setFormData({ ...formData, chords_bars: chordsHistory[nextIndex] });
+    }
+  };
 
-    // Przywrócenie focusu i ustawienie kursora po wstawionym tekście
+  // Funkcja formatująca zaznaczony tekst (WYSIWYG)
+  const execFormat = (command, value = null) => {
+    document.execCommand(command, false, value);
+    // Aktualizuj stan po formatowaniu
     setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + template.length, start + template.length);
+      if (chordsTextareaRef.current) {
+        const newContent = chordsTextareaRef.current.innerHTML;
+        setFormData({ ...formData, chords_bars: newContent });
+        saveToHistory(newContent);
+      }
     }, 0);
   };
 
-  return (
+  // Funkcja wstawiania tekstu w miejscu kursora (dla contentEditable)
+  const insertTextAtCursor = (text) => {
+    const editor = chordsTextareaRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand('insertText', false, text);
+    setTimeout(() => {
+      const newContent = editor.innerHTML;
+      setFormData({ ...formData, chords_bars: newContent });
+      saveToHistory(newContent);
+    }, 0);
+  };
+
+  // Funkcja wstawiania HTML w miejscu kursora
+  const insertHtmlAtCursor = (html) => {
+    const editor = chordsTextareaRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand('insertHTML', false, html);
+    setTimeout(() => {
+      const newContent = editor.innerHTML;
+      setFormData({ ...formData, chords_bars: newContent });
+      saveToHistory(newContent);
+    }, 0);
+  };
+
+  // Funkcja wstawiania akordów (jako span z kolorem)
+  const insertChordAbove = (chord) => {
+    insertHtmlAtCursor(`<span class="chord-marker" style="color: #ea580c; font-weight: bold;">[${chord}]</span>`);
+  };
+
+  // Funkcja wstawiania akordu na podstawie stopnia (I-VII)
+  const insertChordByDegree = (degreeIndex, chordType = '') => {
+    const key = editorKey || formData.key || 'C';
+    const scale = SCALE_DEGREES[key] || SCALE_DEGREES['C'];
+    const rootNote = scale[degreeIndex];
+    // Użyj domyślnego typu akordu jeśli nie podano
+    const type = chordType !== undefined ? chordType : DEFAULT_CHORD_TYPES[degreeIndex];
+    const chord = rootNote + type;
+    insertChordAbove(chord);
+  };
+
+  // Funkcja zmiany koloru czcionki
+  const changeTextColor = (color) => {
+    execFormat('foreColor', color);
+    setShowColorPicker(false);
+  };
+
+  // Obsługa skrótów klawiszowych (WYSIWYG)
+  const handleKeyDown = (e) => {
+    // Tab = wstaw 6 spacji (duży odstęp)
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        // Shift+Tab = mniejszy odstęp (3 spacje)
+        insertTextAtCursor('   ');
+      } else {
+        insertTextAtCursor('      ');
+      }
+      return;
+    }
+    // Ctrl/Cmd + B = Bold
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      e.preventDefault();
+      execFormat('bold');
+      return;
+    }
+    // Ctrl/Cmd + I = Italic
+    if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+      e.preventDefault();
+      execFormat('italic');
+      return;
+    }
+    // Ctrl/Cmd + U = Underline
+    if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+      e.preventDefault();
+      execFormat('underline');
+      return;
+    }
+    // Ctrl/Cmd + Z = Undo
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      handleUndo();
+      return;
+    }
+    // Ctrl/Cmd + Shift + Z lub Ctrl/Cmd + Y = Redo
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      e.preventDefault();
+      handleRedo();
+      return;
+    }
+    // Ctrl/Cmd + L = Wyrównaj do lewej
+    if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+      e.preventDefault();
+      execFormat('justifyLeft');
+      return;
+    }
+    // Ctrl/Cmd + E = Wyśrodkuj
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+      e.preventDefault();
+      execFormat('justifyCenter');
+      return;
+    }
+    // Ctrl/Cmd + R = Wyrównaj do prawej
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+      e.preventDefault();
+      execFormat('justifyRight');
+      return;
+    }
+    // | (pipe) = kreska taktowa - wstaw z odstępami
+    if (e.key === '|') {
+      e.preventDefault();
+      insertTextAtCursor('|');
+      return;
+    }
+  };
+
+  // Obsługa zmian w edytorze contentEditable
+  const handleEditorInput = () => {
+    if (chordsTextareaRef.current) {
+      const newContent = chordsTextareaRef.current.innerHTML;
+      setFormData({ ...formData, chords_bars: newContent });
+    }
+  };
+
+  // Inicjalizacja historii przy pierwszym załadowaniu
+  useEffect(() => {
+    if (chordsHistory.length === 0 && formData.chords_bars) {
+      setChordsHistory([formData.chords_bars]);
+      setHistoryIndex(0);
+    }
+  }, []);
+
+  // Inicjalizuj zawartość edytora przy pierwszym montowaniu
+  useEffect(() => {
+    if (chordsTextareaRef.current) {
+      chordsTextareaRef.current.innerHTML = formData.chords_bars || '';
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Tylko przy montowaniu
+
+  // Aktualizuj DOM tylko przy undo/redo (gdy flaga jest ustawiona)
+  useEffect(() => {
+    if (chordsTextareaRef.current && shouldUpdateDOMRef.current) {
+      chordsTextareaRef.current.innerHTML = formData.chords_bars || '';
+      shouldUpdateDOMRef.current = false;
+    }
+  }, [formData.chords_bars]);
+
+  // Zamykaj color picker przy kliknięciu na zewnątrz
+  useEffect(() => {
+    if (!showColorPicker) return;
+    const handleClickOutside = (e) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target)) {
+        setShowColorPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColorPicker]);
+
+  // Zapisuj zmiany do historii (debounced)
+  useEffect(() => {
+    if (!isUndoRedoRef.current && formData.chords_bars !== undefined) {
+      const timer = setTimeout(() => {
+        if (chordsHistory[historyIndex] !== formData.chords_bars) {
+          saveToHistory(formData.chords_bars);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.chords_bars]);
+
+  if (!document.body) return null;
+
+  return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
       <div className="bg-white dark:bg-gray-900 w-full max-w-5xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 flex flex-col max-h-[92vh] my-4">
         
@@ -365,26 +619,30 @@ export default function SongForm({ initialData, onSave, onCancel }) {
               </div>
 
               {/* Rząd 2: Dane Muzyczne */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <CustomSelect 
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <CustomSelect
                   label="Tonacja"
-                  options={KEYS} 
-                  value={formData.key} 
-                  onChange={val => setFormData({...formData, key: val})} 
+                  options={KEYS}
+                  value={formData.key}
+                  onChange={val => setFormData({...formData, key: val})}
                   placeholder="Klucz"
                   icon={Music}
                 />
-                <CustomSelect 
-                  label="Metrum"
-                  options={METERS} 
-                  value={formData.meter} 
-                  onChange={val => setFormData({...formData, meter: val})} 
-                  placeholder="4/4"
-                  icon={Hash}
-                />
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Metrum</label>
+                  <div className="relative">
+                    <Hash size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition"
+                      placeholder="4/4"
+                      value={formData.meter}
+                      onChange={e => setFormData({...formData, meter: e.target.value})}
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tempo (BPM)</label>
-                  <input 
+                  <input
                     type="number"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition"
                     placeholder="120"
@@ -392,20 +650,12 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                     onChange={e => setFormData({...formData, tempo: e.target.value})}
                   />
                 </div>
-                 <CustomSelect
-                  label="Kategoria"
-                  options={categories}
-                  value={formData.category}
-                  onChange={val => setFormData({...formData, category: val})}
-                  placeholder="Rodzaj"
-                  icon={AlignLeft}
-                />
               </div>
 
               {/* Tagi */}
-              <TagMultiSelect 
+              <TagMultiSelect
                 label="Tagi"
-                options={AVAILABLE_TAGS}
+                options={availableTags}
                 value={formData.tags}
                 onChange={val => setFormData({...formData, tags: val})}
               />
@@ -426,35 +676,337 @@ export default function SongForm({ initialData, onSave, onCancel }) {
                     />
                  </div>
 
-                 {/* KOLUMNA 2: CHWYTY / TAKTY (CHORDS_BARS) */}
+                 {/* KOLUMNA 2: CHWYTY / TAKTY (CHORDS_BARS) - ZAAWANSOWANY EDYTOR */}
                  <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-end mb-1">
-                       <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Chwyty / Takty (chords_bars)</label>
-                       <span className="text-[10px] text-gray-400">Kliknij przycisk poniżej, aby wstawić</span>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 ml-1">Chwyty / Takty</label>
+
+                    {/* PASEK NARZĘDZI - FORMATOWANIE */}
+                    <div className="p-2 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800/80 border border-b-0 border-gray-200 dark:border-gray-700 rounded-t-xl">
+                      {/* Rząd 0: Formatowanie tekstu */}
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                        {/* Undo/Redo */}
+                        <button
+                          onClick={handleUndo}
+                          disabled={historyIndex <= 0}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Cofnij (Ctrl+Z)"
+                        >
+                          <Undo2 size={14} />
+                        </button>
+                        <button
+                          onClick={handleRedo}
+                          disabled={historyIndex >= chordsHistory.length - 1}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Ponów (Ctrl+Y)"
+                        >
+                          <Redo2 size={14} />
+                        </button>
+
+                        <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+                        {/* Formatowanie tekstu - WYSIWYG */}
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('bold'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-600 hover:text-pink-600 dark:hover:text-pink-400 transition"
+                          title="Pogrubienie (Ctrl+B)"
+                        >
+                          <Bold size={14} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('italic'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-600 hover:text-pink-600 dark:hover:text-pink-400 transition"
+                          title="Kursywa (Ctrl+I)"
+                        >
+                          <Italic size={14} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('underline'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-600 hover:text-pink-600 dark:hover:text-pink-400 transition"
+                          title="Podkreślenie (Ctrl+U)"
+                        >
+                          <Underline size={14} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('strikeThrough'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-600 hover:text-pink-600 dark:hover:text-pink-400 transition"
+                          title="Przekreślenie"
+                        >
+                          <Strikethrough size={14} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('superscript'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-600 hover:text-pink-600 dark:hover:text-pink-400 transition"
+                          title="Indeks górny"
+                        >
+                          <Superscript size={14} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('subscript'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-600 hover:text-pink-600 dark:hover:text-pink-400 transition"
+                          title="Indeks dolny"
+                        >
+                          <Subscript size={14} />
+                        </button>
+
+                        <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+                        {/* Wyrównanie tekstu */}
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('justifyLeft'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 dark:hover:text-blue-400 transition"
+                          title="Wyrównaj do lewej"
+                        >
+                          <AlignLeft size={14} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('justifyCenter'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 dark:hover:text-blue-400 transition"
+                          title="Wyśrodkuj"
+                        >
+                          <AlignCenter size={14} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); execFormat('justifyRight'); }}
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 dark:hover:text-blue-400 transition"
+                          title="Wyrównaj do prawej"
+                        >
+                          <AlignRight size={14} />
+                        </button>
+
+                        <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+                        {/* Kolor czcionki */}
+                        <div className="relative" ref={colorPickerRef}>
+                          <button
+                            onMouseDown={(e) => { e.preventDefault(); setShowColorPicker(!showColorPicker); }}
+                            className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-gray-600 hover:text-purple-600 dark:hover:text-purple-400 transition"
+                            title="Kolor czcionki"
+                          >
+                            <Palette size={14} />
+                          </button>
+                          {showColorPicker && (
+                            <div className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl z-50 grid grid-cols-5 gap-1">
+                              {FONT_COLORS.map((color) => (
+                                <button
+                                  key={color.value}
+                                  onMouseDown={(e) => { e.preventDefault(); changeTextColor(color.value); }}
+                                  className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
+                                  style={{ backgroundColor: color.value }}
+                                  title={color.label}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+                        {/* System stopni - wybór tonacji i akordy */}
+                        <div className="flex items-center gap-2">
+                          <Music size={14} className="text-orange-500" />
+                          <select
+                            value={editorKey}
+                            onChange={(e) => setEditorKey(e.target.value)}
+                            className="h-6 px-2 text-[11px] font-bold bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded text-orange-700 dark:text-orange-300 cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-400"
+                            title="Wybierz tonację"
+                          >
+                            <option value="">Tonacja</option>
+                            {KEYS.map((k) => (
+                              <option key={k} value={k}>{k}</option>
+                            ))}
+                          </select>
+
+                          {/* Stopnie durowe */}
+                          {DEGREE_LABELS.map((label, idx) => {
+                            const key = editorKey || 'C';
+                            const scale = SCALE_DEGREES[key] || SCALE_DEGREES['C'];
+                            const chordRoot = scale[idx];
+                            const defaultType = DEFAULT_CHORD_TYPES[idx];
+                            const fullChord = chordRoot + defaultType;
+                            return (
+                              <button
+                                key={label}
+                                onClick={() => insertChordByDegree(idx, defaultType)}
+                                className={`px-1.5 h-6 flex items-center justify-center border rounded transition text-[10px] font-bold ${
+                                  defaultType === 'm' || defaultType === 'dim'
+                                    ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50'
+                                    : 'bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50'
+                                }`}
+                                title={`${label} stopień: ${fullChord}`}
+                              >
+                                <span className="text-[9px] opacity-60 mr-0.5">{label}</span>
+                                {fullChord}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Rząd 1: Kontrolki formatowania */}
+                      <div className="flex flex-wrap items-center gap-3 mb-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                        {/* Rozmiar czcionki dla zaznaczenia */}
+                        <div className="flex items-center gap-1.5">
+                          <Type size={14} className="text-gray-400" />
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">Rozmiar:</span>
+                          {[1, 2, 3, 4, 5, 6, 7].map((size) => (
+                            <button
+                              key={size}
+                              onMouseDown={(e) => { e.preventDefault(); execFormat('fontSize', size.toString()); }}
+                              className="w-6 h-6 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-600 hover:text-pink-600 transition text-[10px] font-bold"
+                              title={`Rozmiar ${size}`}
+                            >
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
+
+                        {/* Globalne ustawienia */}
+                        <div className="flex items-center gap-1.5">
+                          <AlignJustify size={14} className="text-gray-400" />
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">Interlinia:</span>
+                          <button
+                            onClick={() => setChordsLineHeight(Math.max(1.2, chordsLineHeight - 0.2))}
+                            className="w-6 h-6 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span className="w-8 text-center text-xs font-mono font-bold text-gray-700 dark:text-gray-200">{chordsLineHeight.toFixed(1)}</span>
+                          <button
+                            onClick={() => setChordsLineHeight(Math.min(3.0, chordsLineHeight + 0.2))}
+                            className="w-6 h-6 flex items-center justify-center bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Rząd 2: Szybkie wstawianie */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {/* Sekcje muzyczne */}
+                        {MUSIC_SECTIONS.map((section) => (
+                          <button
+                            key={section.label}
+                            onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor(section.template.replace(/\n/g, '<br>')); }}
+                            className="px-2.5 py-1 bg-white dark:bg-gray-700 hover:bg-pink-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-bold rounded-md border border-gray-200 dark:border-gray-600 transition flex items-center gap-1"
+                          >
+                            <PlusCircle size={10} className="text-pink-500 dark:text-pink-400"/>
+                            {section.label}
+                          </button>
+                        ))}
+
+                        <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+                        {/* Szybkie znaki */}
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); insertTextAtCursor('|'); }}
+                          className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 text-[11px] font-bold rounded-md border border-orange-200 dark:border-orange-800 transition font-mono"
+                          title="Kreska taktowa"
+                        >
+                          |
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); insertTextAtCursor('      '); }}
+                          className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
+                          title="Długa spacja (6 znaków)"
+                        >
+                          TAB
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); insertTextAtCursor('   '); }}
+                          className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
+                          title="Krótka spacja (3 znaki)"
+                        >
+                          SPC
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<br>'); }}
+                          className="px-2.5 py-1 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 text-[11px] font-bold rounded-md border border-green-200 dark:border-green-800 transition flex items-center gap-1"
+                          title="Nowa linia"
+                        >
+                          <CornerDownLeft size={10} />
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<hr style="border: 1px solid #ccc; margin: 4px 0;">'); }}
+                          className="px-2.5 py-1 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 text-[11px] font-bold rounded-md border border-gray-300 dark:border-gray-500 transition"
+                          title="Linia pozioma (separator)"
+                        >
+                          ───
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); insertTextAtCursor('×2'); }}
+                          className="px-2.5 py-1 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 text-[11px] font-bold rounded-md border border-red-200 dark:border-red-800 transition font-mono"
+                          title="Znak powtórzenia"
+                        >
+                          ×2
+                        </button>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); insertTextAtCursor('𝄆  𝄇'); }}
+                          className="px-2.5 py-1 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[11px] font-bold rounded-md border border-purple-200 dark:border-purple-800 transition font-mono"
+                          title="Znaki repetycji"
+                        >
+                          𝄆 𝄇
+                        </button>
+                      </div>
                     </div>
 
-                    <textarea
+                    {/* EDYTOR WYSIWYG - contentEditable */}
+                    <div
                       ref={chordsTextareaRef}
-                      className="flex-1 w-full px-4 py-3 rounded-t-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 focus:ring-2 focus:ring-pink-500/20 outline-none transition resize-none font-mono text-sm leading-relaxed"
-                      placeholder="[INTRO] | C | G | Am | F |..."
-                      value={formData.chords_bars}
-                      onChange={e => setFormData({...formData, chords_bars: e.target.value})}
+                      contentEditable
+                      className="flex-1 w-full px-4 py-3 border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:ring-inset min-h-[300px] overflow-auto font-mono text-sm"
+                      style={{ lineHeight: chordsLineHeight, whiteSpace: 'pre-wrap' }}
+                      onInput={handleEditorInput}
+                      onKeyDown={handleKeyDown}
+                      suppressContentEditableWarning
+                      data-placeholder="Wpisz chwyty tutaj... Zaznacz tekst i użyj przycisków powyżej do formatowania."
                     />
 
-                    {/* PASEK NARZĘDZI DO WSTAWIANIA SEKCJI */}
-                    <div className="p-2 bg-gray-100 dark:bg-gray-800 border-x border-b border-gray-200 dark:border-gray-700 rounded-b-xl flex flex-wrap gap-2">
-                        {MUSIC_SECTIONS.map((section) => (
-                            <button
-                                key={section.label}
-                                onClick={() => insertAtCursor(section.template)}
-                                className="px-3 py-1.5 bg-white dark:bg-gray-700 hover:bg-pink-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold rounded-lg border border-gray-200 dark:border-gray-600 transition flex items-center gap-1"
-                            >
-                                <PlusCircle size={12} className="text-pink-500 dark:text-pink-400"/>
-                                {section.label}
-                            </button>
-                        ))}
+                    {/* STOPKA Z INFORMACJAMI */}
+                    <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-xl flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                          TAB = odstęp • Shift+TAB = mały odstęp • | = kreska taktowa
+                        </span>
+                        <button
+                          onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
+                          className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition"
+                          title="Pokaż skróty klawiszowe"
+                        >
+                          <Keyboard size={12} />
+                          Skróty
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                        {(formData.chords_bars || '').length} znaków
+                      </span>
                     </div>
 
+                    {/* PANEL POMOCY - SKRÓTY KLAWISZOWE */}
+                    {showShortcutsHelp && (
+                      <div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-t-0 border-blue-200 dark:border-blue-800 rounded-b-xl">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase">Skróty klawiszowe</h4>
+                          <button onClick={() => setShowShortcutsHelp(false)} className="text-blue-400 hover:text-blue-600">
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-[11px]">
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Pogrubienie</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+B</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Kursywa</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+I</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Podkreślenie</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+U</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Cofnij</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+Z</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Ponów</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+Y</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Do lewej</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+L</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Wyśrodkuj</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+E</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Do prawej</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+R</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Duży odstęp</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Tab</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Mały odstęp</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Shift+Tab</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Kreska taktowa</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">|</kbd></div>
+                        </div>
+                      </div>
+                    )}
                  </div>
                </div>
             </div>
@@ -616,6 +1168,7 @@ export default function SongForm({ initialData, onSave, onCancel }) {
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

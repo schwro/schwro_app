@@ -4,18 +4,26 @@ import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 import CustomSelect from '../components/CustomSelect';
 
-// Hook to calculate dropdown position
+// Hook to calculate dropdown position with smart positioning (up/down)
 function useDropdownPosition(triggerRef, isOpen) {
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUpward: false });
 
   useEffect(() => {
     if (isOpen && triggerRef.current) {
       const updatePosition = () => {
         const rect = triggerRef.current.getBoundingClientRect();
+        const dropdownMaxHeight = 300;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+
         setCoords({
-          top: rect.bottom + window.scrollY + 4,
+          top: openUpward
+            ? rect.top + window.scrollY - 4
+            : rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX,
-          width: rect.width
+          width: rect.width,
+          openUpward
         });
       };
 
@@ -111,11 +119,13 @@ const CustomDatePicker = ({ label, value, onChange }) => {
         </div>
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
           className="portal-datepicker fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100"
           style={{
-            top: coords.top,
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
             left: coords.left,
             width: '280px'
           }}
@@ -1782,7 +1792,7 @@ const FinanceModule = () => {
       )}
 
       {/* MODAL: Budget Item */}
-      {showBudgetModal && (
+      {showBudgetModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6">
@@ -1841,11 +1851,12 @@ const FinanceModule = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL: Income */}
-      {showIncomeModal && (
+      {showIncomeModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6">
@@ -1947,11 +1958,12 @@ const FinanceModule = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL: Expense */}
-      {showExpenseModal && (
+      {showExpenseModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl p-6 border border-white/20 dark:border-gray-700 my-8">
             <div className="flex justify-between mb-6">
@@ -2120,11 +2132,12 @@ const FinanceModule = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL: Account Balances */}
-      {showBalanceModal && (
+      {showBalanceModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6">
@@ -2244,7 +2257,8 @@ const FinanceModule = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

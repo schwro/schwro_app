@@ -13,16 +13,24 @@ import CustomDatePicker from '../../components/CustomDatePicker';
 // ================== TABLE SELECT COMPONENT ==================
 
 function useDropdownPosition(triggerRef, isOpen) {
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUpward: false });
 
   useEffect(() => {
     if (isOpen && triggerRef.current) {
       const updatePosition = () => {
         const rect = triggerRef.current.getBoundingClientRect();
+        const dropdownMaxHeight = 240;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+
         setCoords({
-          top: rect.bottom + window.scrollY + 4,
+          top: openUpward
+            ? rect.top + window.scrollY - 4
+            : rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX,
-          width: rect.width
+          width: rect.width,
+          openUpward
         });
       };
 
@@ -78,11 +86,13 @@ const TableSelect = ({ options, value, onChange, placeholder = 'Wybierz...' }) =
         <ChevronDown size={12} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
           className="portal-table-select fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
           style={{
-            top: coords.top,
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
             left: coords.left,
             width: Math.max(coords.width, 150)
           }}
@@ -385,7 +395,7 @@ function SpeakersSection({ speakers, onAdd, onEdit, onDelete }) {
       </div>
 
       {/* Modal */}
-      {showModal && (
+      {showModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-center mb-4">
@@ -485,7 +495,8 @@ function SpeakersSection({ speakers, onAdd, onEdit, onDelete }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
@@ -831,7 +842,7 @@ function SeriesSection({ series, programs, speakers, onAdd, onEdit, onDelete }) 
       </div>
 
       {/* Modal */}
-      {showModal && (
+      {showModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-center mb-4">
@@ -936,7 +947,8 @@ function SeriesSection({ series, programs, speakers, onAdd, onEdit, onDelete }) 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );

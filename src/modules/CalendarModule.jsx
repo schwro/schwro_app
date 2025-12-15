@@ -30,12 +30,21 @@ const MUSICAL_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G
 // --- HELPERY UI ---
 
 function useDropdownPosition(triggerRef, isOpen) {
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUpward: false });
   useEffect(() => {
     if (isOpen && triggerRef.current) {
       const update = () => {
         const rect = triggerRef.current.getBoundingClientRect();
-        setCoords({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, width: rect.width });
+        const dropdownMaxHeight = 300;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+        setCoords({
+          top: openUpward ? rect.top + window.scrollY - 4 : rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX,
+          width: rect.width,
+          openUpward
+        });
       };
       update();
       window.addEventListener('resize', update);
@@ -74,8 +83,8 @@ const CustomDatePicker = ({ value, onChange }) => {
           {value ? new Date(value).toLocaleDateString('pl-PL') : 'Wybierz datę'}
         </span>
       </div>
-      {isOpen && coords.width > 0 && createPortal(
-        <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100 w-[280px]" style={{ top: coords.top, left: coords.left }}>
+      {isOpen && coords.width > 0 && document.body && createPortal(
+        <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100 w-[280px]" style={{ ...(coords.openUpward ? { bottom: `calc(100vh - ${coords.top}px)` } : { top: coords.top }), left: coords.left }}>
            <div className="flex justify-between items-center mb-4">
              <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() - 1))); }} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft size={18} /></button>
              <span className="text-sm font-bold capitalize">{viewDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })}</span>
@@ -127,8 +136,8 @@ const MultiSelect = ({ label, options, value, onChange }) => {
         )}
         <div className="ml-auto"><ChevronDown size={16} className="text-gray-400" /></div>
       </div>
-      {isOpen && coords.width > 0 && createPortal(
-        <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar" style={{ top: coords.top, left: coords.left, width: coords.width }}>
+      {isOpen && coords.width > 0 && document.body && createPortal(
+        <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar" style={{ ...(coords.openUpward ? { bottom: `calc(100vh - ${coords.top}px)` } : { top: coords.top }), left: coords.left, width: coords.width }}>
           {(!options || options.length === 0) ? (
              <div className="p-3 text-center text-gray-400 text-xs">Brak osób w bazie</div>
           ) : (
@@ -184,8 +193,8 @@ const SongSelector = ({ songs, onSelect }) => {
         <span>Wybierz pieśń...</span>
         <ChevronDown size={16} className="text-pink-400" />
       </div>
-      {isOpen && createPortal(
-        <div className="portal-song-selector fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 flex flex-col overflow-hidden" style={{ top: coords.top, left: coords.left, width: coords.width }}>
+      {isOpen && document.body && createPortal(
+        <div className="portal-song-selector fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 flex flex-col overflow-hidden" style={{ ...(coords.openUpward ? { bottom: `calc(100vh - ${coords.top}px)` } : { top: coords.top }), left: coords.left, width: coords.width }}>
            <div className="p-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
              <div className="flex items-center gap-2 bg-white dark:bg-gray-900 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
                 <Search size={14} className="text-gray-400"/>
@@ -378,6 +387,7 @@ const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
 
   if (loading) return null;
   if (!program) return null;
+  if (!document.body) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
@@ -486,6 +496,7 @@ const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
 // --- MODAL WYBORU TYPU (WYDARZENIE VS ZADANIE) ---
 
 const ModalSelectType = ({ date, onClose, onSelectTask, onSelectEvent }) => {
+  if (!document.body) return null;
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 dark:border-gray-700 relative">
@@ -535,6 +546,7 @@ const ModalSelectType = ({ date, onClose, onSelectTask, onSelectEvent }) => {
 // --- MODAL WYBORU KATEGORII WYDARZENIA ---
 
 const ModalSelectEventCategory = ({ date, categories, onClose, onSelectCategory }) => {
+  if (!document.body) return null;
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-white/20 dark:border-gray-700 relative">
@@ -634,6 +646,8 @@ const ModalAddEvent = ({ initialEvent, category, onClose, onSave, onDelete }) =>
     onSave(payload);
     onClose();
   };
+
+  if (!document.body) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
@@ -785,10 +799,12 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
     };
     
     if (task.id) payload.id = task.id;
-    
+
     onSave(payload);
     onClose();
   };
+
+  if (!document.body) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">

@@ -59,7 +59,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <div className="w-64 bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700 shadow-lg flex flex-col transition-colors duration-300 h-full">
+    <div className="w-64 bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700 shadow-lg flex flex-col transition-colors duration-300 h-full relative z-40">
       
       {/* LOGO */}
       <div className="p-6 border-b border-gray-200/50 dark:border-gray-700 flex justify-center items-center shrink-0">

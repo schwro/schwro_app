@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import {
   List, Plus, Trash2, X,
@@ -1016,7 +1017,7 @@ export default function GlobalSettings() {
       </div>
 
       {/* MODAL DODAWANIA UŻYTKOWNIKA (DARK MODE) */}
-      {showUserModal && (
+      {showUserModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-white/20 dark:border-gray-700">
             <div className="flex justify-between mb-6">
@@ -1084,7 +1085,8 @@ export default function GlobalSettings() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

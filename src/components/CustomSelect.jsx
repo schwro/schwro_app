@@ -3,16 +3,26 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 
 function useDropdownPosition(triggerRef, isOpen) {
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUpward: false });
 
   useEffect(() => {
     if (isOpen && triggerRef.current) {
       const updatePosition = () => {
         const rect = triggerRef.current.getBoundingClientRect();
+        const dropdownMaxHeight = 240; // max-h-60 = 15rem = 240px
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        // Otwórz w górę jeśli nie ma miejsca na dole, ale jest na górze
+        const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+
         setCoords({
-          top: rect.bottom + window.scrollY + 4,
+          top: openUpward
+            ? rect.top + window.scrollY - 4  // pozycja dla otwarcia w górę (będzie użyte jako bottom)
+            : rect.bottom + window.scrollY + 4,
           left: rect.left + window.scrollX,
-          width: rect.width
+          width: rect.width,
+          openUpward
         });
       };
 
@@ -106,11 +116,13 @@ export default function CustomSelect({
         />
       </div>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && coords.width > 0 && typeof document !== 'undefined' && document.body && createPortal(
         <div
           className="portal-dropdown-select fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
           style={{
-            top: coords.top,
+            ...(coords.openUpward
+              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              : { top: coords.top }),
             left: coords.left,
             width: coords.width,
             minWidth: compact ? '120px' : undefined
