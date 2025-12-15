@@ -291,8 +291,8 @@ const ScheduleTable = ({ programs, team, onUpdateProgram, roles, memberRoles = [
             </button>
 
             {isExpanded && (
-              <div className="overflow-visible pb-4">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto pb-4">
+                <table className="w-full text-left border-collapse min-w-max">
                   <thead>
                     <tr className="bg-gray-50/50 dark:bg-gray-800/50 text-xs text-gray-500 dark:text-gray-400 uppercase">
                       <th className="p-3 font-semibold w-24 min-w-[90px]">Data</th>

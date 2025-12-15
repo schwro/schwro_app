@@ -242,7 +242,7 @@ const ScheduleTable = ({ programs, teachers, groups, onUpdateProgram }) => {
             </button>
             {isExpanded && (
               <div className="overflow-x-auto bg-white dark:bg-gray-900 p-0">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-max">
                   {/* USUNIĘTO STYLE BACKGROUND BLACK - TERAZ JEST CZYSTA KLASA */}
                   <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                     <tr>

@@ -122,7 +122,7 @@ export const generatePPT = async (program, songsMap) => {
   }
 
   // Generuj slajdy dla pieśni
-  orderedSongIds.forEach((id) => {
+  orderedSongIds.forEach((id, songIndex) => {
     const song = songsMap[id];
     if (!song) return;
 
@@ -141,22 +141,41 @@ export const generatePPT = async (program, songsMap) => {
     sections.forEach(section => {
       const trimmedSection = section.trim();
 
+      // Sprawdź czy sekcja zawiera "pusty slajd" - jeśli tak, nie pokazuj tekstu
+      const isPustySlajd = trimmedSection.toLowerCase().includes('pusty slajd');
+      const displayText = isPustySlajd ? '' : trimmedSection;
+
       if (seriesGraphics.songBackground) {
         // Slajd z tłem - bez overlay, 100% oryginalna grafika
         slidesHtml += `
           <div class="slide content with-bg" style="background-image: url('${seriesGraphics.songBackground}'); background-size: cover; background-position: center;">
-            ${trimmedSection ? `<div class="text">${trimmedSection.replace(/\n/g, '<br/>')}</div>` : ''}
+            ${displayText ? `<div class="text">${displayText.replace(/\n/g, '<br/>')}</div>` : ''}
           </div>
         `;
       } else {
         // Slajd bez tła
         slidesHtml += `
           <div class="slide content">
-            ${trimmedSection ? `<div class="text">${trimmedSection.replace(/\n/g, '<br/>')}</div>` : ''}
+            ${displayText ? `<div class="text">${displayText.replace(/\n/g, '<br/>')}</div>` : ''}
           </div>
         `;
       }
     });
+
+    // === PUSTY SLAJD MIĘDZY PIEŚNIAMI (po każdej pieśni oprócz ostatniej) ===
+    if (songIndex < orderedSongIds.length - 1) {
+      if (seriesGraphics.songBackground) {
+        slidesHtml += `
+          <div class="slide content with-bg" style="background-image: url('${seriesGraphics.songBackground}'); background-size: cover; background-position: center;">
+          </div>
+        `;
+      } else {
+        slidesHtml += `
+          <div class="slide content">
+          </div>
+        `;
+      }
+    }
   });
 
   // Informacja gdy brak pieśni

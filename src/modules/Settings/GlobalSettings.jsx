@@ -137,6 +137,16 @@ export default function GlobalSettings() {
   const [userForm, setUserForm] = useState({ id: null, full_name: '', email: '', password: '', role: '', is_active: true });
   const [showUserModal, setShowUserModal] = useState(false);
   const [isCreatingAuthUser, setIsCreatingAuthUser] = useState(false);
+  const [selectedTeams, setSelectedTeams] = useState([]);
+
+  // Definicja służb/zespołów z ich tabelami w bazie
+  const teamDefinitions = [
+    { key: 'worship', label: 'Grupa Uwielbienia', table: 'worship_team' },
+    { key: 'media', label: 'Media Team', table: 'media_team' },
+    { key: 'atmosfera', label: 'Atmosfera Team', table: 'atmosfera_members' },
+    { key: 'kids', label: 'Małe SchWro', table: 'kids_teachers' },
+    { key: 'homegroups', label: 'Grupy Domowe (Lider)', table: 'home_group_leaders' }
+  ];
 
   const [expandedModule, setExpandedModule] = useState(null);
   const [tabPermissions, setTabPermissions] = useState(null);
@@ -286,7 +296,10 @@ export default function GlobalSettings() {
         setMessage({ type: 'success', text: 'Zaktualizowano użytkownika' });
       } else {
         // Tworzenie nowego użytkownika
-        // 1. Utwórz konto w Supabase Auth z losowym hasłem
+        // 1. Zapisz aktualną sesję admina przed utworzeniem nowego użytkownika
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+        // 2. Utwórz konto w Supabase Auth z losowym hasłem
         // UWAGA: W Supabase wyłącz "Confirm email" (Authentication → Providers → Email)
         // żeby signUp() nie wysyłał emaila potwierdzającego
         const tempPassword = crypto.randomUUID() + 'Aa1!';
@@ -304,7 +317,15 @@ export default function GlobalSettings() {
           throw new Error(`Błąd tworzenia konta: ${authError.message}`);
         }
 
-        // 2. Dodaj rekord do app_users
+        // 3. Przywróć sesję admina (signUp automatycznie loguje nowego użytkownika)
+        if (currentSession) {
+          await supabase.auth.setSession({
+            access_token: currentSession.access_token,
+            refresh_token: currentSession.refresh_token
+          });
+        }
+
+        // 4. Dodaj rekord do app_users
         if (authData?.user?.id) {
           const { error: insertError } = await supabase
             .from('app_users')
@@ -321,7 +342,7 @@ export default function GlobalSettings() {
           }
         }
 
-        // 3. Wyślij email z linkiem do ustawienia hasła (przez Resend SMTP skonfigurowany w Supabase)
+        // 5. Wyślij email z linkiem do ustawienia hasła (przez Resend SMTP skonfigurowany w Supabase)
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(userForm.email, {
           redirectTo: `${window.location.origin}/reset-password`
         });
@@ -332,9 +353,30 @@ export default function GlobalSettings() {
         } else {
           setMessage({ type: 'success', text: `Utworzono użytkownika ${userForm.email}. Email z linkiem do ustawienia hasła został wysłany.` });
         }
+
+        // 6. Dodaj użytkownika do wybranych zespołów/służb
+        if (selectedTeams.length > 0) {
+          const memberData = {
+            full_name: userForm.full_name || userForm.email,
+            email: userForm.email,
+            phone: ''
+          };
+
+          for (const teamKey of selectedTeams) {
+            const teamDef = teamDefinitions.find(t => t.key === teamKey);
+            if (teamDef) {
+              try {
+                await supabase.from(teamDef.table).insert([memberData]);
+              } catch (teamErr) {
+                console.error(`Błąd dodawania do ${teamDef.table}:`, teamErr);
+              }
+            }
+          }
+        }
       }
 
       setShowUserModal(false);
+      setSelectedTeams([]);
       fetchData();
     } catch (err) {
       alert('Błąd zapisu: ' + err.message);
@@ -649,7 +691,7 @@ export default function GlobalSettings() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <SectionHeader title="Użytkownicy Systemu" description="Zarządzanie dostępem, rolami i statusem kont." />
-              <button onClick={() => { setUserForm({ id: null, full_name: '', email: '', role: '', is_active: true }); setShowUserModal(true); }} className="bg-pink-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:shadow-lg transition"><Plus size={18}/> Dodaj Użytkownika</button>
+              <button onClick={() => { setUserForm({ id: null, full_name: '', email: '', role: '', is_active: true }); setSelectedTeams([]); setShowUserModal(true); }} className="bg-pink-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:shadow-lg transition"><Plus size={18}/> Dodaj Użytkownika</button>
             </div>
             <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
               <table className="w-full text-sm text-left bg-white dark:bg-gray-700">
@@ -1001,6 +1043,42 @@ export default function GlobalSettings() {
                 <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1 mb-1 block">Rola w systemie</label>
                 <CustomSelect options={definedRoles.filter(r => r.key !== 'superadmin').map(r => ({value: r.key, label: r.label}))} value={userForm.role} onChange={v => setUserForm({...userForm, role: v})} placeholder="Wybierz rolę..." />
               </div>
+              {!userForm.id && (
+                <div>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1 mb-2 block">Służby / Zespoły</label>
+                  <div className="border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 p-3">
+                    <div className="flex flex-wrap gap-2">
+                      {teamDefinitions.map(team => {
+                        const isSelected = selectedTeams.includes(team.key);
+                        return (
+                          <button
+                            key={team.key}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedTeams(prev => prev.filter(k => k !== team.key));
+                              } else {
+                                setSelectedTeams(prev => [...prev, team.key]);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
+                                : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-500'
+                            }`}
+                          >
+                            {isSelected && <Check size={14} />}
+                            {team.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                      Użytkownik zostanie automatycznie dodany jako członek wybranych służb.
+                    </p>
+                  </div>
+                </div>
+              )}
               <button onClick={saveUser} disabled={isCreatingAuthUser} className="w-full py-3 bg-pink-600 text-white rounded-xl font-bold mt-2 hover:bg-pink-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
                 {isCreatingAuthUser ? 'Tworzenie konta...' : 'Zapisz'}
               </button>

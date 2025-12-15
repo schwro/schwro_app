@@ -204,8 +204,8 @@ const ScheduleTable = ({ programs, speakers, series, onUpdateProgram }) => {
             </button>
 
             {isExpanded && (
-              <div className="overflow-visible pb-4 bg-white dark:bg-gray-900 rounded-b-2xl">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto pb-4 bg-white dark:bg-gray-900 rounded-b-2xl">
+                <table className="w-full text-left border-collapse min-w-max">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-gray-700">
                       <th className="p-3 font-semibold w-24 min-w-[90px]">Data</th>
