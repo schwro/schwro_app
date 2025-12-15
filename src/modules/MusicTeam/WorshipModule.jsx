@@ -1266,9 +1266,10 @@ function SongDetailsModal({ song, onClose, onEdit }) {
                                 <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Akordy w taktach</h3>
                                 {transposeSteps !== 0 && <span className="text-[10px] font-bold text-pink-600 dark:text-pink-400 bg-pink-100 dark:bg-pink-900 px-2 py-0.5 rounded">TRANSPONOWANO ({transposeSteps > 0 ? `+${transposeSteps}` : transposeSteps})</span>}
                             </div>
-                            <pre className="whitespace-pre-wrap font-mono text-pink-800 dark:text-pink-300 text-sm leading-relaxed">
-                                {displayChords}
-                            </pre>
+                            <div
+                                className="whitespace-pre-wrap font-mono text-pink-800 dark:text-pink-300 text-sm leading-relaxed"
+                                dangerouslySetInnerHTML={{ __html: displayChords || 'Brak układu...' }}
+                            />
                         </div>
                     </div>
                 </div>
@@ -1423,6 +1424,7 @@ export default function WorshipModule() {
   const [currentUser, setCurrentUser] = useState({ email: '', name: '' });
 
   const [showSongModal, setShowSongModal] = useState(false);
+  const [songModalKey, setSongModalKey] = useState(0); // Key do wymuszenia remount SongForm
   const [showSongDetails, setShowSongDetails] = useState(null);
   const [showMemberModal, setShowMemberModal] = useState(false);
 
@@ -2204,6 +2206,7 @@ export default function WorshipModule() {
 
       {showSongModal && document.body && createPortal(
         <SongForm
+          key={songModalKey}
           initialData={songForm}
           allTags={allUniqueTags}
           onSave={async (data) => {
@@ -2243,9 +2246,13 @@ export default function WorshipModule() {
           song={showSongDetails}
           onClose={() => setShowSongDetails(null)}
           onEdit={() => {
-            setSongForm(showSongDetails);
-            setShowSongModal(true);
+            // Skopiuj dane pieśni i zamknij modal szczegółów
+            const songData = { ...showSongDetails };
             setShowSongDetails(null);
+            // Ustaw dane i otwórz formularz edycji (z nowym key żeby wymusić remount)
+            setSongForm(songData);
+            setSongModalKey(k => k + 1);
+            setShowSongModal(true);
           }}
         />,
         document.body

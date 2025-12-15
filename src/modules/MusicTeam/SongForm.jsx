@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import CustomSelect from '../../components/CustomSelect';
 
 // --- STAŁE DANYCH ---
-const KEYS = ["C", "C#", "Db", "D", "Eb", "E", "F", "F#", "Gb", "G", "Ab", "A", "Bb", "B"];
+const KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
 // Mapowanie stopni na akordy dla każdej tonacji (poprawny zapis enharmoniczny)
 // Format: { tonacja: [I, II, III, IV, V, VI, VII] }
@@ -33,15 +33,18 @@ const DEGREE_LABELS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 // I=dur, II=moll, III=moll, IV=dur, V=dur, VI=moll, VII=zmniejszony
 const DEFAULT_CHORD_TYPES = ['', 'm', 'm', '', '', 'm', 'dim'];
 
-// Szablony sekcji muzycznych
+// Stała komórka HTML (80px) - używana w szablonach
+const SPACER_CELL = '<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 80px; text-align: center;">\u00A0</span>';
+
+// Szablony sekcji muzycznych z komórkami o stałej szerokości
 const MUSIC_SECTIONS = [
-  { label: 'Intro', template: '\n[INTRO]\n|      |      |      |      |\n' },
-  { label: 'Zwrotka', template: '\n[ZWROTKA]\n|      |      |      |      |\n' },
-  { label: 'Refren', template: '\n[REFREN]\n|      |      |      |      |\n' },
-  { label: 'Bridge', template: '\n[BRIDGE]\n|      |      |      |      |\n' },
-  { label: 'Solo', template: '\n[SOLO]\n|      |      |      |      |\n' },
-  { label: 'Outro', template: '\n[OUTRO]\n|      |      |      |      |\n' },
-  { label: 'Pusty Takt', template: '|      |      |      |      |' },
+  { label: 'Intro', template: `<br>[INTRO]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
+  { label: 'Zwrotka', template: `<br>[ZWROTKA]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
+  { label: 'Refren', template: `<br>[REFREN]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
+  { label: 'Bridge', template: `<br>[BRIDGE]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
+  { label: 'Solo', template: `<br>[SOLO]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
+  { label: 'Outro', template: `<br>[OUTRO]<br>|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|<br>` },
+  { label: 'Pusty Takt', template: `|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|${SPACER_CELL}|` },
 ];
 
 // Kolory do wyboru dla czcionki
@@ -426,14 +429,16 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
 
   // Obsługa skrótów klawiszowych (WYSIWYG)
   const handleKeyDown = (e) => {
-    // Tab = wstaw 6 spacji (duży odstęp)
+    // Tab = wstaw stałą "komórkę" o szerokości 80px (duży odstęp)
+    // Używamy inline-block span żeby tekst wpisywany w środku nie przesuwał kolejnych elementów
     if (e.key === 'Tab') {
       e.preventDefault();
       if (e.shiftKey) {
-        // Shift+Tab = mniejszy odstęp (3 spacje)
-        insertTextAtCursor('   ');
+        // Shift+Tab = mniejsza komórka (40px)
+        insertHtmlAtCursor('<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 40px; text-align: center;">\u00A0</span>');
       } else {
-        insertTextAtCursor('      ');
+        // Tab = duża komórka (80px)
+        insertHtmlAtCursor('<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 80px; text-align: center;">\u00A0</span>');
       }
       return;
     }
@@ -509,13 +514,23 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
     }
   }, []);
 
-  // Inicjalizuj zawartość edytora przy pierwszym montowaniu
+  // Inicjalizuj zawartość edytora gdy zmienia się initialData lub gdy użytkownik przełączy na zakładkę 'lyrics'
+  // Ważne: contentEditable jest renderowany tylko gdy activeTab === 'lyrics'
   useEffect(() => {
-    if (chordsTextareaRef.current) {
-      chordsTextareaRef.current.innerHTML = formData.chords_bars || '';
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Tylko przy montowaniu
+    if (activeTab !== 'lyrics') return;
+
+    // Użyj setTimeout żeby dać czas na renderowanie elementu contentEditable
+    const timer = setTimeout(() => {
+      if (chordsTextareaRef.current && initialData && initialData.chords_bars) {
+        // Sprawdź czy edytor jest pusty lub ma tylko domyślną zawartość
+        const currentContent = chordsTextareaRef.current.innerHTML;
+        if (!currentContent || currentContent === '' || currentContent === '<br>') {
+          chordsTextareaRef.current.innerHTML = initialData.chords_bars;
+        }
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [initialData, activeTab]);
 
   // Aktualizuj DOM tylko przy undo/redo (gdy flaga jest ustawiona)
   useEffect(() => {
@@ -888,7 +903,7 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                         {MUSIC_SECTIONS.map((section) => (
                           <button
                             key={section.label}
-                            onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor(section.template.replace(/\n/g, '<br>')); }}
+                            onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor(section.template); }}
                             className="px-2.5 py-1 bg-white dark:bg-gray-700 hover:bg-pink-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-[11px] font-bold rounded-md border border-gray-200 dark:border-gray-600 transition flex items-center gap-1"
                           >
                             <PlusCircle size={10} className="text-pink-500 dark:text-pink-400"/>
@@ -907,16 +922,16 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                           |
                         </button>
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertTextAtCursor('      '); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 80px; text-align: center;">\u00A0</span>'); }}
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
-                          title="Długa spacja (6 znaków)"
+                          title="Stała komórka (80px) - tekst wewnątrz nie przesuwa reszty"
                         >
                           TAB
                         </button>
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertTextAtCursor('   '); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor('<span class="chord-spacer" contenteditable="true" style="display: inline-block; min-width: 40px; text-align: center;">\u00A0</span>'); }}
                           className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-md border border-blue-200 dark:border-blue-800 transition"
-                          title="Krótka spacja (3 znaki)"
+                          title="Mała komórka (40px) - tekst wewnątrz nie przesuwa reszty"
                         >
                           SPC
                         </button>
@@ -967,7 +982,7 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                     <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-xl flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                          TAB = odstęp • Shift+TAB = mały odstęp • | = kreska taktowa
+                          TAB = stała komórka (80px) • Shift+TAB = mała komórka (40px) • | = kreska taktowa
                         </span>
                         <button
                           onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
@@ -1001,8 +1016,8 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                           <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Do lewej</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+L</kbd></div>
                           <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Wyśrodkuj</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+E</kbd></div>
                           <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Do prawej</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Ctrl+R</kbd></div>
-                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Duży odstęp</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Tab</kbd></div>
-                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Mały odstęp</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Shift+Tab</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Komórka 80px</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Tab</kbd></div>
+                          <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Komórka 40px</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">Shift+Tab</kbd></div>
                           <div className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">Kreska taktowa</span><kbd className="bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono border border-gray-200 dark:border-gray-600">|</kbd></div>
                         </div>
                       </div>
