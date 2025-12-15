@@ -186,18 +186,18 @@ const CustomDatePicker = ({ label, value, onChange }) => {
 
 // --- ZAAWANSOWANA LOGIKA TRANSPOZYCJI ---
 
-// Baza chromatyczna - domyślny format wyjściowy
-const CHORDS_SCALE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+// Baza chromatyczna - domyślny format wyjściowy (używamy bemole: Db, Eb, Gb, Ab, Bb)
+const CHORDS_SCALE = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
 // Mapa normalizacji wejścia (żeby C# i Db były traktowane tak samo przy wyszukiwaniu)
 const NORMALIZE_MAP = {
-  "Cb": "B", 
-  "Db": "C#", 
-  "D#": "Eb", 
+  "Cb": "B",
+  "C#": "Db",
+  "D#": "Eb",
   "Fb": "E",
   "E#": "F",
-  "Gb": "F#", 
-  "G#": "Ab", 
+  "F#": "Gb",
+  "G#": "Ab",
   "A#": "Bb",
   "B#": "C"
 };
