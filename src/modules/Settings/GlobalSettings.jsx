@@ -81,6 +81,14 @@ const MODULE_TABS = {
       speakers: 'Mówcy'
     }
   },
+  prayer: {
+    label: 'Centrum Modlitwy',
+    resourceKey: 'module:prayer',
+    tabs: {
+      wall: 'Ściana Modlitwy',
+      leaders_requests: 'Prośby dla Liderów'
+    }
+  },
   settings: {
     label: 'Ustawienia',
     resourceKey: 'module:settings',
@@ -206,6 +214,10 @@ export default function GlobalSettings() {
           schedule: null,
           members: ['rada_starszych', 'koordynator', 'lider'],
           finances: ['rada_starszych', 'koordynator']
+        },
+        prayer: {
+          wall: null, // Ściana modlitwy dostępna dla wszystkich
+          leaders_requests: ['superadmin', 'rada_starszych', 'koordynator', 'lider'] // Prośby dla liderów tylko dla liderów
         }
       };
       setTabPermissions(defaultPerms);

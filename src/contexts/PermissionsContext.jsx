@@ -16,7 +16,8 @@ export function PermissionsProvider({ children }) {
     media: true,
     atmosfera: true,
     kids: true,
-    groups: true
+    groups: true,
+    prayer: true
   });
   const [logoUrl, setLogoUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +45,7 @@ export function PermissionsProvider({ children }) {
             if (s.key === 'module_atmosfera_enabled') newSettings.atmosfera = s.value === 'true';
             if (s.key === 'module_kids_enabled') newSettings.kids = s.value === 'true';
             if (s.key === 'module_groups_enabled') newSettings.groups = s.value === 'true';
+            if (s.key === 'module_prayer_enabled') newSettings.prayer = s.value === 'true';
           });
           setAppSettings(newSettings);
         }

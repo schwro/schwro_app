@@ -10,13 +10,13 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
       if (!user?.email) return;
 
       try {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('app_users')
           .select('full_name, avatar_url')
           .eq('email', user.email)
-          .single();
+          .maybeSingle();
 
-        if (profile) {
+        if (profile && !error) {
           setUserProfile(profile);
         }
       } catch (err) {

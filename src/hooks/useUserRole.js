@@ -27,7 +27,7 @@ export function useUserRole() {
           .from('app_users')
           .select('role')
           .eq('email', user.email)
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error('Error fetching user role:', error);

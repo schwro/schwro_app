@@ -49,6 +49,12 @@ export const TAB_PERMISSIONS = {
     schedule: null,
     series: null,
     speakers: ['rada_starszych', 'koordynator', 'lider']
+  },
+
+  // Moduł Centrum Modlitwy
+  prayer: {
+    wall: null, // Ściana modlitwy dostępna dla wszystkich zalogowanych
+    leaders_requests: ['rada_starszych', 'koordynator', 'lider'] // Prośby tylko dla liderów
   }
 };
 
