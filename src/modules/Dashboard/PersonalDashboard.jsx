@@ -4,6 +4,8 @@ import { Settings, RefreshCw, Calendar, CheckSquare, CalendarX, Heart } from 'lu
 import { useDashboardLayout } from './hooks/useDashboardLayout';
 import { useDashboardData } from './hooks/useDashboardData';
 import { WIDGET_DEFINITIONS } from './utils/layoutDefaults';
+import { hasTabAccess } from '../../utils/tabPermissions';
+import { useUserRole } from '../../hooks/useUserRole';
 
 import DashboardGrid from './components/DashboardGrid';
 import WidgetContainer from './components/WidgetContainer';
@@ -25,6 +27,7 @@ export default function PersonalDashboard({ user }) {
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [showCustomizer, setShowCustomizer] = useState(false);
 
+  const { userRole, loading: roleLoading } = useUserRole();
   const userEmail = user?.email;
   const {
     layout,
@@ -52,7 +55,7 @@ export default function PersonalDashboard({ user }) {
     refreshPrayers,
   } = useDashboardData(userEmail);
 
-  const loading = layoutLoading || dataLoading;
+  const loading = layoutLoading || dataLoading || roleLoading;
 
   // Filtruj layout - usuń widget 'welcome' bo teraz jest w nagłówku
   const filteredLayout = layout.filter(w => w.widgetId !== 'welcome');
@@ -101,7 +104,10 @@ export default function PersonalDashboard({ user }) {
     );
   }
 
-  const visibleWidgets = filteredLayout.filter(w => w.visible).sort((a, b) => a.order - b.order);
+  // Filtruj widgety na podstawie widoczności i uprawnień
+  const visibleWidgets = filteredLayout
+    .filter(w => w.visible && hasTabAccess('dashboard', w.widgetId, userRole))
+    .sort((a, b) => a.order - b.order);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 -m-6 p-4 md:p-6 lg:p-8">
@@ -230,6 +236,7 @@ export default function PersonalDashboard({ user }) {
         onToggleVisibility={toggleVisibility}
         onSizeChange={updateSize}
         onReset={resetLayout}
+        userRole={userRole}
       />
     </div>
   );

@@ -3,6 +3,15 @@ import { Check, X } from 'lucide-react';
 
 // Definicja modułów i ich zakładek
 const MODULE_TABS = {
+  dashboard: {
+    label: 'Pulpit',
+    tabs: {
+      ministry: 'Moja służba',
+      tasks: 'Moje zadania',
+      absences: 'Nieobecności',
+      prayers: 'Moje modlitwy'
+    }
+  },
   homegroups: {
     label: 'Grupy Domowe',
     tabs: {
@@ -60,6 +69,12 @@ export default function TabPermissionsManager({ roles }) {
 
     // Domyślne uprawnienia
     return {
+      dashboard: {
+        ministry: null,
+        tasks: null,
+        absences: null,
+        prayers: null
+      },
       homegroups: {
         groups: null,
         leaders: null,

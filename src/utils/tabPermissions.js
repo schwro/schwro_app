@@ -3,6 +3,14 @@
 // ['role1', 'role2'] = tylko wymienione role mają dostęp
 
 export const TAB_PERMISSIONS = {
+  // Moduł Pulpit (Dashboard)
+  dashboard: {
+    ministry: null, // Moja służba - wszyscy
+    tasks: null, // Moje zadania - wszyscy
+    absences: null, // Nieobecności - wszyscy
+    prayers: null // Moje modlitwy - wszyscy
+  },
+
   // Moduł Grupy Domowe
   homegroups: {
     schedule: null, // wszyscy
