@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart } from 'lucide-react';
+import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart, LayoutDashboard, FileText } from 'lucide-react';
 import { useUserRole } from '../hooks/useUserRole';
 import { usePermissions } from '../contexts/PermissionsContext';
 
@@ -47,7 +47,8 @@ export default function Sidebar() {
   };
 
   const allLinks = [
-    { path: '/', icon: Home, label: 'Programy', show: true },
+    { path: '/', icon: LayoutDashboard, label: 'Pulpit', show: true },
+    { path: '/programs', icon: FileText, label: 'Programy', show: true },
     { path: '/calendar', icon: Calendar, label: 'Kalendarz', show: true },
     { path: '/members', icon: Users, label: 'Członkowie', show: isModuleVisible('members') },
     { path: '/worship', icon: Music, label: 'Grupa Uwielbienia', show: isModuleVisible('worship') },

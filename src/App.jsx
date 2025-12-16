@@ -8,7 +8,8 @@ import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './modules/Login';
 import ResetPassword from './modules/ResetPassword';
-import Dashboard from './modules/Programs/Dashboard';
+import PersonalDashboard from './modules/Dashboard/PersonalDashboard';
+import ProgramsDashboard from './modules/Programs/Dashboard';
 import Members from './modules/Members';
 import WorshipModule from './modules/MusicTeam/WorshipModule';
 import MediaTeamModule from './modules/MediaTeamModule';
@@ -104,7 +105,8 @@ export default function App() {
             <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
             <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
               <Routes>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<PersonalDashboard user={session.user} />} />
+                <Route path="/programs" element={<ProgramsDashboard />} />
                 <Route path="/calendar" element={<CalendarModule />} />
                 <Route path="/members" element={
                   <ProtectedRoute resource="module:members"><Members /></ProtectedRoute>
