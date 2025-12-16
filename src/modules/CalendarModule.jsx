@@ -886,7 +886,21 @@ export default function CalendarModule() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [songs, setSongs] = useState([]);
-  const [visibleTeams, setVisibleTeams] = useState(Object.keys(TEAMS));
+  const [visibleTeams, setVisibleTeams] = useState(() => {
+    const saved = localStorage.getItem('calendarVisibleTeams');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Sprawdź czy wszystkie klucze są prawidłowe
+        const validKeys = Object.keys(TEAMS);
+        const filtered = parsed.filter(key => validKeys.includes(key));
+        return filtered.length > 0 ? filtered : validKeys;
+      } catch {
+        return Object.keys(TEAMS);
+      }
+    }
+    return Object.keys(TEAMS);
+  });
   const [modals, setModals] = useState({
     addTask: null,
     editProgram: null,
@@ -896,6 +910,11 @@ export default function CalendarModule() {
   });
   const [view, setView] = useState('month');
   const [eventCategories, setEventCategories] = useState([]);
+
+  // Zapisz wybrane kalendarze do localStorage przy każdej zmianie
+  useEffect(() => {
+    localStorage.setItem('calendarVisibleTeams', JSON.stringify(visibleTeams));
+  }, [visibleTeams]);
 
   useEffect(() => {
       fetchEvents();

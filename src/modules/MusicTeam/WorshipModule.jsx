@@ -2058,7 +2058,7 @@ export default function WorshipModule() {
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="p-4">Tytuł</th>
-                <th className="p-4">Kategoria</th>
+                <th className="p-4">Autor</th>
                 <th className="p-4">Tonacja</th>
                 <th className="p-4">Tempo</th>
                 <th className="p-4">Tagi</th>
@@ -2069,7 +2069,7 @@ export default function WorshipModule() {
               {filteredSongs.map(s => (
                 <tr key={s.id} className="hover:bg-pink-50/30 dark:hover:bg-gray-800/50 transition">
                   <td className="p-4 font-bold text-gray-800 dark:text-gray-200">{s.title}</td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{s.category}</td>
+                  <td className="p-4 text-gray-600 dark:text-gray-400">{s.author || "-"}</td>
                   <td className="p-4 font-mono font-bold text-pink-600 dark:text-pink-400">{s.key}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{s.tempo || "-"}</td>
                   <td className="p-4">
