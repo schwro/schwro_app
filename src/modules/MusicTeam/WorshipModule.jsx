@@ -1703,13 +1703,18 @@ export default function WorshipModule() {
       setSongs(s || []);
       setPrograms(p || []);
 
-      // Pobierz unikalne tagi z wszystkich pieśni
+      // Pobierz unikalne tagi z wszystkich pieśni + z localStorage
       const tagsSet = new Set();
       (s || []).forEach(song => {
         if (Array.isArray(song.tags)) {
           song.tags.forEach(tag => tagsSet.add(tag));
         }
       });
+      // Dodaj tagi zapisane w localStorage
+      try {
+        const savedTags = JSON.parse(localStorage.getItem('worship_custom_tags') || '[]');
+        savedTags.forEach(tag => tagsSet.add(tag));
+      } catch (e) {}
       setAllUniqueTags([...tagsSet].sort());
     } catch (err) {
       console.error('Błąd pobierania danych:', err);
@@ -1861,6 +1866,13 @@ export default function WorshipModule() {
       // Usuń z listy unikalnych tagów
       setAllUniqueTags(prev => prev.filter(t => t !== tagToDelete));
 
+      // Usuń z localStorage
+      try {
+        const savedTags = JSON.parse(localStorage.getItem('worship_custom_tags') || '[]');
+        const updatedSavedTags = savedTags.filter(t => t !== tagToDelete);
+        localStorage.setItem('worship_custom_tags', JSON.stringify(updatedSavedTags));
+      } catch (e) {}
+
       // Wyczyść filtr jeśli był ustawiony na usunięty tag
       if (tagFilter === tagToDelete) {
         setTagFilter('');
@@ -1872,17 +1884,27 @@ export default function WorshipModule() {
 
   // Dodanie nowego tagu (globalnie - będzie dostępny w liście)
   const addNewTag = () => {
-    const trimmedTag = newTagInput.trim().toLowerCase();
+    const trimmedTag = newTagInput.trim();
     if (!trimmedTag) return;
 
-    // Sprawdź czy tag już istnieje
-    if (allUniqueTags.includes(trimmedTag)) {
+    // Sprawdź czy tag już istnieje (case-insensitive)
+    if (allUniqueTags.some(t => t.toLowerCase() === trimmedTag.toLowerCase())) {
       alert(`Tag "${trimmedTag}" już istnieje w bazie.`);
       return;
     }
 
     // Dodaj do listy unikalnych tagów
     setAllUniqueTags(prev => [...prev, trimmedTag].sort());
+
+    // Zapisz do localStorage
+    try {
+      const savedTags = JSON.parse(localStorage.getItem('worship_custom_tags') || '[]');
+      if (!savedTags.includes(trimmedTag)) {
+        savedTags.push(trimmedTag);
+        localStorage.setItem('worship_custom_tags', JSON.stringify(savedTags));
+      }
+    } catch (e) {}
+
     setNewTagInput('');
   };
 
@@ -2265,6 +2287,7 @@ export default function WorshipModule() {
             try {
               const cleanData = {
                 title: (data.title || '').trim(),
+                author: (data.author || '').trim(),
                 category: (data.category || '').trim(),
                 key: (data.key || 'C').trim(),
                 tempo: data.tempo ? parseInt(data.tempo) : null,
@@ -2276,15 +2299,25 @@ export default function WorshipModule() {
                 attachments: Array.isArray(data.attachments) ? data.attachments : []
               };
 
+              let error;
               if (data.id) {
-                await supabase.from('songs').update(cleanData).eq('id', data.id);
+                const result = await supabase.from('songs').update(cleanData).eq('id', data.id);
+                error = result.error;
               } else {
-                await supabase.from('songs').insert([cleanData]);
+                const result = await supabase.from('songs').insert([cleanData]);
+                error = result.error;
               }
-              
+
+              if (error) {
+                console.error('Supabase error:', error);
+                alert('Błąd zapisu: ' + (error.message || JSON.stringify(error)));
+                return;
+              }
+
               setShowSongModal(false);
               fetchData();
             } catch (err) {
+              console.error('Exception:', err);
               alert('Błąd: ' + (err.message || 'Nie udało się zapisać pieśni'));
             }
           }}
