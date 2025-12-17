@@ -38,9 +38,9 @@ const TAB_SIZE = 8; // Ilość spacji dla Tab
 const SMALL_TAB_SIZE = 4; // Ilość spacji dla Shift+Tab
 const BAR_WIDTH = 80; // Szerokość taktu w pikselach (stała jak w Pages)
 
-// Szablon taktu ze stałą szerokością (inline-block)
-const createBar = () => `<span class="bar" style="display:inline-block;min-width:${BAR_WIDTH}px;border-left:2px solid currentColor;padding-left:4px;vertical-align:top;">\u200B</span>`;
-const createBarEnd = () => `<span style="border-left:2px solid currentColor;"></span>`;
+// Szablon taktu ze stałą szerokością (inline-block) - z marginesami dla odstępu między wierszami
+const createBar = () => `<span class="bar" style="display:inline-block;min-width:${BAR_WIDTH}px;border-left:2px solid currentColor;padding-left:4px;margin:4px 0;vertical-align:top;">\u200B</span>`;
+const createBarEnd = () => `<span style="border-left:2px solid currentColor;margin:4px 0;"></span>`;
 
 // Szablony sekcji muzycznych z elementami o stałej szerokości
 const MUSIC_SECTIONS = [
@@ -393,12 +393,41 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
     }, 0);
   };
 
-  // Funkcja wstawiania HTML w miejscu kursora
+  // Funkcja wstawiania HTML w miejscu kursora (z fallbackiem na Selection API)
   const insertHtmlAtCursor = (html) => {
     const editor = chordsTextareaRef.current;
     if (!editor) return;
     editor.focus();
-    document.execCommand('insertHTML', false, html);
+
+    // Spróbuj użyć execCommand
+    const success = document.execCommand('insertHTML', false, html);
+
+    // Jeśli execCommand nie zadziałał, użyj Selection API
+    if (!success) {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+
+        // Stwórz tymczasowy element do parsowania HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+
+        // Wstaw wszystkie węzły z HTML
+        const fragment = document.createDocumentFragment();
+        while (tempDiv.firstChild) {
+          fragment.appendChild(tempDiv.firstChild);
+        }
+
+        range.insertNode(fragment);
+
+        // Przesuń kursor na koniec wstawionego elementu
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+
     setTimeout(() => {
       const newContent = editor.innerHTML;
       setFormData({ ...formData, chords_bars: newContent });
