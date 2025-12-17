@@ -36,7 +36,7 @@ const DEFAULT_CHORD_TYPES = ['', 'm', 'm', '', '', 'm', 'dim'];
 // Stałe dla edytora akordów
 const TAB_SIZE = 8; // Ilość spacji dla Tab
 const SMALL_TAB_SIZE = 4; // Ilość spacji dla Shift+Tab
-const BAR_WIDTH = 100; // Szerokość taktu w pikselach (stała jak w Pages)
+const BAR_WIDTH = 80; // Szerokość taktu w pikselach (stała jak w Pages)
 
 // Szablon taktu ze stałą szerokością (inline-block)
 const createBar = () => `<span class="bar" style="display:inline-block;min-width:${BAR_WIDTH}px;border-left:2px solid currentColor;padding-left:4px;vertical-align:top;">\u200B</span>`;
