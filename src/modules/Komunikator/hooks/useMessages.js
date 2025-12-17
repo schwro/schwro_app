@@ -155,7 +155,7 @@ export default function useMessages(conversationId, userEmail) {
             type: 'message',
             title: convName,
             body: content.substring(0, 100),
-            link: '/komunikator',
+            link: `/komunikator?conversation=${conversationId}`,
             data: {
               conversation_id: conversationId,
               message_id: data.id,

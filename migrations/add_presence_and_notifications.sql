@@ -136,7 +136,7 @@ BEGIN
             'message',
             COALESCE(conv_name, sender_name),
             LEFT(NEW.content, 100),
-            '/komunikator',
+            '/komunikator?conversation=' || NEW.conversation_id::text,
             jsonb_build_object(
                 'conversation_id', NEW.conversation_id,
                 'message_id', NEW.id,

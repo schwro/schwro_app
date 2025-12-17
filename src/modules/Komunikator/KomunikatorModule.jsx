@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import ConversationList from './components/ConversationList';
 import MessageThread from './components/MessageThread';
@@ -11,6 +12,8 @@ import useMinistryChannels from './hooks/useMinistryChannels';
 const USER_EMAIL_CACHE_KEY = 'user_email_cache';
 
 export default function KomunikatorModule() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Inicjalizuj z cache od razu
   const [userEmail, setUserEmail] = useState(() => {
     return localStorage.getItem(USER_EMAIL_CACHE_KEY) || null;
@@ -76,6 +79,22 @@ export default function KomunikatorModule() {
       }
     }
   }, [conversations, selectedConversation?.id]);
+
+  // Obsłuż parametr conversation z URL (np. z powiadomienia)
+  useEffect(() => {
+    const conversationId = searchParams.get('conversation');
+    if (conversationId && conversations.length > 0) {
+      const conv = conversations.find(c => c.id === conversationId);
+      if (conv) {
+        setSelectedConversation(conv);
+        if (isMobileView) {
+          setShowList(false);
+        }
+        // Wyczyść parametr z URL po otwarciu konwersacji
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, conversations, isMobileView, setSearchParams]);
 
   // Wybierz konwersację
   const handleSelectConversation = (conv) => {
