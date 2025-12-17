@@ -94,7 +94,7 @@ export default function useMessages(conversationId, userEmail) {
   }, [conversationId]);
 
   // Wyślij wiadomość
-  const sendMessage = async (content, attachments = []) => {
+  const sendMessage = async (content, attachments = [], conversationData = null) => {
     if (!conversationId || !userEmail) return null;
 
     try {
@@ -135,6 +135,41 @@ export default function useMessages(conversationId, userEmail) {
         messagesCache.set(conversationId, updated);
         return updated;
       });
+
+      // Utwórz powiadomienia dla innych uczestników (backup dla triggera bazodanowego)
+      try {
+        // Pobierz uczestników konwersacji
+        const { data: participants } = await supabase
+          .from('conversation_participants')
+          .select('user_email')
+          .eq('conversation_id', conversationId)
+          .neq('user_email', userEmail);
+
+        if (participants && participants.length > 0) {
+          const senderName = userData?.full_name || userEmail;
+          const convName = conversationData?.name || conversationData?.displayName || senderName;
+
+          // Utwórz powiadomienia dla wszystkich uczestników
+          const notifications = participants.map(p => ({
+            user_email: p.user_email,
+            type: 'message',
+            title: convName,
+            body: content.substring(0, 100),
+            link: '/komunikator',
+            data: {
+              conversation_id: conversationId,
+              message_id: data.id,
+              sender_email: userEmail,
+              sender_name: senderName
+            }
+          }));
+
+          await supabase.from('notifications').insert(notifications);
+        }
+      } catch (notifErr) {
+        // Ignoruj błędy powiadomień - nie powinny blokować wysyłania
+        console.warn('Error creating notifications:', notifErr);
+      }
 
       return data;
     } catch (err) {

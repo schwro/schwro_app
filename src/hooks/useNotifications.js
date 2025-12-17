@@ -116,21 +116,38 @@ export function useNotifications(userEmail) {
     }
   }, [userEmail]);
 
+  // Odtwórz dźwięk powiadomienia używając Web Audio API
+  const playNotificationSound = useCallback(() => {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Przyjemny dźwięk powiadomienia (dwa tony)
+      oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5
+      oscillator.frequency.setValueAtTime(1108.73, audioContext.currentTime + 0.1); // C#6
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+      // Ignore audio errors
+    }
+  }, []);
+
   // Pokaż wewnętrzne powiadomienie toast
   const showToast = useCallback((notification) => {
     // Dodaj do listy toastów
     setToasts(prev => [...prev, notification]);
 
     // Odtwórz dźwięk
-    try {
-      if (!audioRef.current) {
-        audioRef.current = new Audio('/notification.mp3');
-        audioRef.current.volume = 0.3;
-      }
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => { /* ignore */ });
-    } catch (e) { /* ignore */ }
-  }, []);
+    playNotificationSound();
+  }, [playNotificationSound]);
 
   // Zamknij toast
   const closeToast = useCallback((toastId) => {
@@ -151,25 +168,34 @@ export function useNotifications(userEmail) {
 
     fetchNotifications();
 
-    // Subskrypcja real-time
+    // Subskrypcja real-time - bez filtra (filtrujemy po stronie klienta)
+    // Filtr z emailem może nie działać poprawnie ze znakiem @
+    const channelName = `notifications-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
     const subscription = supabase
-      .channel('notifications-changes')
+      .channel(channelName)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'notifications',
-        filter: `user_email=eq.${userEmail}`
+        table: 'notifications'
       }, (payload) => {
         const newNotification = payload.new;
 
-        // Dodaj do listy
-        setNotifications(prev => [newNotification, ...prev]);
+        // Filtruj tylko powiadomienia dla tego użytkownika
+        if (newNotification.user_email !== userEmail) return;
+
+        // Dodaj do listy (unikaj duplikatów)
+        setNotifications(prev => {
+          if (prev.some(n => n.id === newNotification.id)) return prev;
+          return [newNotification, ...prev];
+        });
         setUnreadCount(prev => prev + 1);
 
         // Pokaż wewnętrzny toast
         showToast(newNotification);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Notifications subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(subscription);

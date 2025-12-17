@@ -83,7 +83,7 @@ export default function MessageThread({
 
   // Wysyłanie wiadomości
   const handleSendMessage = async (content, attachments) => {
-    await sendMessage(content, attachments);
+    await sendMessage(content, attachments, conversation);
     scrollToBottom();
   };
 
