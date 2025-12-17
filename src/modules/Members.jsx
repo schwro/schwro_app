@@ -161,6 +161,14 @@ export default function Members() {
         dataToSave.membership_declaration_url = null;
       }
 
+      // Konwertuj puste stringi na null dla pól opcjonalnych
+      if (!dataToSave.membership_date) dataToSave.membership_date = null;
+      if (!dataToSave.membership_declaration_url) dataToSave.membership_declaration_url = null;
+      if (!dataToSave.home_group_id) dataToSave.home_group_id = null;
+      if (!dataToSave.address) dataToSave.address = null;
+      if (!dataToSave.email) dataToSave.email = null;
+      if (!dataToSave.phone) dataToSave.phone = null;
+
       // Pobierz stare dane członka (jeśli edycja)
       let oldMinistries = [];
       if (id) {
@@ -177,12 +185,22 @@ export default function Members() {
           .from('members')
           .update(dataToSave)
           .eq('id', id);
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase update error:', error);
+          alert('Błąd zapisu: ' + (error.message || JSON.stringify(error)));
+          setSaving(false);
+          return;
+        }
       } else {
         const { error } = await supabase
           .from('members')
           .insert([dataToSave]);
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase insert error:', error);
+          alert('Błąd zapisu: ' + (error.message || JSON.stringify(error)));
+          setSaving(false);
+          return;
+        }
       }
 
       // Synchronizuj służby
@@ -425,7 +443,8 @@ export default function Members() {
               <tr>
                 <th className="p-4 pl-6">Osoba</th>
                 <th className="p-4">Kontakt & Adres</th>
-                <th className="p-4">Zaangażowanie</th>
+                <th className="p-4">Grupa Domowa</th>
+                <th className="p-4">Służby</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 pr-6 text-right">Akcje</th>
               </tr>
@@ -459,18 +478,24 @@ export default function Members() {
                   </td>
 
                   <td className="p-4">
+                    {member.home_group_id ? (
+                      <span className="inline-flex items-center gap-1.5 bg-pink-50 dark:bg-pink-900/20 border border-pink-100 dark:border-pink-800/30 text-pink-700 dark:text-pink-300 px-2.5 py-1 rounded-md text-xs font-medium">
+                        <Home size={12} /> {getHomeGroupName(member.home_group_id)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
+                    )}
+                  </td>
+
+                  <td className="p-4">
                     <div className="flex flex-col gap-1.5 items-start">
-                      {member.home_group_id && (
-                        <span className="inline-flex items-center gap-1.5 bg-pink-50 dark:bg-pink-900/20 border border-pink-100 dark:border-pink-800/30 text-pink-700 dark:text-pink-300 px-2.5 py-1 rounded-md text-xs font-medium">
-                          <Home size={12} /> {getHomeGroupName(member.home_group_id)}
-                        </span>
-                      )}
-                      {getMinistryLabels(member.ministries).map((label, idx) => (
-                        <span key={idx} className="inline-flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-2.5 py-1 rounded-md text-xs font-medium">
-                          <User size={12} className="text-pink-500" /> {label}
-                        </span>
-                      ))}
-                      {!member.home_group_id && (!member.ministries || member.ministries.length === 0) && (
+                      {member.ministries && member.ministries.length > 0 ? (
+                        getMinistryLabels(member.ministries).map((label, idx) => (
+                          <span key={idx} className="inline-flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-2.5 py-1 rounded-md text-xs font-medium">
+                            <User size={12} className="text-pink-500" /> {label}
+                          </span>
+                        ))
+                      ) : (
                         <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
                       )}
                     </div>

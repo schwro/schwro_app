@@ -459,13 +459,13 @@ export default function MyPrayersWidget({ prayers, userEmail, onRefresh, size = 
       if (user) {
         const { data: appUser } = await supabase
           .from('app_users')
-          .select('first_name, last_name')
+          .select('full_name')
           .eq('email', user.email)
           .maybeSingle();
 
         setCurrentUser({
           ...user,
-          fullName: appUser ? `${appUser.first_name || ''} ${appUser.last_name || ''}`.trim() : null
+          fullName: appUser?.full_name || null
         });
       }
     };

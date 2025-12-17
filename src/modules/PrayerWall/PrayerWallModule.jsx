@@ -706,14 +706,14 @@ export default function PrayerWallModule() {
         // Pobierz dane użytkownika z app_users
         const { data: appUser, error } = await supabase
           .from('app_users')
-          .select('first_name, last_name')
+          .select('full_name')
           .eq('email', user.email)
           .maybeSingle();
 
         if (appUser && !error) {
           setCurrentUser(prev => ({
             ...prev,
-            fullName: `${appUser.first_name || ''} ${appUser.last_name || ''}`.trim()
+            fullName: appUser.full_name || ''
           }));
         }
       }
@@ -1038,7 +1038,7 @@ export default function PrayerWallModule() {
             {/* Główne filtry */}
             <div className="space-y-2 mb-6">
               <button
-                onClick={() => setFilter('all')}
+                onClick={() => { setFilter('all'); setCategoryFilter('all'); setActiveFilter('all'); }}
                 className={`w-full text-left px-4 py-2.5 rounded-xl transition-all flex items-center gap-3 ${
                   filter === 'all'
                     ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
@@ -1049,7 +1049,7 @@ export default function PrayerWallModule() {
                 Wszystkie
               </button>
               <button
-                onClick={() => setFilter('mine')}
+                onClick={() => { setFilter('mine'); setCategoryFilter('all'); setActiveFilter('all'); }}
                 className={`w-full text-left px-4 py-2.5 rounded-xl transition-all flex items-center gap-3 ${
                   filter === 'mine'
                     ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
@@ -1060,7 +1060,7 @@ export default function PrayerWallModule() {
                 Moje intencje
               </button>
               <button
-                onClick={() => setFilter('answered')}
+                onClick={() => { setFilter('answered'); setCategoryFilter('all'); setActiveFilter('all'); }}
                 className={`w-full text-left px-4 py-2.5 rounded-xl transition-all flex items-center gap-3 ${
                   filter === 'answered'
                     ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white shadow-md'
@@ -1173,7 +1173,7 @@ export default function PrayerWallModule() {
                   <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
                     <div className="flex flex-wrap gap-2">
                       <button
-                        onClick={() => setFilter('all')}
+                        onClick={() => { setFilter('all'); setCategoryFilter('all'); setActiveFilter('all'); }}
                         className={`px-3 py-1.5 rounded-full text-sm ${
                           filter === 'all'
                             ? 'bg-pink-500 text-white'
@@ -1183,7 +1183,7 @@ export default function PrayerWallModule() {
                         Wszystkie
                       </button>
                       <button
-                        onClick={() => setFilter('mine')}
+                        onClick={() => { setFilter('mine'); setCategoryFilter('all'); setActiveFilter('all'); }}
                         className={`px-3 py-1.5 rounded-full text-sm ${
                           filter === 'mine'
                             ? 'bg-pink-500 text-white'
@@ -1193,7 +1193,7 @@ export default function PrayerWallModule() {
                         Moje
                       </button>
                       <button
-                        onClick={() => setFilter('answered')}
+                        onClick={() => { setFilter('answered'); setCategoryFilter('all'); setActiveFilter('all'); }}
                         className={`px-3 py-1.5 rounded-full text-sm ${
                           filter === 'answered'
                             ? 'bg-amber-500 text-white'
