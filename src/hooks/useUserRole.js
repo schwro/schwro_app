@@ -1,64 +1,105 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-export function useUserRole() {
-  const [userRole, setUserRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+// Globalny cache - współdzielony między wszystkimi instancjami hooka
+// Inicjalizuj z localStorage od razu
+const cachedRole = localStorage.getItem('userRole');
+let globalUserRole = cachedRole || null;
+let globalLoading = !cachedRole; // Jeśli mamy cache, nie ładujemy
+let fetchPromise = null;
+const listeners = new Set();
 
-  useEffect(() => {
-    async function fetchUserRole() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setUserRole(null);
-          setLoading(false);
-          return;
-        }
+// Funkcja do powiadomienia wszystkich listenerów
+const notifyListeners = () => {
+  listeners.forEach(listener => listener({ userRole: globalUserRole, loading: globalLoading }));
+};
 
-        // Sprawdź czy rola jest w localStorage (cache)
-        const cachedRole = localStorage.getItem('userRole');
-        if (cachedRole) {
-          setUserRole(cachedRole);
-          setLoading(false);
-        }
+// Funkcja do pobrania roli (wywoływana tylko raz)
+const fetchRole = async () => {
+  // Jeśli już pobieramy, zwróć istniejący promise
+  if (fetchPromise) return fetchPromise;
 
-        // Spróbuj pobrać z bazy danych
-        const { data: profile, error } = await supabase
-          .from('app_users')
-          .select('role')
-          .eq('email', user.email)
-          .maybeSingle();
+  // Sprawdź cache od razu
+  const cachedRole = localStorage.getItem('userRole');
+  if (cachedRole) {
+    globalUserRole = cachedRole;
+    globalLoading = false;
+    notifyListeners();
+  }
 
-        if (error) {
-          console.error('Error fetching user role:', error);
-          // Jeśli błąd, ale mamy cache - użyj cache
-          if (cachedRole) {
-            setUserRole(cachedRole);
-          } else {
-            // Domyślna rola jeśli nie ma dostępu
-            setUserRole('czlonek');
-            localStorage.setItem('userRole', 'czlonek');
-          }
-        } else {
-          const role = profile?.role || 'czlonek';
-          setUserRole(role);
-          localStorage.setItem('userRole', role);
-        }
-      } catch (error) {
+  fetchPromise = (async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        globalUserRole = null;
+        globalLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      const { data: profile, error } = await supabase
+        .from('app_users')
+        .select('role')
+        .eq('email', user.email)
+        .maybeSingle();
+
+      if (error) {
         console.error('Error fetching user role:', error);
-        // Fallback do cache lub domyślnej roli
-        const cachedRole = localStorage.getItem('userRole');
-        setUserRole(cachedRole || 'czlonek');
         if (!cachedRole) {
+          globalUserRole = 'czlonek';
           localStorage.setItem('userRole', 'czlonek');
         }
-      } finally {
-        setLoading(false);
+      } else {
+        const role = profile?.role || 'czlonek';
+        globalUserRole = role;
+        localStorage.setItem('userRole', role);
       }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      if (!globalUserRole) {
+        globalUserRole = localStorage.getItem('userRole') || 'czlonek';
+      }
+    } finally {
+      globalLoading = false;
+      notifyListeners();
+    }
+  })();
+
+  return fetchPromise;
+};
+
+export function useUserRole() {
+  const [state, setState] = useState({
+    userRole: globalUserRole,
+    loading: globalLoading
+  });
+
+  useEffect(() => {
+    // Dodaj listener
+    const listener = (newState) => setState(newState);
+    listeners.add(listener);
+
+    // Jeśli mamy już dane, użyj ich od razu
+    if (globalUserRole !== null && !globalLoading) {
+      setState({ userRole: globalUserRole, loading: false });
+    } else {
+      // Rozpocznij pobieranie (lub dołącz do istniejącego)
+      fetchRole();
     }
 
-    fetchUserRole();
+    return () => {
+      listeners.delete(listener);
+    };
   }, []);
 
-  return { userRole, loading };
+  return state;
+}
+
+// Funkcja do resetu cache (np. po wylogowaniu)
+export function resetUserRoleCache() {
+  globalUserRole = null;
+  globalLoading = true;
+  fetchPromise = null;
+  localStorage.removeItem('userRole');
+  notifyListeners();
 }

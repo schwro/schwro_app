@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart, LayoutDashboard, FileText } from 'lucide-react';
+import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart, LayoutDashboard, FileText, MessageCircle } from 'lucide-react';
 import { useUserRole } from '../hooks/useUserRole';
 import { usePermissions } from '../contexts/PermissionsContext';
 
@@ -38,6 +38,7 @@ export default function Sidebar() {
     finance: 'module:finance',
     teaching: 'module:teaching',
     prayer: 'module:prayer',
+    komunikator: 'module:komunikator',
     settings: 'module:settings'
   };
 
@@ -59,6 +60,7 @@ export default function Sidebar() {
     { path: '/finance', icon: DollarSign, label: 'Finanse', show: hasModuleAccess('module:finance') },
     { path: '/teaching', icon: BookOpen, label: 'Nauczanie', show: hasModuleAccess('module:teaching') },
     { path: '/prayer', icon: Heart, label: 'Centrum Modlitwy', show: isModuleVisible('prayer') },
+    { path: '/komunikator', icon: MessageCircle, label: 'Komunikator', show: hasModuleAccess('module:komunikator') },
   ];
 
   return (

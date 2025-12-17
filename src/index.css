@@ -62,3 +62,17 @@ tbody tr:hover {
 button {
   @apply transition-all duration-200;
 }
+
+/* Toast notification progress bar animation */
+.animate-shrink {
+  animation: shrink linear forwards;
+}
+
+@keyframes shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

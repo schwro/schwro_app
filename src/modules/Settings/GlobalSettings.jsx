@@ -89,6 +89,15 @@ const MODULE_TABS = {
       leaders_requests: 'Prośby dla Liderów'
     }
   },
+  komunikator: {
+    label: 'Komunikator',
+    resourceKey: 'module:komunikator',
+    tabs: {
+      direct: 'Rozmowy prywatne',
+      groups: 'Grupy',
+      ministry: 'Kanały służb'
+    }
+  },
   settings: {
     label: 'Ustawienia',
     resourceKey: 'module:settings',
@@ -218,6 +227,11 @@ export default function GlobalSettings() {
         prayer: {
           wall: null, // Ściana modlitwy dostępna dla wszystkich
           leaders_requests: ['superadmin', 'rada_starszych', 'koordynator', 'lider'] // Prośby dla liderów tylko dla liderów
+        },
+        komunikator: {
+          direct: null, // Rozmowy prywatne dla wszystkich
+          groups: null, // Grupy dla wszystkich
+          ministry: null // Kanały służb dla wszystkich
         }
       };
       setTabPermissions(defaultPerms);

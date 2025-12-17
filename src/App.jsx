@@ -6,6 +6,8 @@ import { PermissionsProvider } from './contexts/PermissionsContext';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import ToastContainer from './components/ToastNotification';
+import { useNotifications } from './hooks/useNotifications';
 import Login from './modules/Login';
 import ResetPassword from './modules/ResetPassword';
 import PersonalDashboard from './modules/Dashboard/PersonalDashboard';
@@ -22,6 +24,13 @@ import UserSettings from './modules/Settings/UserSettings';
 import CalendarModule from './modules/CalendarModule';
 import TeachingModule from './modules/Teaching/TeachingModule';
 import PrayerWallModule from './modules/PrayerWall/PrayerWallModule';
+import KomunikatorModule from './modules/Komunikator/KomunikatorModule';
+
+// Komponent do wyświetlania toast notifications
+function ToastNotifications({ userEmail }) {
+  const { toasts, closeToast, handleToastClick } = useNotifications(userEmail);
+  return <ToastContainer toasts={toasts} onClose={closeToast} onClick={handleToastClick} />;
+}
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -103,6 +112,8 @@ export default function App() {
           <Sidebar />
           <div className="flex-1 flex flex-col overflow-hidden">
             <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
+            {/* Toast Notifications - fixed positioned */}
+            <ToastNotifications userEmail={session.user?.email} />
             <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
               <Routes>
                 <Route path="/" element={<PersonalDashboard user={session.user} />} />
@@ -134,6 +145,9 @@ export default function App() {
                 } />
                 <Route path="/prayer" element={
                   <ProtectedRoute resource="module:prayer"><PrayerWallModule /></ProtectedRoute>
+                } />
+                <Route path="/komunikator" element={
+                  <ProtectedRoute resource="module:komunikator"><KomunikatorModule /></ProtectedRoute>
                 } />
                 <Route path="/settings" element={
                   <ProtectedRoute resource="module:settings"><GlobalSettings /></ProtectedRoute>

@@ -3,57 +3,39 @@ import { supabase } from '../../../lib/supabase';
 import { DEFAULT_LAYOUT, LOCAL_STORAGE_KEY, validateLayout } from '../utils/layoutDefaults';
 
 export function useDashboardLayout(userEmail) {
-  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
-  const [loading, setLoading] = useState(true);
+  // Inicjalizuj z cache od razu
+  const [layout, setLayout] = useState(() => {
+    if (!userEmail) return DEFAULT_LAYOUT;
+    try {
+      const cached = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userEmail}`);
+      return cached ? validateLayout(JSON.parse(cached)) : DEFAULT_LAYOUT;
+    } catch { return DEFAULT_LAYOUT; }
+  });
+  const [loading, setLoading] = useState(false); // Nie blokuj - mamy domyślny layout
   const [saving, setSaving] = useState(false);
 
-  // Pobierz układ z bazy danych lub localStorage
+  // Pobierz układ z bazy w tle (bez blokowania UI)
   useEffect(() => {
-    async function fetchLayout() {
-      if (!userEmail) {
-        setLoading(false);
-        return;
-      }
+    if (!userEmail) return;
 
-      try {
-        // Najpierw spróbuj z localStorage (cache)
-        const cachedLayout = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userEmail}`);
-        if (cachedLayout) {
-          const parsed = JSON.parse(cachedLayout);
-          setLayout(validateLayout(parsed));
-        }
-
-        // Pobierz z bazy danych
-        const { data, error } = await supabase
-          .from('user_dashboard_layouts')
-          .select('layout')
-          .eq('user_email', userEmail)
-          .maybeSingle();
-
+    // Pobierz z bazy w tle
+    supabase
+      .from('user_dashboard_layouts')
+      .select('layout')
+      .eq('user_email', userEmail)
+      .maybeSingle()
+      .then(({ data, error }) => {
         if (error) {
           console.error('Error fetching dashboard layout:', error);
-          // Fallback do cache lub domyślnego
-          if (!cachedLayout) {
-            setLayout(DEFAULT_LAYOUT);
-          }
-        } else if (data?.layout) {
+          return;
+        }
+        if (data?.layout) {
           const validatedLayout = validateLayout(data.layout);
           setLayout(validatedLayout);
-          // Zaktualizuj cache
           localStorage.setItem(`${LOCAL_STORAGE_KEY}_${userEmail}`, JSON.stringify(validatedLayout));
-        } else {
-          // Brak zapisanego układu - użyj domyślnego
-          setLayout(DEFAULT_LAYOUT);
         }
-      } catch (error) {
-        console.error('Error in fetchLayout:', error);
-        setLayout(DEFAULT_LAYOUT);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchLayout();
+      })
+      .catch(err => console.error('Error in fetchLayout:', err));
   }, [userEmail]);
 
   // Zapisz układ do bazy danych

@@ -1,22 +1,34 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 
+const DASHBOARD_CACHE_KEY = 'dashboard_data_cache';
+
+// Domyślne dane - nie blokuj renderowania
+const DEFAULT_DATA = {
+  userProfile: null,
+  upcomingMinistry: [],
+  pastMinistry: [],
+  upcomingPrograms: [],
+  tasks: [],
+  absences: [],
+  prayers: [],
+  stats: {
+    tasksCount: 0,
+    upcomingServicesCount: 0,
+    prayersCount: 0,
+  },
+};
+
 export function useDashboardData(userEmail) {
-  const [data, setData] = useState({
-    userProfile: null,
-    upcomingMinistry: [],
-    pastMinistry: [],
-    upcomingPrograms: [],
-    tasks: [],
-    absences: [],
-    prayers: [],
-    stats: {
-      tasksCount: 0,
-      upcomingServicesCount: 0,
-      prayersCount: 0,
-    },
+  // Inicjalizuj z cache jeśli dostępny
+  const [data, setData] = useState(() => {
+    if (!userEmail) return DEFAULT_DATA;
+    try {
+      const cached = localStorage.getItem(`${DASHBOARD_CACHE_KEY}_${userEmail}`);
+      return cached ? JSON.parse(cached) : DEFAULT_DATA;
+    } catch { return DEFAULT_DATA; }
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Nie blokuj - pokaż od razu z cache/domyślnymi
   const userNameRef = useRef(null);
 
   // Pobierz profil użytkownika
@@ -164,129 +176,109 @@ export function useDashboardData(userEmail) {
     }
   }, []);
 
-  // Pobierz zadania użytkownika ze wszystkich źródeł
+  // Pobierz zadania użytkownika ze wszystkich źródeł - ZOPTYMALIZOWANE
   const fetchTasks = useCallback(async (userName) => {
     if (!userEmail) return [];
 
     try {
+      // Wykonaj wszystkie początkowe zapytania RÓWNOLEGLE
+      const [personalTasksResult, leaderResult, mediaResult] = await Promise.all([
+        // 1. Osobiste zadania
+        supabase
+          .from('user_tasks')
+          .select('*')
+          .eq('user_email', userEmail)
+          .order('due_date', { ascending: true }),
+        // 2. Szukaj lidera grup domowych (po emailu lub nazwie)
+        supabase
+          .from('home_group_leaders')
+          .select('id')
+          .or(`email.eq.${userEmail}${userName ? `,full_name.eq.${userName}` : ''}`)
+          .limit(1),
+        // 3. Szukaj członka media team (po emailu lub nazwie)
+        supabase
+          .from('media_team')
+          .select('id')
+          .or(`email.eq.${userEmail}${userName ? `,full_name.eq.${userName}` : ''}`)
+          .limit(1)
+      ]);
+
       const allTasks = [];
 
-      // 1. Pobierz osobiste zadania z user_tasks
-      const { data: personalTasks } = await supabase
-        .from('user_tasks')
-        .select('*')
-        .eq('user_email', userEmail)
-        .order('due_date', { ascending: true });
-
-      if (personalTasks) {
-        allTasks.push(...personalTasks.map(task => ({
+      // Przetwórz osobiste zadania
+      if (personalTasksResult.data) {
+        allTasks.push(...personalTasksResult.data.map(task => ({
           ...task,
           source: 'personal',
           source_label: 'Osobiste',
         })));
       }
 
-      // 2. Pobierz zadania z grup domowych (home_group_tasks)
-      // Szukaj lidera po emailu lub po full_name
-      let homeGroupLeaderId = null;
+      // Pobierz zadania grup domowych i media RÓWNOLEGLE (jeśli znaleziono IDs)
+      const homeGroupLeaderId = leaderResult.data?.[0]?.id;
+      const mediaTeamMemberId = mediaResult.data?.[0]?.id;
 
-      // Najpierw spróbuj po emailu
-      const { data: leaderByEmail } = await supabase
-        .from('home_group_leaders')
-        .select('id')
-        .eq('email', userEmail)
-        .maybeSingle();
-
-      if (leaderByEmail?.id) {
-        homeGroupLeaderId = leaderByEmail.id;
-      } else if (userName) {
-        // Jeśli nie znaleziono po emailu, szukaj po full_name
-        const { data: leaderByName } = await supabase
-          .from('home_group_leaders')
-          .select('id')
-          .eq('full_name', userName)
-          .maybeSingle();
-
-        if (leaderByName?.id) {
-          homeGroupLeaderId = leaderByName.id;
-        }
-      }
+      const additionalQueries = [];
 
       if (homeGroupLeaderId) {
-        const { data: homeGroupTasks } = await supabase
-          .from('home_group_tasks')
-          .select(`
-            *,
-            home_groups:group_id (name)
-          `)
-          .eq('assigned_to', homeGroupLeaderId)
-          .order('due_date', { ascending: true });
-
-        if (homeGroupTasks) {
-          allTasks.push(...homeGroupTasks.map(task => ({
-            id: task.id,
-            title: task.title,
-            description: task.description,
-            due_date: task.due_date,
-            status: task.status === 'Do zrobienia' ? 'todo' : task.status === 'W trakcie' ? 'in_progress' : 'done',
-            created_at: task.created_at,
-            updated_at: task.updated_at,
-            source: 'home_group',
-            source_label: task.home_groups?.name || 'Grupa domowa',
-            original_id: task.id,
-            original_table: 'home_group_tasks',
-          })));
-        }
-      }
-
-      // 3. Pobierz zadania z media team (media_tasks)
-      // Szukaj członka po emailu lub po full_name
-      let mediaTeamMemberId = null;
-
-      // Najpierw spróbuj po emailu
-      const { data: mediaByEmail } = await supabase
-        .from('media_team')
-        .select('id')
-        .eq('email', userEmail)
-        .maybeSingle();
-
-      if (mediaByEmail?.id) {
-        mediaTeamMemberId = mediaByEmail.id;
-      } else if (userName) {
-        // Jeśli nie znaleziono po emailu, szukaj po full_name
-        const { data: mediaByName } = await supabase
-          .from('media_team')
-          .select('id')
-          .eq('full_name', userName)
-          .maybeSingle();
-
-        if (mediaByName?.id) {
-          mediaTeamMemberId = mediaByName.id;
-        }
+        additionalQueries.push(
+          supabase
+            .from('home_group_tasks')
+            .select('*, home_groups:group_id (name)')
+            .eq('assigned_to', homeGroupLeaderId)
+            .order('due_date', { ascending: true })
+            .then(({ data }) => ({ type: 'home_group', data }))
+        );
       }
 
       if (mediaTeamMemberId) {
-        const { data: mediaTasks } = await supabase
-          .from('media_tasks')
-          .select('*')
-          .eq('assigned_to', mediaTeamMemberId)
-          .order('due_date', { ascending: true });
+        additionalQueries.push(
+          supabase
+            .from('media_tasks')
+            .select('*')
+            .eq('assigned_to', mediaTeamMemberId)
+            .order('due_date', { ascending: true })
+            .then(({ data }) => ({ type: 'media_team', data }))
+        );
+      }
 
-        if (mediaTasks) {
-          allTasks.push(...mediaTasks.map(task => ({
-            id: task.id,
-            title: task.title,
-            description: task.description,
-            due_date: task.due_date,
-            status: task.status === 'Do zrobienia' ? 'todo' : task.status === 'W trakcie' ? 'in_progress' : 'done',
-            created_at: task.created_at,
-            updated_at: task.updated_at,
-            source: 'media_team',
-            source_label: 'Media Team',
-            original_id: task.id,
-            original_table: 'media_tasks',
-          })));
-        }
+      // Wykonaj dodatkowe zapytania równolegle
+      if (additionalQueries.length > 0) {
+        const additionalResults = await Promise.all(additionalQueries);
+
+        additionalResults.forEach(result => {
+          if (result.data) {
+            if (result.type === 'home_group') {
+              allTasks.push(...result.data.map(task => ({
+                id: task.id,
+                title: task.title,
+                description: task.description,
+                due_date: task.due_date,
+                status: task.status === 'Do zrobienia' ? 'todo' : task.status === 'W trakcie' ? 'in_progress' : 'done',
+                created_at: task.created_at,
+                updated_at: task.updated_at,
+                source: 'home_group',
+                source_label: task.home_groups?.name || 'Grupa domowa',
+                original_id: task.id,
+                original_table: 'home_group_tasks',
+              })));
+            } else if (result.type === 'media_team') {
+              allTasks.push(...result.data.map(task => ({
+                id: task.id,
+                title: task.title,
+                description: task.description,
+                due_date: task.due_date,
+                status: task.status === 'Do zrobienia' ? 'todo' : task.status === 'W trakcie' ? 'in_progress' : 'done',
+                created_at: task.created_at,
+                updated_at: task.updated_at,
+                source: 'media_team',
+                source_label: 'Media Team',
+                original_id: task.id,
+                original_table: 'media_tasks',
+              })));
+            }
+          }
+        });
       }
 
       // Sortuj wszystkie zadania według due_date
@@ -346,31 +338,44 @@ export function useDashboardData(userEmail) {
     }
   }, [userEmail]);
 
-  // Pobierz wszystkie dane
+  // Pobierz wszystkie dane - WSZYSTKO RÓWNOLEGLE
   const fetchAllData = useCallback(async () => {
     if (!userEmail) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    // NIE ustawiaj loading=true - pokaż UI od razu z cache/domyślnymi danymi
+    // Dane będą aktualizowane w tle
 
     try {
-      const userProfile = await fetchUserProfile();
-      const userName = userProfile?.full_name;
-
-      const [upcomingMinistry, pastMinistry, upcomingPrograms, tasks, absences, prayers] = await Promise.all([
-        fetchUpcomingMinistry(userName),
-        fetchPastMinistry(userName),
+      // Wykonaj WSZYSTKIE zapytania równolegle - nie czekaj na profil
+      const [
+        userProfile,
+        upcomingMinistry,
+        pastMinistry,
+        upcomingPrograms,
+        tasks,
+        absences,
+        prayers
+      ] = await Promise.all([
+        fetchUserProfile(),
+        fetchUpcomingMinistry(null), // Użyj emaila zamiast czekać na userName
+        fetchPastMinistry(null),
         fetchUpcomingPrograms(),
-        fetchTasks(userName),
+        fetchTasks(null),
         fetchAbsences(),
         fetchPrayers(),
       ]);
 
+      // Zapisz userName dla przyszłych odświeżeń
+      if (userProfile?.full_name) {
+        userNameRef.current = userProfile.full_name;
+      }
+
       const pendingTasks = tasks.filter(t => t.status !== 'done');
 
-      setData({
+      const newData = {
         userProfile,
         upcomingMinistry,
         pastMinistry,
@@ -383,11 +388,18 @@ export function useDashboardData(userEmail) {
           upcomingServicesCount: upcomingMinistry.length,
           prayersCount: prayers.length,
         },
-      });
+      };
+
+      setData(newData);
+
+      // Zapisz do cache
+      try {
+        localStorage.setItem(`${DASHBOARD_CACHE_KEY}_${userEmail}`, JSON.stringify(newData));
+      } catch (e) {
+        // Ignoruj błędy cache (np. przekroczony limit)
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
     }
   }, [userEmail, fetchUserProfile, fetchUpcomingMinistry, fetchPastMinistry, fetchUpcomingPrograms, fetchTasks, fetchAbsences, fetchPrayers]);
 
