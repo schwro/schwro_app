@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import ConversationList from './components/ConversationList';
@@ -7,6 +7,7 @@ import NewConversationModal from './components/NewConversationModal';
 import GroupSettingsModal from './components/GroupSettingsModal';
 import useConversations from './hooks/useConversations';
 import useMinistryChannels from './hooks/useMinistryChannels';
+import { useNotifications } from '../../hooks/useNotifications';
 
 // Cache userEmail - współdzielony
 const USER_EMAIL_CACHE_KEY = 'user_email_cache';
@@ -39,6 +40,9 @@ export default function KomunikatorModule() {
     createGroupConversation,
     markAsRead
   } = useConversations(userEmail);
+
+  // Hook powiadomień - do oznaczania jako przeczytane
+  const { notifications, markAsRead: markNotificationAsRead } = useNotifications(userEmail);
 
   // Inicjalizacja kanałów służb - uruchomi się automatycznie po załadowaniu userEmail
   useMinistryChannels(userEmail);
@@ -80,6 +84,23 @@ export default function KomunikatorModule() {
     }
   }, [conversations, selectedConversation?.id]);
 
+  // Oznacz powiadomienia jako przeczytane dla danej konwersacji
+  const markConversationNotificationsAsRead = useCallback((conversationId) => {
+    if (!conversationId || !notifications) return;
+
+    // Znajdź nieprzeczytane powiadomienia dla tej konwersacji
+    const unreadNotifications = notifications.filter(n =>
+      !n.read &&
+      n.type === 'message' &&
+      n.data?.conversation_id === conversationId
+    );
+
+    // Oznacz każde jako przeczytane
+    unreadNotifications.forEach(n => {
+      markNotificationAsRead(n.id);
+    });
+  }, [notifications, markNotificationAsRead]);
+
   // Obsłuż parametr conversation z URL (np. z powiadomienia)
   useEffect(() => {
     const conversationId = searchParams.get('conversation');
@@ -95,6 +116,13 @@ export default function KomunikatorModule() {
       }
     }
   }, [searchParams, conversations, isMobileView, setSearchParams]);
+
+  // Oznacz powiadomienia jako przeczytane gdy użytkownik wejdzie w konwersację
+  useEffect(() => {
+    if (selectedConversation?.id) {
+      markConversationNotificationsAsRead(selectedConversation.id);
+    }
+  }, [selectedConversation?.id, markConversationNotificationsAsRead]);
 
   // Wybierz konwersację
   const handleSelectConversation = (conv) => {

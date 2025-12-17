@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, X, MessageSquare, AtSign, CheckSquare, Calendar, Trash2, Check, CheckCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, X, MessageSquare, AtSign, CheckSquare, Calendar, Trash2, CheckCheck } from 'lucide-react';
 import { useNotifications, notificationColors } from '../hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -16,6 +17,7 @@ const typeIcons = {
 export default function NotificationCenter({ userEmail }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const navigate = useNavigate();
 
   const {
     notifications,
@@ -25,6 +27,9 @@ export default function NotificationCenter({ userEmail }) {
     deleteNotification,
     clearAll
   } = useNotifications(userEmail);
+
+  // Filtruj tylko nieprzeczytane powiadomienia
+  const unreadNotifications = notifications.filter(n => !n.read);
 
   // Zamknij dropdown przy kliknięciu poza nim
   useEffect(() => {
@@ -47,11 +52,10 @@ export default function NotificationCenter({ userEmail }) {
   };
 
   const handleNotificationClick = (notification) => {
-    if (!notification.read) {
-      markAsRead(notification.id);
-    }
+    // NIE oznaczaj jako przeczytane - to zrobi się automatycznie po wejściu w konwersację
     if (notification.link) {
-      window.location.href = notification.link;
+      // Użyj react-router navigate zamiast window.location
+      navigate(notification.link);
     }
     setIsOpen(false);
   };
@@ -79,7 +83,7 @@ export default function NotificationCenter({ userEmail }) {
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <h3 className="font-bold text-gray-900 dark:text-white">Powiadomienia</h3>
             <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
+              {unreadNotifications.length > 0 && (
                 <button
                   onClick={markAllAsRead}
                   className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition text-gray-500 dark:text-gray-400"
@@ -88,39 +92,28 @@ export default function NotificationCenter({ userEmail }) {
                   <CheckCheck size={18} />
                 </button>
               )}
-              {notifications.length > 0 && (
-                <button
-                  onClick={clearAll}
-                  className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition text-gray-500 dark:text-gray-400"
-                  title="Wyczyść wszystkie"
-                >
-                  <Trash2 size={18} />
-                </button>
-              )}
             </div>
           </div>
 
-          {/* Lista powiadomień */}
+          {/* Lista powiadomień - tylko nieprzeczytane */}
           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-            {notifications.length === 0 ? (
+            {unreadNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4">
                 <Bell size={48} className="text-gray-300 dark:text-gray-600 mb-3" />
                 <p className="text-gray-500 dark:text-gray-400 text-sm text-center">
-                  Brak powiadomień
+                  Brak nowych powiadomień
                 </p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {notifications.map(notification => {
+                {unreadNotifications.map(notification => {
                   const IconComponent = typeIcons[notification.type] || Bell;
                   const colorClass = notificationColors[notification.type] || notificationColors.system;
 
                   return (
                     <div
                       key={notification.id}
-                      className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition cursor-pointer ${
-                        !notification.read ? 'bg-pink-50/50 dark:bg-pink-900/10' : ''
-                      }`}
+                      className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition cursor-pointer bg-pink-50/50 dark:bg-pink-900/10"
                       onClick={() => handleNotificationClick(notification)}
                     >
                       {/* Ikona */}
@@ -131,12 +124,10 @@ export default function NotificationCenter({ userEmail }) {
                       {/* Treść */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <p className={`text-sm font-medium ${!notification.read ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {notification.title}
                           </p>
-                          {!notification.read && (
-                            <span className="w-2 h-2 bg-pink-500 rounded-full flex-shrink-0 mt-1.5" />
-                          )}
+                          <span className="w-2 h-2 bg-pink-500 rounded-full flex-shrink-0 mt-1.5" />
                         </div>
                         {notification.body && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
@@ -148,31 +139,17 @@ export default function NotificationCenter({ userEmail }) {
                         </p>
                       </div>
 
-                      {/* Akcje */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {!notification.read && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              markAsRead(notification.id);
-                            }}
-                            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                            title="Oznacz jako przeczytane"
-                          >
-                            <Check size={14} />
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteNotification(notification.id);
-                          }}
-                          className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full transition text-gray-400 hover:text-red-500"
-                          title="Usuń"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
+                      {/* Akcja usunięcia */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(notification.id);
+                        }}
+                        className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full transition text-gray-400 hover:text-red-500 flex-shrink-0"
+                        title="Usuń"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   );
                 })}
@@ -181,10 +158,10 @@ export default function NotificationCenter({ userEmail }) {
           </div>
 
           {/* Footer */}
-          {notifications.length > 0 && (
+          {unreadNotifications.length > 0 && (
             <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                {unreadCount > 0 ? `${unreadCount} nieprzeczytanych` : 'Wszystko przeczytane'}
+                {unreadCount} nieprzeczytanych
               </p>
             </div>
           )}
