@@ -3,7 +3,7 @@ import { Send, Paperclip, X, Image, FileText, Loader } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { formatFileSize, isImageFile } from '../utils/messageHelpers';
 
-export default function MessageInput({ onSend, disabled = false, placeholder = 'Napisz wiadomość...' }) {
+export default function MessageInput({ onSend, onTyping, disabled = false, placeholder = 'Napisz wiadomość...' }) {
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -109,6 +109,10 @@ export default function MessageInput({ onSend, disabled = false, placeholder = '
     // Auto-resize
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+    // Wyślij status pisania
+    if (e.target.value.trim()) {
+      onTyping?.();
+    }
   };
 
   return (

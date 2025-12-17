@@ -273,6 +273,47 @@ export default function useConversations(userEmail) {
     }
   };
 
+  // Usuń konwersację (tylko dla direct)
+  const deleteConversation = async (conversationId) => {
+    try {
+      // Najpierw usuń wiadomości
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      // Usuń uczestników
+      await supabase
+        .from('conversation_participants')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      // Usuń konwersację
+      const { error: deleteError } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId);
+
+      if (deleteError) throw deleteError;
+
+      // Usuń z lokalnego stanu
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+
+      // Zaktualizuj cache
+      try {
+        const updated = conversations.filter(c => c.id !== conversationId);
+        localStorage.setItem(`${CACHE_KEY}_${userEmail}`, JSON.stringify(updated));
+      } catch (e) {
+        // Ignoruj błędy cache
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error deleting conversation:', err);
+      throw err;
+    }
+  };
+
   // Debounced refresh - nie odświeżaj za często
   const refreshTimeoutRef = useRef(null);
   const debouncedRefresh = useCallback(() => {
@@ -319,6 +360,7 @@ export default function useConversations(userEmail) {
     refetch: fetchConversations,
     createDirectConversation,
     createGroupConversation,
-    markAsRead
+    markAsRead,
+    deleteConversation
   };
 }

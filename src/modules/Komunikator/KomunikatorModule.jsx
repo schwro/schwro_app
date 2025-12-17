@@ -38,7 +38,8 @@ export default function KomunikatorModule() {
     refetch,
     createDirectConversation,
     createGroupConversation,
-    markAsRead
+    markAsRead,
+    deleteConversation
   } = useConversations(userEmail);
 
   // Hook powiadomień - do oznaczania jako przeczytane
@@ -165,6 +166,19 @@ export default function KomunikatorModule() {
     await refetch();
   };
 
+  // Usuń rozmowę prywatną
+  const handleDeleteConversation = async (conversationId) => {
+    try {
+      await deleteConversation(conversationId);
+      setSelectedConversation(null);
+      if (isMobileView) {
+        setShowList(true);
+      }
+    } catch (err) {
+      console.error('Error deleting conversation:', err);
+    }
+  };
+
   return (
     <div className="h-[calc(100vh-7rem)] -m-6 flex bg-gray-50 dark:bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-200/50 dark:border-gray-700">
       {/* Lista konwersacji */}
@@ -198,6 +212,7 @@ export default function KomunikatorModule() {
           onBack={handleBack}
           onOpenSettings={() => setShowSettingsModal(true)}
           onMarkAsRead={markAsRead}
+          onDeleteConversation={handleDeleteConversation}
         />
       </div>
 

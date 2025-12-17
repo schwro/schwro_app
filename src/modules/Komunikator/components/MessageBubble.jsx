@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MoreVertical, Edit2, Trash2, Check, X, FileText, Image, Table, File, Download } from 'lucide-react';
+import { MoreVertical, Edit2, Trash2, Check, X, FileText, Image, Table, File, Download, CheckCheck } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import { formatMessageTime, formatFileSize, isImageFile, getFileIcon } from '../utils/messageHelpers';
 
@@ -8,7 +8,9 @@ export default function MessageBubble({
   isOwn,
   showAvatar = true,
   onEdit,
-  onDelete
+  onDelete,
+  isRead = false,
+  readBy = []
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -173,13 +175,23 @@ export default function MessageBubble({
           )}
         </div>
 
-        <div className="flex items-center gap-1 mt-1">
+        <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
           <span className="text-[10px] text-gray-400 dark:text-gray-500">
             {formatMessageTime(message.created_at)}
           </span>
           {message.edited_at && (
             <span className="text-[10px] text-gray-400 dark:text-gray-500 italic">
               (edytowano)
+            </span>
+          )}
+          {/* Status przeczytania - tylko dla własnych wiadomości */}
+          {isOwn && (
+            <span className="flex items-center" title={isRead ? `Przeczytane${readBy.length > 0 ? ` przez ${readBy.map(r => r.user_email).join(', ')}` : ''}` : 'Wysłane'}>
+              {isRead ? (
+                <CheckCheck size={14} className="text-blue-500" />
+              ) : (
+                <Check size={14} className="text-gray-400" />
+              )}
             </span>
           )}
         </div>

@@ -1,10 +1,13 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader, MessageSquare } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import ConversationHeader from './ConversationHeader';
+import TypingIndicator from './TypingIndicator';
 import useMessages from '../hooks/useMessages';
 import useRealtimeMessages from '../hooks/useRealtimeMessages';
+import useTypingStatus from '../hooks/useTypingStatus';
+import useReadReceipts from '../hooks/useReadReceipts';
 import { groupMessagesByDate } from '../utils/messageHelpers';
 
 export default function MessageThread({
@@ -12,7 +15,8 @@ export default function MessageThread({
   userEmail,
   onBack,
   onOpenSettings,
-  onMarkAsRead
+  onMarkAsRead,
+  onDeleteConversation
 }) {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -26,6 +30,21 @@ export default function MessageThread({
     loadMore,
     addMessage
   } = useMessages(conversation?.id, userEmail);
+
+  // Typing status
+  const { typingUsers, startTyping, stopTyping } = useTypingStatus(conversation?.id, userEmail);
+
+  // Read receipts
+  const { isMessageRead, getReadBy, markMessagesAsRead } = useReadReceipts(conversation?.id, userEmail);
+
+  // Pobierz nazwy piszących użytkowników z uczestników konwersacji
+  const typingUserNames = useMemo(() => {
+    if (!typingUsers.length || !conversation?.participants) return [];
+    return typingUsers.map(email => {
+      const participant = conversation.participants.find(p => p.user_email === email);
+      return participant?.full_name || email.split('@')[0];
+    });
+  }, [typingUsers, conversation?.participants]);
 
   // Real-time subscriptions
   const handleNewMessage = useCallback(async (newMessage) => {
@@ -71,6 +90,19 @@ export default function MessageThread({
     }
   }, [conversation?.id, conversation?.unreadCount, onMarkAsRead]);
 
+  // Oznacz wiadomości jako przeczytane (dla read receipts)
+  useEffect(() => {
+    if (messages.length > 0 && userEmail) {
+      // Oznacz wszystkie wiadomości od innych jako przeczytane
+      const unreadMessageIds = messages
+        .filter(m => m.sender_email !== userEmail)
+        .map(m => m.id);
+      if (unreadMessageIds.length > 0) {
+        markMessagesAsRead(unreadMessageIds);
+      }
+    }
+  }, [messages, userEmail, markMessagesAsRead]);
+
   // Infinite scroll - ładowanie starszych wiadomości
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -83,9 +115,15 @@ export default function MessageThread({
 
   // Wysyłanie wiadomości
   const handleSendMessage = async (content, attachments) => {
+    stopTyping(); // Zatrzymaj wskaźnik pisania
     await sendMessage(content, attachments, conversation);
     scrollToBottom();
   };
+
+  // Obsługa pisania
+  const handleTyping = useCallback(() => {
+    startTyping();
+  }, [startTyping]);
 
   // Toggle mute
   const handleToggleMute = async () => {
@@ -116,6 +154,7 @@ export default function MessageThread({
         onBack={onBack}
         onOpenSettings={onOpenSettings}
         onToggleMute={handleToggleMute}
+        onDelete={onDeleteConversation}
         showBackButton={true}
       />
 
@@ -180,6 +219,8 @@ export default function MessageThread({
                         showAvatar={showAvatar}
                         onEdit={isOwn ? editMessage : undefined}
                         onDelete={isOwn ? deleteMessage : undefined}
+                        isRead={isOwn ? isMessageRead(message.id, userEmail) : false}
+                        readBy={isOwn ? getReadBy(message.id, userEmail) : []}
                       />
                     );
                   })}
@@ -187,13 +228,18 @@ export default function MessageThread({
               </div>
             ))}
 
+            {/* Wskaźnik pisania */}
+            {typingUserNames.length > 0 && (
+              <TypingIndicator userNames={typingUserNames} />
+            )}
+
             <div ref={messagesEndRef} />
           </>
         )}
       </div>
 
       {/* Input */}
-      <MessageInput onSend={handleSendMessage} />
+      <MessageInput onSend={handleSendMessage} onTyping={handleTyping} />
     </div>
   );
 }

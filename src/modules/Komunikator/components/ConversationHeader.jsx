@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowLeft, Users, Settings, Bell, BellOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Users, Settings, Bell, BellOff, Trash2 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import { getMinistryName } from '../utils/messageHelpers';
 
@@ -8,8 +8,10 @@ export default function ConversationHeader({
   onBack,
   onOpenSettings,
   onToggleMute,
+  onDelete,
   showBackButton = false
 }) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   if (!conversation) return null;
 
   const getConversationIcon = () => {
@@ -98,7 +100,48 @@ export default function ConversationHeader({
             <Settings size={18} className="text-gray-500" />
           </button>
         )}
+
+        {conversation.type === 'direct' && onDelete && (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full transition"
+            title="Usuń rozmowę"
+          >
+            <Trash2 size={18} className="text-gray-500 hover:text-red-500" />
+          </button>
+        )}
       </div>
+
+      {/* Modal potwierdzenia usunięcia */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Usuń rozmowę
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Czy na pewno chcesz usunąć tę rozmowę? Wszystkie wiadomości zostaną trwale usunięte.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={() => {
+                  onDelete(conversation.id);
+                  setShowDeleteConfirm(false);
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"
+              >
+                Usuń
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
