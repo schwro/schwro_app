@@ -1069,17 +1069,23 @@ function SongDetailsModal({ song, onClose, onEdit }) {
       let transposedChords = song.chords_bars
         ? transposeLine(song.chords_bars, transposeSteps)
         : "";
-      // Usuń różowe tło z komórek chord-spacer dla PDF, ustaw kolor tekstu na różowy i zmniejsz szerokość komórek
+      // Dostosuj style dla PDF - zmniejsz szerokości i marginesy, zachowaj strukturę
       transposedChords = transposedChords
         .replace(/background:\s*rgba\(255,\s*192,\s*203,\s*0\.15\)\s*;?/gi, '')
         .replace(/color:\s*inherit\s*;?/gi, 'color: #ec4899;')
-        .replace(/width:\s*80px/gi, 'width: 38px')
-        .replace(/max-width:\s*80px/gi, 'max-width: 38px')
-        .replace(/min-width:\s*80px/gi, 'min-width: 38px')
-        .replace(/width:\s*40px/gi, 'width: 20px')
-        .replace(/max-width:\s*40px/gi, 'max-width: 20px')
-        .replace(/min-width:\s*40px/gi, 'min-width: 20px')
-        .replace(/overflow:\s*hidden/gi, 'overflow: visible');
+        // Zmniejsz szerokości taktów dla PDF
+        .replace(/min-width:\s*80px/gi, 'min-width: 50px')
+        .replace(/min-width:\s*100px/gi, 'min-width: 60px')
+        .replace(/width:\s*80px/gi, 'width: 50px')
+        .replace(/max-width:\s*80px/gi, 'max-width: 50px')
+        .replace(/width:\s*40px/gi, 'width: 25px')
+        .replace(/max-width:\s*40px/gi, 'max-width: 25px')
+        .replace(/min-width:\s*40px/gi, 'min-width: 25px')
+        // Zmniejsz marginesy dla PDF
+        .replace(/margin:\s*4px\s*0/gi, 'margin: 2px 0')
+        .replace(/overflow:\s*hidden/gi, 'overflow: visible')
+        // Upewnij się, że border-left jest widoczny
+        .replace(/border-left:\s*2px\s*solid\s*currentColor/gi, 'border-left: 2px solid #ec4899');
       const currentKey = toFlatKey(transposeChord(song.key, transposeSteps));
 
       // Tworzymy element HTML z pieśnią
@@ -1123,7 +1129,7 @@ function SongDetailsModal({ song, onClose, onEdit }) {
               Akordy w taktach
               ${transposeSteps !== 0 ? `<span style="background: #ec4899; color: white; padding: 2px 5px; border-radius: 3px; font-size: 7px; margin-left: 6px; text-transform: none;">transp. ${transposeSteps > 0 ? '+' + transposeSteps : transposeSteps}</span>` : ''}
             </div>
-            <div style="font-family: 'Courier New', monospace; font-size: 8px; line-height: 1.8; color: #ec4899;">${transposedChords || 'Brak akordów'}</div>
+            <div style="font-family: 'Courier New', monospace; font-size: 9px; line-height: 1.6; color: #ec4899; white-space: pre-wrap;">${transposedChords || 'Brak akordów'}</div>
           </div>
         </div>
 
