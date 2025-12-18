@@ -536,6 +536,7 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
   const [newLinkDescription, setNewLinkDescription] = useState('');
   const [editingAttachmentIdx, setEditingAttachmentIdx] = useState(null);
   const [editingDescription, setEditingDescription] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
   const chordsTextareaRef = useRef(null);
 
   // Ustawienia edytora akordów
@@ -608,6 +609,77 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
       const uploadedDocs = [];
 
       for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `song_attachments/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('public-assets')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('public-assets').getPublicUrl(filePath);
+
+        uploadedDocs.push({
+          type: 'file',
+          name: file.name,
+          url: data.publicUrl,
+          description: '',
+          date: new Date().toISOString()
+        });
+      }
+
+      setFormData({
+        ...formData,
+        attachments: [...(formData.attachments || []), ...uploadedDocs]
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Błąd przesyłania pliku: ' + error.message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  // Obsługa drag & drop dla załączników
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // Filtruj pliki do akceptowanych typów
+    const acceptedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.mp3', '.wav'];
+    const validFiles = files.filter(file => {
+      const ext = '.' + file.name.split('.').pop().toLowerCase();
+      return acceptedTypes.includes(ext);
+    });
+
+    if (validFiles.length === 0) {
+      alert('Nieobsługiwany format pliku. Akceptowane: PDF, JPG, PNG, MP3, DOC');
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const uploadedDocs = [];
+
+      for (const file of validFiles) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `song_attachments/${fileName}`;
@@ -988,7 +1060,7 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
 
   return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
-      <div className="bg-white dark:bg-gray-900 w-full max-w-5xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 flex flex-col max-h-[92vh] my-4">
+      <div className="bg-white dark:bg-gray-900 w-full max-w-6xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 flex flex-col max-h-[92vh] my-4">
         
         {/* HEADER */}
         <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
@@ -1079,6 +1151,9 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                   <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tempo (BPM)</label>
                   <input
                     type="number"
+                    step="0.1"
+                    min="1"
+                    max="300"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition"
                     placeholder="120"
                     value={formData.tempo}
@@ -1400,13 +1475,25 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                 <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-4 flex items-center gap-2">
                   <Upload size={16} className="text-pink-500" /> Prześlij plik
                 </h3>
-                <label className="w-full px-6 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 cursor-pointer hover:border-pink-400 dark:hover:border-pink-500 transition flex flex-col items-center justify-center gap-2">
-                  <Upload size={32} className="text-gray-400" />
+                <div
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById('file-upload-input')?.click()}
+                  className={`w-full px-6 py-8 border-2 border-dashed rounded-xl cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
+                    isDragOver
+                      ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
+                      : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:border-pink-400 dark:hover:border-pink-500'
+                  }`}
+                >
+                  <Upload size={32} className={isDragOver ? 'text-pink-500' : 'text-gray-400'} />
                   <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                    {uploadingFile ? 'Przesyłanie...' : 'Kliknij lub przeciągnij plik'}
+                    {uploadingFile ? 'Przesyłanie...' : isDragOver ? 'Upuść plik tutaj' : 'Kliknij lub przeciągnij plik'}
                   </span>
                   <span className="text-xs text-gray-400">PDF, JPG, PNG, MP3, DOC (max 10MB)</span>
                   <input
+                    id="file-upload-input"
                     type="file"
                     onChange={handleFileUpload}
                     className="hidden"
@@ -1414,7 +1501,7 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                     disabled={uploadingFile}
                     multiple
                   />
-                </label>
+                </div>
               </div>
 
               {/* DODAWANIE LINKU */}

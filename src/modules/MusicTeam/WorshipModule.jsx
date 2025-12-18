@@ -608,11 +608,12 @@ const formatChordsForPDF = (htmlContent, baseFontSize = 14) => {
         const modifier = match[2] || '';
         const bassWithSlash = match[3] || '';
 
-        // Kontener akordu - używamy display:inline-flex z align-items:baseline
+        // Kontener akordu - inline-flex z align-items flex-end
         const chordSpan = document.createElement('span');
         chordSpan.setAttribute('data-chord', fullMatch);
         chordSpan.style.whiteSpace = 'nowrap';
-        chordSpan.style.display = 'inline';
+        chordSpan.style.display = 'inline-flex';
+        chordSpan.style.alignItems = 'flex-end';
         chordSpan.style.fontFamily = 'Arial, sans-serif';
         chordSpan.style.color = '#000';
 
@@ -620,25 +621,24 @@ const formatChordsForPDF = (htmlContent, baseFontSize = 14) => {
         const rootMain = document.createElement('span');
         rootMain.style.fontSize = `${mainSize}px`;
         rootMain.style.fontWeight = 'bold';
+        rootMain.style.lineHeight = '1';
         rootMain.textContent = root.charAt(0);
         chordSpan.appendChild(rootMain);
 
-        // Znak chromatyczny przy prymie (#/b) - mniejszy, przesunięty w dół
+        // Znak chromatyczny przy prymie (#/b) - mniejszy
         if (root.length > 1) {
           const rootAccidental = document.createElement('span');
           rootAccidental.style.fontSize = `${smallSize}px`;
-          rootAccidental.style.position = 'relative';
-          rootAccidental.style.top = '4px';
+          rootAccidental.style.lineHeight = '1';
           rootAccidental.textContent = root.substring(1);
           chordSpan.appendChild(rootAccidental);
         }
 
-        // Modyfikator - mniejszy, przesunięty w dół
+        // Modyfikator - mniejszy
         if (modifier) {
           const modSpan = document.createElement('span');
           modSpan.style.fontSize = `${smallSize}px`;
-          modSpan.style.position = 'relative';
-          modSpan.style.top = '4px';
+          modSpan.style.lineHeight = '1';
           modSpan.textContent = modifier;
           chordSpan.appendChild(modSpan);
         }
@@ -649,20 +649,21 @@ const formatChordsForPDF = (htmlContent, baseFontSize = 14) => {
 
           const slashSpan = document.createElement('span');
           slashSpan.style.fontSize = `${mainSize}px`;
+          slashSpan.style.lineHeight = '1';
           slashSpan.textContent = '/';
           chordSpan.appendChild(slashSpan);
 
           const bassMain = document.createElement('span');
           bassMain.style.fontSize = `${mainSize}px`;
           bassMain.style.fontWeight = 'bold';
+          bassMain.style.lineHeight = '1';
           bassMain.textContent = bass.charAt(0);
           chordSpan.appendChild(bassMain);
 
           if (bass.length > 1) {
             const bassAccidental = document.createElement('span');
             bassAccidental.style.fontSize = `${smallSize}px`;
-            bassAccidental.style.position = 'relative';
-            bassAccidental.style.top = '4px';
+            bassAccidental.style.lineHeight = '1';
             bassAccidental.textContent = bass.substring(1);
             chordSpan.appendChild(bassAccidental);
           }
@@ -1646,7 +1647,7 @@ function SongDetailsModal({ song, onClose, onEdit }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
-      <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-gray-900 w-full max-w-6xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700 flex flex-col max-h-[90vh]">
         
         {/* HEADER */}
         <div className="flex justify-between items-start p-6 border-b border-gray-100 dark:border-gray-700">
