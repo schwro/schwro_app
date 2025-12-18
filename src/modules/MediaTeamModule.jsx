@@ -8,6 +8,7 @@ import {
   Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, DollarSign, Tag, Upload
 } from 'lucide-react';
 import FinanceTab from './shared/FinanceTab';
+import EventsTab from './shared/EventsTab';
 import RolesTab from '../components/RolesTab';
 import CustomSelect from '../components/CustomSelect';
 import { useUserRole } from '../hooks/useUserRole';
@@ -1079,6 +1080,17 @@ export default function MediaTeamModule() {
       {/* TAB NAVIGATION */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
         <button
+          onClick={() => setActiveTab('events')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'events'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Calendar size={16} className="inline mr-2" />
+          Wydarzenia
+        </button>
+        <button
           onClick={() => setActiveTab('schedule')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
             activeTab === 'schedule'
@@ -1140,6 +1152,13 @@ export default function MediaTeamModule() {
           </button>
         )}
       </div>
+
+      {/* SEKCJA: WYDARZENIA */}
+      {activeTab === 'events' && (
+        <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[50] transition-colors duration-300">
+          <EventsTab ministry="media" currentUserEmail={currentUserEmail} />
+        </section>
+      )}
 
       {/* SEKCJA 1: GRAFIK MEDIA TEAM */}
       {activeTab === 'schedule' && (

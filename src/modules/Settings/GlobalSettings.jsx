@@ -4,9 +4,10 @@ import { supabase } from '../../lib/supabase';
 import {
   List, Plus, Trash2, X,
   CheckCircle, AlertCircle, Upload,
-  Image as ImageIcon, Eye, Edit3, ToggleLeft, ToggleRight, UserX, UserCheck, Check, ChevronDown, ChevronUp
+  Image as ImageIcon, Eye, Edit3, ToggleLeft, ToggleRight, UserX, UserCheck, Check, ChevronDown, ChevronUp, Layers
 } from 'lucide-react';
 import CustomSelect from '../../components/CustomSelect';
+import ModuleManager from './components/ModuleManager';
 
 // --- MODULE TABS DEFINITION ---
 const MODULE_TABS = {
@@ -98,6 +99,17 @@ const MODULE_TABS = {
       ministry: 'Kanały służb'
     }
   },
+  mlodziezowka: {
+    label: 'Młodzieżówka',
+    resourceKey: 'module:mlodziezowka',
+    tabs: {
+      events: 'Wydarzenia',
+      tasks: 'Zadania',
+      leaders: 'Liderzy',
+      members: 'Członkowie',
+      finances: 'Finanse'
+    }
+  },
   settings: {
     label: 'Ustawienia',
     resourceKey: 'module:settings',
@@ -172,6 +184,10 @@ export default function GlobalSettings() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [expandedUserModule, setExpandedUserModule] = useState(null);
 
+  // Dynamiczne moduły i zakładki z bazy danych
+  const [dbModules, setDbModules] = useState([]);
+  const [dbTabs, setDbTabs] = useState({});
+
   const definedRoles = [
     { key: 'superadmin', label: 'Super Administrator' },
     { key: 'rada_starszych', label: 'Rada Starszych' },
@@ -183,9 +199,73 @@ export default function GlobalSettings() {
 
   useEffect(() => {
     fetchData();
+    fetchDbModules();
     loadTabPermissions();
     loadUserPermissions();
   }, []);
+
+  // Pobierz moduły i zakładki z bazy danych
+  const fetchDbModules = async () => {
+    try {
+      // Pobierz moduły
+      const { data: modulesData, error: modulesError } = await supabase
+        .from('app_modules')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (modulesError) {
+        console.log('Tabela app_modules nie istnieje jeszcze');
+        return;
+      }
+
+      setDbModules(modulesData || []);
+
+      // Pobierz zakładki
+      const { data: tabsData, error: tabsError } = await supabase
+        .from('app_module_tabs')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (!tabsError && tabsData) {
+        // Grupuj zakładki po module_id
+        const grouped = tabsData.reduce((acc, tab) => {
+          const moduleKey = modulesData.find(m => m.id === tab.module_id)?.key;
+          if (moduleKey) {
+            if (!acc[moduleKey]) acc[moduleKey] = {};
+            acc[moduleKey][tab.key] = tab.label;
+          }
+          return acc;
+        }, {});
+        setDbTabs(grouped);
+      }
+    } catch (err) {
+      console.log('Błąd pobierania modułów z bazy:', err);
+    }
+  };
+
+  // Połącz statyczne MODULE_TABS z dynamicznymi modułami z bazy
+  const getDynamicModuleTabs = () => {
+    // Jeśli nie ma danych z bazy, użyj statycznych
+    if (dbModules.length === 0) return MODULE_TABS;
+
+    const result = {};
+
+    // Najpierw dodaj moduły z bazy
+    dbModules.forEach(mod => {
+      // Pomijamy moduły core (dashboard, programs, calendar)
+      if (['dashboard', 'programs', 'calendar'].includes(mod.key)) return;
+
+      result[mod.key] = {
+        label: mod.label,
+        resourceKey: mod.resource_key,
+        tabs: dbTabs[mod.key] || MODULE_TABS[mod.key]?.tabs || {}
+      };
+    });
+
+    return result;
+  };
+
+  const dynamicModuleTabs = getDynamicModuleTabs();
 
   const loadTabPermissions = () => {
     const stored = localStorage.getItem('tabPermissions');
@@ -232,6 +312,13 @@ export default function GlobalSettings() {
           direct: null, // Rozmowy prywatne dla wszystkich
           groups: null, // Grupy dla wszystkich
           ministry: null // Kanały służb dla wszystkich
+        },
+        mlodziezowka: {
+          events: null, // Wydarzenia dla wszystkich
+          tasks: null, // Zadania dla wszystkich
+          leaders: ['superadmin', 'rada_starszych', 'koordynator', 'lider'], // Liderzy tylko dla kadry
+          members: ['superadmin', 'rada_starszych', 'koordynator', 'lider'], // Członkowie tylko dla kadry
+          finances: ['superadmin', 'rada_starszych', 'koordynator'] // Finanse dla koordynatorów i wyżej
         }
       };
       setTabPermissions(defaultPerms);
@@ -619,7 +706,7 @@ export default function GlobalSettings() {
     }
 
     // W przeciwnym razie zwróć uprawnienia z roli
-    const moduleData = Object.values(MODULE_TABS).find(m => m.resourceKey === `module:${moduleKey}` || Object.keys(MODULE_TABS).includes(moduleKey));
+    const moduleData = Object.values(dynamicModuleTabs).find(m => m.resourceKey === `module:${moduleKey}` || Object.keys(dynamicModuleTabs).includes(moduleKey));
     if (!moduleData) return { can_read: false, can_write: false };
 
     const rolePerm = permissions.find(p => p.role === user.role && p.resource === moduleData.resourceKey);
@@ -657,9 +744,9 @@ export default function GlobalSettings() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">Konfiguracja</h1>
         </div>
         <div className="flex bg-white/50 dark:bg-gray-800/50 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-x-auto">
-          {['general', 'modules', 'users', 'permissions', 'dictionaries'].map(tab => (
+          {['general', 'modules', 'module_manager', 'users', 'permissions', 'dictionaries'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 rounded-lg text-sm font-bold transition capitalize whitespace-nowrap ${activeTab === tab ? 'bg-white dark:bg-gray-700 shadow text-pink-600 dark:text-pink-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-              {{ general: 'Organizacja', modules: 'Moduły', users: 'Użytkownicy', permissions: 'Uprawnienia', dictionaries: 'Słowniki' }[tab]}
+              {{ general: 'Organizacja', modules: 'Moduły', module_manager: 'Zarządzanie', users: 'Użytkownicy', permissions: 'Uprawnienia', dictionaries: 'Słowniki' }[tab]}
             </button>
           ))}
         </div>
@@ -695,9 +782,34 @@ export default function GlobalSettings() {
         {/* --- TAB: MODUŁY --- */}
         {activeTab === 'modules' && (
           <div className="max-w-3xl">
-            <SectionHeader title="Zarządzanie Modułami" description="Włączaj lub ukrywaj funkcje systemu." />
+            <SectionHeader title="Włączanie Modułów" description="Włączaj lub ukrywaj funkcje systemu." />
             <div className="space-y-3">
-              {modulesSettings.map(mod => (
+              {/* Moduły z tabeli app_modules (nowy system) */}
+              {dbModules
+                .filter(mod => !['dashboard', 'programs', 'calendar'].includes(mod.key)) // Pomijamy moduły core
+                .map(mod => (
+                <div key={mod.id} className="flex items-center justify-between p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl hover:shadow-sm transition">
+                  <div>
+                    <div className="font-bold text-gray-800 dark:text-white">{mod.label}</div>
+                    <div className="text-xs text-gray-400 font-mono">{mod.resource_key}</div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const newValue = !mod.is_enabled;
+                      await supabase.from('app_modules').update({ is_enabled: newValue }).eq('id', mod.id);
+                      setDbModules(prev => prev.map(m => m.id === mod.id ? { ...m, is_enabled: newValue } : m));
+                      setMessage({ type: 'success', text: `Moduł ${mod.label} ${newValue ? 'włączony' : 'wyłączony'}` });
+                    }}
+                    className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition ${mod.is_enabled ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-600 dark:text-gray-400'}`}
+                  >
+                    {mod.is_enabled ? <ToggleRight size={24}/> : <ToggleLeft size={24}/>}
+                    {mod.is_enabled ? 'Włączony' : 'Wyłączony'}
+                  </button>
+                </div>
+              ))}
+
+              {/* Fallback: stary system z app_settings jeśli brak modułów w bazie */}
+              {dbModules.length === 0 && modulesSettings.map(mod => (
                 <div key={mod.key} className="flex items-center justify-between p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl hover:shadow-sm transition">
                   <div>
                     <div className="font-bold text-gray-800 dark:text-white">{mod.description}</div>
@@ -710,6 +822,13 @@ export default function GlobalSettings() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* --- TAB: ZARZĄDZANIE MODUŁAMI --- */}
+        {activeTab === 'module_manager' && (
+          <div>
+            <ModuleManager />
           </div>
         )}
 
@@ -811,7 +930,7 @@ export default function GlobalSettings() {
 
             {/* MODUŁY Z ROZWIJANYMI ZAKŁADKAMI */}
             <div className="space-y-4">
-              {Object.entries(MODULE_TABS).map(([moduleKey, moduleData]) => {
+              {Object.entries(dynamicModuleTabs).map(([moduleKey, moduleData]) => {
                 const isExpanded = selectedUserId ? (expandedUserModule === moduleKey) : (expandedModule === moduleKey);
 
                 return (

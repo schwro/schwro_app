@@ -22,6 +22,7 @@ const TEAMS = {
   worship: { label: 'Zespół Uwielbienia', color: 'purple', icon: Music },
   kids: { label: 'Małe SchWro', color: 'yellow', icon: Baby },
   groups: { label: 'Grupy Domowe', color: 'blue', icon: Home },
+  mlodziezowka: { label: 'Młodzieżówka', color: 'rose', icon: Users },
 };
 
 const PROGRAM_ELEMENTS = ['Wstęp', 'Uwielbienie', 'Modlitwa', 'Czytanie', 'Kazanie', 'Wieczerza', 'Uwielbienie / Kolekta', 'Ogłoszenia', 'Zakończenie'];
@@ -545,17 +546,27 @@ const ModalSelectType = ({ date, onClose, onSelectTask, onSelectEvent }) => {
 
 // --- MODAL WYBORU KATEGORII WYDARZENIA ---
 
-const ModalSelectEventCategory = ({ date, categories, onClose, onSelectCategory }) => {
+// Lista służb do wyboru przy dodawaniu wydarzenia
+const MINISTRY_CALENDARS = [
+  { key: 'worship', icon: '🎵', title: 'Zespół Uwielbienia', color: 'from-purple-500 to-indigo-500', description: 'Próby, koncerty, nabożeństwa' },
+  { key: 'media', icon: '🎬', title: 'Media Team', color: 'from-orange-500 to-red-500', description: 'Produkcje, streaming, szkolenia' },
+  { key: 'atmosfera', icon: '💚', title: 'Atmosfera Team', color: 'from-teal-500 to-green-500', description: 'Spotkania, integracje' },
+  { key: 'kids', icon: '👶', title: 'Małe SchWro', color: 'from-yellow-500 to-amber-500', description: 'Zajęcia, warsztaty, wycieczki' },
+  { key: 'homegroups', icon: '🏠', title: 'Grupy Domowe', color: 'from-blue-500 to-cyan-500', description: 'Spotkania grupowe' },
+  { key: 'mlodziezowka', icon: '🎉', title: 'Młodzieżówka', color: 'from-pink-500 to-rose-500', description: 'Wydarzenia młodzieżowe' }
+];
+
+const ModalSelectEventCategory = ({ date, categories, onClose, onSelectCategory, onSelectMinistry }) => {
   if (!document.body) return null;
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-white/20 dark:border-gray-700 relative">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-white/20 dark:border-gray-700 relative max-h-[90vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
           <X size={20} className="text-gray-500" />
         </button>
 
         <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-2">
-          <CalendarPlus size={24} className="text-pink-600" /> Wybierz kategorię wydarzenia
+          <CalendarPlus size={24} className="text-pink-600" /> Wybierz kalendarz
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           {date ? new Date(date).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
@@ -576,28 +587,22 @@ const ModalSelectEventCategory = ({ date, categories, onClose, onSelectCategory 
             </div>
           </button>
 
-          {/* Kategorie ze słownika */}
-          {categories.map(cat => (
+          {/* Kalendarze służb */}
+          {MINISTRY_CALENDARS.map(ministry => (
             <button
-              key={cat.id}
-              onClick={() => onSelectCategory(cat.label)}
+              key={ministry.key}
+              onClick={() => onSelectMinistry(ministry.key)}
               className="w-full flex items-center gap-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-pink-300 dark:hover:border-pink-600 hover:bg-pink-50/50 dark:hover:bg-pink-900/10 transition group"
             >
-              <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:bg-pink-100 dark:group-hover:bg-pink-900/30 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition">
-                <CalIcon size={24} />
+              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${ministry.color} flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition text-2xl`}>
+                {ministry.icon}
               </div>
               <div className="text-left flex-1">
-                <div className="font-bold text-gray-800 dark:text-white">{cat.label}</div>
+                <div className="font-bold text-gray-800 dark:text-white">{ministry.title}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{ministry.description}</div>
               </div>
             </button>
           ))}
-
-          {categories.length === 0 && (
-            <div className="text-center py-6 text-gray-400 dark:text-gray-500 text-sm">
-              <p>Brak dodatkowych kategorii.</p>
-              <p className="text-xs mt-1">Dodaj kategorie w Ustawienia → Słowniki → Kategorie Wydarzeń</p>
-            </div>
-          )}
         </div>
       </div>
     </div>, document.body
@@ -854,6 +859,7 @@ const EventBadge = ({ event, onClick }) => {
     purple: "bg-purple-100 text-purple-700 border-purple-200",
     yellow: "bg-yellow-100 text-yellow-700 border-yellow-200",
     teal: "bg-teal-100 text-teal-700 border-teal-200",
+    rose: "bg-rose-100 text-rose-700 border-rose-200",
   };
   const style = colors[teamConfig.color] || colors.orange;
 
@@ -878,6 +884,184 @@ const EventBadge = ({ event, onClick }) => {
   );
 };
 
+
+// --- UNIWERSALNY MODAL WYDARZEŃ SŁUŻB ---
+
+const MINISTRY_EVENT_CONFIG = {
+  mlodziezowka: {
+    icon: '🎉',
+    title: 'Młodzieżówka',
+    defaultType: 'spotkanie',
+    types: [
+      { value: 'spotkanie', label: 'Spotkanie' },
+      { value: 'wyjazd', label: 'Wyjazd' },
+      { value: 'integracja', label: 'Integracja' },
+      { value: 'inne', label: 'Inne' }
+    ]
+  },
+  worship: {
+    icon: '🎵',
+    title: 'Zespół Uwielbienia',
+    defaultType: 'proba',
+    types: [
+      { value: 'proba', label: 'Próba' },
+      { value: 'koncert', label: 'Koncert' },
+      { value: 'nabozesnstwo', label: 'Nabożeństwo' },
+      { value: 'warsztat', label: 'Warsztat' },
+      { value: 'inne', label: 'Inne' }
+    ]
+  },
+  media: {
+    icon: '🎬',
+    title: 'Media Team',
+    defaultType: 'produkcja',
+    types: [
+      { value: 'produkcja', label: 'Produkcja' },
+      { value: 'szkolenie', label: 'Szkolenie' },
+      { value: 'streaming', label: 'Streaming' },
+      { value: 'inne', label: 'Inne' }
+    ]
+  },
+  atmosfera: {
+    icon: '💚',
+    title: 'Atmosfera Team',
+    defaultType: 'spotkanie',
+    types: [
+      { value: 'spotkanie', label: 'Spotkanie' },
+      { value: 'szkolenie', label: 'Szkolenie' },
+      { value: 'integracja', label: 'Integracja' },
+      { value: 'inne', label: 'Inne' }
+    ]
+  },
+  kids: {
+    icon: '👶',
+    title: 'Małe SchWro',
+    defaultType: 'zajecia',
+    types: [
+      { value: 'zajecia', label: 'Zajęcia' },
+      { value: 'wycieczka', label: 'Wycieczka' },
+      { value: 'warsztat', label: 'Warsztat' },
+      { value: 'przedstawienie', label: 'Przedstawienie' },
+      { value: 'inne', label: 'Inne' }
+    ]
+  },
+  homegroups: {
+    icon: '🏠',
+    title: 'Grupy Domowe',
+    defaultType: 'spotkanie',
+    types: [
+      { value: 'spotkanie', label: 'Spotkanie' },
+      { value: 'integracja', label: 'Integracja' },
+      { value: 'szkolenie', label: 'Szkolenie' },
+      { value: 'inne', label: 'Inne' }
+    ]
+  }
+};
+
+const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
+  const config = MINISTRY_EVENT_CONFIG[ministry];
+  const [eventForm, setEventForm] = useState({
+    id: event?.id || null,
+    title: event?.title?.replace(/^[\p{Emoji}\p{Emoji_Presentation}\p{Extended_Pictographic}]+\s*/gu, '') || '', // Usuwa tylko emoji z początku
+    description: event?.description || '',
+    start_date: event?.start_date ? event.start_date.split('T')[0] : '',
+    event_time: event?.due_time || '',
+    location: event?.location || '',
+    max_participants: event?.max_participants || '',
+    event_type: event?.event_type || config?.defaultType || 'spotkanie'
+  });
+
+  const handleSubmit = async () => {
+    if (!eventForm.title.trim()) {
+      alert('Tytuł wydarzenia jest wymagany');
+      return;
+    }
+
+    const eventData = {
+      title: eventForm.title.trim(),
+      description: eventForm.description.trim(),
+      start_date: eventForm.start_date ? new Date(eventForm.start_date + (eventForm.event_time ? 'T' + eventForm.event_time : 'T00:00:00')).toISOString() : null,
+      location: eventForm.location,
+      max_participants: eventForm.max_participants ? parseInt(eventForm.max_participants) : null,
+      event_type: eventForm.event_type || config?.defaultType
+    };
+
+    onSave(eventForm.id, eventData);
+  };
+
+  if (!document.body || !config) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
+        <div className="flex justify-between mb-6">
+          <h3 className="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2">
+            <span className="text-2xl">{config.icon}</span>
+            {eventForm.id ? `Edytuj wydarzenie - ${config.title}` : `Nowe wydarzenie - ${config.title}`}
+          </h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition text-gray-500 dark:text-gray-400"><X size={20}/></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tytuł wydarzenia</label>
+            <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Nazwa wydarzenia" value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Opis</label>
+            <textarea className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none" rows={3} placeholder="Szczegóły wydarzenia..." value={eventForm.description || ''} onChange={e => setEventForm({...eventForm, description: e.target.value})} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Data</label>
+              <CustomDatePicker value={eventForm.start_date} onChange={val => setEventForm({...eventForm, start_date: val})} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Godzina</label>
+              <input type="time" className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white" value={eventForm.event_time || ''} onChange={e => setEventForm({...eventForm, event_time: e.target.value})} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Lokalizacja</label>
+            <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Sala główna, Kościół..." value={eventForm.location || ''} onChange={e => setEventForm({...eventForm, location: e.target.value})} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Max. uczestników</label>
+              <input type="number" className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="30" value={eventForm.max_participants || ''} onChange={e => setEventForm({...eventForm, max_participants: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Typ wydarzenia</label>
+              <CustomSelect
+                value={eventForm.event_type}
+                onChange={val => setEventForm({...eventForm, event_type: val})}
+                options={config.types}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center gap-3 mt-6">
+            {eventForm.id && onDelete ? (
+              <button onClick={() => onDelete(eventForm.id)} className="px-4 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition font-medium flex items-center gap-2">
+                <Trash2 size={16} /> Usuń
+              </button>
+            ) : <div></div>}
+            <div className="flex gap-3">
+              <button onClick={onClose} className="px-5 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Anuluj</button>
+              <button onClick={handleSubmit} className="px-5 py-2.5 bg-gradient-to-r from-pink-500 to-orange-500 text-white rounded-xl hover:shadow-lg hover:shadow-pink-500/50 transition font-medium flex items-center gap-2">
+                <Save size={16} /> Zapisz
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 // --- MAIN MODULE ---
 
@@ -906,7 +1090,13 @@ export default function CalendarModule() {
     editProgram: null,
     selectType: null,      // { date: 'YYYY-MM-DD' } - modal wyboru typu
     selectCategory: null,  // { date: 'YYYY-MM-DD' } - modal wyboru kategorii wydarzenia
-    addEvent: null         // { date, category } - modal dodawania ogólnego wydarzenia
+    addEvent: null,        // { date, category } - modal dodawania ogólnego wydarzenia
+    mlodziezowkaEvent: null, // { event data } - modal edycji wydarzenia Młodzieżówki
+    worshipEvent: null,    // { event data } - modal edycji wydarzenia Zespołu Uwielbienia
+    mediaEvent: null,      // { event data } - modal edycji wydarzenia Media Team
+    atmosferaEvent: null,  // { event data } - modal edycji wydarzenia Atmosfera Team
+    kidsEvent: null,       // { event data } - modal edycji wydarzenia Małe SchWro
+    homegroupsEvent: null  // { event data } - modal edycji wydarzenia Grup Domowych
   });
   const [view, setView] = useState('month');
   const [eventCategories, setEventCategories] = useState([]);
@@ -936,6 +1126,12 @@ export default function CalendarModule() {
     const { data: prog } = await supabase.from('programs').select('*');
     const { data: task } = await supabase.from('tasks').select('*');
     const { data: eventsData } = await supabase.from('events').select('*');
+    const { data: mlodziezowkaEvents } = await supabase.from('mlodziezowka_events').select('*');
+    const { data: worshipEvents } = await supabase.from('worship_events').select('*');
+    const { data: mediaEvents } = await supabase.from('media_events').select('*');
+    const { data: atmosferaEvents } = await supabase.from('atmosfera_events').select('*');
+    const { data: kidsEvents } = await supabase.from('kids_events').select('*');
+    const { data: homegroupsEvents } = await supabase.from('homegroups_events').select('*');
     const all = [];
 
     prog?.forEach(p => all.push({ id: p.id, type: 'program', team: 'program', title: p.title || 'Nabożeństwo', date: new Date(p.date), raw: p }));
@@ -990,6 +1186,145 @@ export default function CalendarModule() {
             }
         });
     });
+
+    // Wydarzenia z Młodzieżówki
+    mlodziezowkaEvents?.forEach(ev => {
+        if (!ev.start_date) return;
+        const d = new Date(ev.start_date);
+        if (isNaN(d.getTime())) return;
+
+        let timeStr = '00:00';
+        if (ev.start_date.includes('T')) {
+            const timePart = ev.start_date.split('T')[1];
+            const [h, m] = timePart.split(':');
+            timeStr = `${h}:${m}`;
+        }
+
+        all.push({
+            id: `mlodziezowka_${ev.id}`,
+            type: 'mlodziezowka',
+            team: 'mlodziezowka',
+            title: `🎉 ${ev.title}`,
+            date: d,
+            raw: { ...ev, due_time: timeStr }
+        });
+    });
+
+    // Wydarzenia z Zespołu Uwielbienia
+    worshipEvents?.forEach(ev => {
+        if (!ev.start_date) return;
+        const d = new Date(ev.start_date);
+        if (isNaN(d.getTime())) return;
+
+        let timeStr = '00:00';
+        if (ev.start_date.includes('T')) {
+            const timePart = ev.start_date.split('T')[1];
+            const [h, m] = timePart.split(':');
+            timeStr = `${h}:${m}`;
+        }
+
+        all.push({
+            id: `worship_${ev.id}`,
+            type: 'worship_event',
+            team: 'worship',
+            title: `🎵 ${ev.title}`,
+            date: d,
+            raw: { ...ev, due_time: timeStr }
+        });
+    });
+
+    // Wydarzenia z Media Team
+    mediaEvents?.forEach(ev => {
+        if (!ev.start_date) return;
+        const d = new Date(ev.start_date);
+        if (isNaN(d.getTime())) return;
+
+        let timeStr = '00:00';
+        if (ev.start_date.includes('T')) {
+            const timePart = ev.start_date.split('T')[1];
+            const [h, m] = timePart.split(':');
+            timeStr = `${h}:${m}`;
+        }
+
+        all.push({
+            id: `media_${ev.id}`,
+            type: 'media_event',
+            team: 'media',
+            title: `🎬 ${ev.title}`,
+            date: d,
+            raw: { ...ev, due_time: timeStr }
+        });
+    });
+
+    // Wydarzenia z Atmosfera Team
+    atmosferaEvents?.forEach(ev => {
+        if (!ev.start_date) return;
+        const d = new Date(ev.start_date);
+        if (isNaN(d.getTime())) return;
+
+        let timeStr = '00:00';
+        if (ev.start_date.includes('T')) {
+            const timePart = ev.start_date.split('T')[1];
+            const [h, m] = timePart.split(':');
+            timeStr = `${h}:${m}`;
+        }
+
+        all.push({
+            id: `atmosfera_${ev.id}`,
+            type: 'atmosfera_event',
+            team: 'atmosfera',
+            title: `💚 ${ev.title}`,
+            date: d,
+            raw: { ...ev, due_time: timeStr }
+        });
+    });
+
+    // Wydarzenia z Małe SchWro (Kids)
+    kidsEvents?.forEach(ev => {
+        if (!ev.start_date) return;
+        const d = new Date(ev.start_date);
+        if (isNaN(d.getTime())) return;
+
+        let timeStr = '00:00';
+        if (ev.start_date.includes('T')) {
+            const timePart = ev.start_date.split('T')[1];
+            const [h, m] = timePart.split(':');
+            timeStr = `${h}:${m}`;
+        }
+
+        all.push({
+            id: `kids_${ev.id}`,
+            type: 'kids_event',
+            team: 'kids',
+            title: `👶 ${ev.title}`,
+            date: d,
+            raw: { ...ev, due_time: timeStr }
+        });
+    });
+
+    // Wydarzenia z Grup Domowych
+    homegroupsEvents?.forEach(ev => {
+        if (!ev.start_date) return;
+        const d = new Date(ev.start_date);
+        if (isNaN(d.getTime())) return;
+
+        let timeStr = '00:00';
+        if (ev.start_date.includes('T')) {
+            const timePart = ev.start_date.split('T')[1];
+            const [h, m] = timePart.split(':');
+            timeStr = `${h}:${m}`;
+        }
+
+        all.push({
+            id: `homegroups_${ev.id}`,
+            type: 'homegroups_event',
+            team: 'groups',
+            title: `🏠 ${ev.title}`,
+            date: d,
+            raw: { ...ev, due_time: timeStr }
+        });
+    });
+
     setEvents(all.filter(e => e.date));
   };
 
@@ -1048,6 +1383,164 @@ export default function CalendarModule() {
     }
   };
 
+  // Obsługa zapisywania wydarzeń Młodzieżówki
+  const handleSaveMlodziezowkaEvent = async (id, eventData) => {
+    let error = null;
+    if (id) {
+      const { error: e } = await supabase.from('mlodziezowka_events').update(eventData).eq('id', id);
+      error = e;
+    } else {
+      const { error: e } = await supabase.from('mlodziezowka_events').insert([eventData]);
+      error = e;
+    }
+
+    if (error) {
+      alert(`Błąd zapisu wydarzenia: ${error.message}`);
+      console.error(error);
+    } else {
+      setModals({...modals, mlodziezowkaEvent: null});
+      fetchEvents();
+    }
+  };
+
+  const handleDeleteMlodziezowkaEvent = async (id) => {
+    if (confirm("Czy na pewno chcesz usunąć to wydarzenie Młodzieżówki?")) {
+      await supabase.from('mlodziezowka_events').delete().eq('id', id);
+      setModals({...modals, mlodziezowkaEvent: null});
+      fetchEvents();
+    }
+  };
+
+  // Obsługa zapisywania wydarzeń Zespołu Uwielbienia
+  const handleSaveWorshipEvent = async (id, eventData) => {
+    let error = null;
+    if (id) {
+      const { error: e } = await supabase.from('worship_events').update(eventData).eq('id', id);
+      error = e;
+    } else {
+      const { error: e } = await supabase.from('worship_events').insert([eventData]);
+      error = e;
+    }
+    if (error) {
+      alert(`Błąd zapisu wydarzenia: ${error.message}`);
+    } else {
+      setModals({...modals, worshipEvent: null});
+      fetchEvents();
+    }
+  };
+
+  const handleDeleteWorshipEvent = async (id) => {
+    if (confirm("Czy na pewno chcesz usunąć to wydarzenie?")) {
+      await supabase.from('worship_events').delete().eq('id', id);
+      setModals({...modals, worshipEvent: null});
+      fetchEvents();
+    }
+  };
+
+  // Obsługa zapisywania wydarzeń Media Team
+  const handleSaveMediaEvent = async (id, eventData) => {
+    let error = null;
+    if (id) {
+      const { error: e } = await supabase.from('media_events').update(eventData).eq('id', id);
+      error = e;
+    } else {
+      const { error: e } = await supabase.from('media_events').insert([eventData]);
+      error = e;
+    }
+    if (error) {
+      alert(`Błąd zapisu wydarzenia: ${error.message}`);
+    } else {
+      setModals({...modals, mediaEvent: null});
+      fetchEvents();
+    }
+  };
+
+  const handleDeleteMediaEvent = async (id) => {
+    if (confirm("Czy na pewno chcesz usunąć to wydarzenie?")) {
+      await supabase.from('media_events').delete().eq('id', id);
+      setModals({...modals, mediaEvent: null});
+      fetchEvents();
+    }
+  };
+
+  // Obsługa zapisywania wydarzeń Atmosfera Team
+  const handleSaveAtmosferaEvent = async (id, eventData) => {
+    let error = null;
+    if (id) {
+      const { error: e } = await supabase.from('atmosfera_events').update(eventData).eq('id', id);
+      error = e;
+    } else {
+      const { error: e } = await supabase.from('atmosfera_events').insert([eventData]);
+      error = e;
+    }
+    if (error) {
+      alert(`Błąd zapisu wydarzenia: ${error.message}`);
+    } else {
+      setModals({...modals, atmosferaEvent: null});
+      fetchEvents();
+    }
+  };
+
+  const handleDeleteAtmosferaEvent = async (id) => {
+    if (confirm("Czy na pewno chcesz usunąć to wydarzenie?")) {
+      await supabase.from('atmosfera_events').delete().eq('id', id);
+      setModals({...modals, atmosferaEvent: null});
+      fetchEvents();
+    }
+  };
+
+  // Obsługa zapisywania wydarzeń Małe SchWro
+  const handleSaveKidsEvent = async (id, eventData) => {
+    let error = null;
+    if (id) {
+      const { error: e } = await supabase.from('kids_events').update(eventData).eq('id', id);
+      error = e;
+    } else {
+      const { error: e } = await supabase.from('kids_events').insert([eventData]);
+      error = e;
+    }
+    if (error) {
+      alert(`Błąd zapisu wydarzenia: ${error.message}`);
+    } else {
+      setModals({...modals, kidsEvent: null});
+      fetchEvents();
+    }
+  };
+
+  const handleDeleteKidsEvent = async (id) => {
+    if (confirm("Czy na pewno chcesz usunąć to wydarzenie?")) {
+      await supabase.from('kids_events').delete().eq('id', id);
+      setModals({...modals, kidsEvent: null});
+      fetchEvents();
+    }
+  };
+
+  // Obsługa zapisywania wydarzeń Grup Domowych
+  const handleSaveHomegroupsEvent = async (id, eventData) => {
+    let error = null;
+    if (id) {
+      const { error: e } = await supabase.from('homegroups_events').update(eventData).eq('id', id);
+      error = e;
+    } else {
+      const { error: e } = await supabase.from('homegroups_events').insert([eventData]);
+      error = e;
+    }
+    if (error) {
+      alert(`Błąd zapisu wydarzenia: ${error.message}`);
+    } else {
+      setModals({...modals, homegroupsEvent: null});
+      fetchEvents();
+    }
+  };
+
+  const handleDeleteHomegroupsEvent = async (id) => {
+    if (confirm("Czy na pewno chcesz usunąć to wydarzenie?")) {
+      await supabase.from('homegroups_events').delete().eq('id', id);
+      setModals({...modals, homegroupsEvent: null});
+      fetchEvents();
+    }
+  };
+
   // Flow dodawania: kliknięcie na + otwiera modal wyboru typu
   const handleAddClick = (dateStr) => {
     setModals({...modals, selectType: { date: dateStr }});
@@ -1102,8 +1595,67 @@ export default function CalendarModule() {
     }
   };
 
+  // Po wyborze służby (kalendarza) - otwórz odpowiedni modal wydarzenia
+  const handleSelectMinistry = (ministryKey) => {
+    const date = modals.selectCategory?.date;
+    const modalKey = ministryKey === 'mlodziezowka' ? 'mlodziezowkaEvent' :
+                     ministryKey === 'worship' ? 'worshipEvent' :
+                     ministryKey === 'media' ? 'mediaEvent' :
+                     ministryKey === 'atmosfera' ? 'atmosferaEvent' :
+                     ministryKey === 'kids' ? 'kidsEvent' :
+                     ministryKey === 'homegroups' ? 'homegroupsEvent' : null;
+
+    if (modalKey) {
+      setModals({
+        ...modals,
+        selectCategory: null,
+        [modalKey]: {
+          id: null,
+          title: '',
+          description: '',
+          start_date: date,
+          due_time: '10:00',
+          location: '',
+          max_participants: null,
+          event_type: MINISTRY_EVENT_CONFIG[ministryKey]?.defaultType || 'spotkanie'
+        }
+      });
+    }
+  };
+
   // Obsługa kliknięcia w wydarzenie na kalendarzu
   const handleEventClick = (ev) => {
+    // Wydarzenia z poszczególnych służb
+    if (ev.type === 'mlodziezowka') {
+      const realId = ev.id.replace('mlodziezowka_', '');
+      setModals({...modals, mlodziezowkaEvent: { ...ev.raw, id: realId }});
+      return;
+    }
+    if (ev.type === 'worship_event') {
+      const realId = ev.id.replace('worship_', '');
+      setModals({...modals, worshipEvent: { ...ev.raw, id: realId }});
+      return;
+    }
+    if (ev.type === 'media_event') {
+      const realId = ev.id.replace('media_', '');
+      setModals({...modals, mediaEvent: { ...ev.raw, id: realId }});
+      return;
+    }
+    if (ev.type === 'atmosfera_event') {
+      const realId = ev.id.replace('atmosfera_', '');
+      setModals({...modals, atmosferaEvent: { ...ev.raw, id: realId }});
+      return;
+    }
+    if (ev.type === 'kids_event') {
+      const realId = ev.id.replace('kids_', '');
+      setModals({...modals, kidsEvent: { ...ev.raw, id: realId }});
+      return;
+    }
+    if (ev.type === 'homegroups_event') {
+      const realId = ev.id.replace('homegroups_', '');
+      setModals({...modals, homegroupsEvent: { ...ev.raw, id: realId }});
+      return;
+    }
     if (ev.type === 'program') {
       setModals({...modals, editProgram: ev.id});
     } else if (ev.type === 'event') {
@@ -1265,7 +1817,16 @@ export default function CalendarModule() {
                              <div className="text-xs text-gray-400 uppercase font-bold">{ev.date.toLocaleDateString('pl-PL', {month: 'short'})}</div>
                              <div className="text-xl font-bold text-gray-800 dark:text-white">{ev.date.getDate()}</div>
                          </div>
-                         <div className={`w-1 self-stretch rounded-full ${TEAMS[ev.team]?.color === 'pink' ? 'bg-pink-500' : 'bg-gray-300'}`}></div>
+                         <div className={`w-1 self-stretch rounded-full ${
+                           TEAMS[ev.team]?.color === 'pink' ? 'bg-pink-500' :
+                           TEAMS[ev.team]?.color === 'rose' ? 'bg-rose-500' :
+                           TEAMS[ev.team]?.color === 'orange' ? 'bg-orange-500' :
+                           TEAMS[ev.team]?.color === 'purple' ? 'bg-purple-500' :
+                           TEAMS[ev.team]?.color === 'teal' ? 'bg-teal-500' :
+                           TEAMS[ev.team]?.color === 'blue' ? 'bg-blue-500' :
+                           TEAMS[ev.team]?.color === 'yellow' ? 'bg-yellow-500' :
+                           'bg-gray-300'
+                         }`}></div>
                          <div className="flex-1">
                              <h4 className="font-bold text-gray-800 dark:text-gray-200">{ev.title}</h4>
                              <div className="text-xs text-gray-500 flex gap-3 mt-0.5">
@@ -1378,6 +1939,7 @@ export default function CalendarModule() {
           categories={eventCategories}
           onClose={() => setModals({...modals, selectCategory: null})}
           onSelectCategory={handleSelectCategory}
+          onSelectMinistry={handleSelectMinistry}
         />
       )}
 
@@ -1393,6 +1955,66 @@ export default function CalendarModule() {
 
       {modals.addTask && <ModalAddTask initialTask={modals.addTask} onClose={() => setModals({...modals, addTask: null})} onSave={handleSaveTask} onDelete={handleDeleteTask} />}
       {modals.editProgram && <ModalFullProgramEditor eventId={modals.editProgram} onClose={() => setModals({...modals, editProgram: null})} onSave={handleSaveProgram} songs={songs} />}
+
+      {modals.mlodziezowkaEvent && (
+        <ModalMinistryEvent
+          event={modals.mlodziezowkaEvent}
+          ministry="mlodziezowka"
+          onClose={() => setModals({...modals, mlodziezowkaEvent: null})}
+          onSave={handleSaveMlodziezowkaEvent}
+          onDelete={handleDeleteMlodziezowkaEvent}
+        />
+      )}
+
+      {modals.worshipEvent && (
+        <ModalMinistryEvent
+          event={modals.worshipEvent}
+          ministry="worship"
+          onClose={() => setModals({...modals, worshipEvent: null})}
+          onSave={handleSaveWorshipEvent}
+          onDelete={handleDeleteWorshipEvent}
+        />
+      )}
+
+      {modals.mediaEvent && (
+        <ModalMinistryEvent
+          event={modals.mediaEvent}
+          ministry="media"
+          onClose={() => setModals({...modals, mediaEvent: null})}
+          onSave={handleSaveMediaEvent}
+          onDelete={handleDeleteMediaEvent}
+        />
+      )}
+
+      {modals.atmosferaEvent && (
+        <ModalMinistryEvent
+          event={modals.atmosferaEvent}
+          ministry="atmosfera"
+          onClose={() => setModals({...modals, atmosferaEvent: null})}
+          onSave={handleSaveAtmosferaEvent}
+          onDelete={handleDeleteAtmosferaEvent}
+        />
+      )}
+
+      {modals.kidsEvent && (
+        <ModalMinistryEvent
+          event={modals.kidsEvent}
+          ministry="kids"
+          onClose={() => setModals({...modals, kidsEvent: null})}
+          onSave={handleSaveKidsEvent}
+          onDelete={handleDeleteKidsEvent}
+        />
+      )}
+
+      {modals.homegroupsEvent && (
+        <ModalMinistryEvent
+          event={modals.homegroupsEvent}
+          ministry="homegroups"
+          onClose={() => setModals({...modals, homegroupsEvent: null})}
+          onSave={handleSaveHomegroupsEvent}
+          onDelete={handleDeleteHomegroupsEvent}
+        />
+      )}
     </div>
   );
 }

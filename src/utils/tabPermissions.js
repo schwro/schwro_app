@@ -63,6 +63,15 @@ export const TAB_PERMISSIONS = {
   prayer: {
     wall: null, // Ściana modlitwy dostępna dla wszystkich zalogowanych
     leaders_requests: ['rada_starszych', 'koordynator', 'lider'] // Prośby tylko dla liderów
+  },
+
+  // Moduł Młodzieżówka
+  mlodziezowka: {
+    events: null, // Wydarzenia - wszyscy
+    tasks: null, // Zadania - wszyscy
+    leaders: ['rada_starszych', 'koordynator', 'lider'], // Liderzy - tylko kadra
+    members: ['rada_starszych', 'koordynator', 'lider'], // Członkowie - tylko kadra
+    finances: ['rada_starszych', 'koordynator'] // Finanse - tylko rada i koordynator
   }
 };
 

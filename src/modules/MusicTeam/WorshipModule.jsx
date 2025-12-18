@@ -5,6 +5,7 @@ import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check,
 import SongForm from './SongForm';
 import FinanceTab from '../shared/FinanceTab';
 import WallTab from '../shared/WallTab';
+import EventsTab from '../shared/EventsTab';
 import RolesTab from '../../components/RolesTab';
 import CustomSelect from '../../components/CustomSelect';
 import { useUserRole } from '../../hooks/useUserRole';
@@ -2413,6 +2414,17 @@ export default function WorshipModule() {
           Tablica
         </button>
         <button
+          onClick={() => setActiveTab('events')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'events'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Calendar size={16} className="inline mr-2" />
+          Wydarzenia
+        </button>
+        <button
           onClick={() => setActiveTab('schedule')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
             activeTab === 'schedule'
@@ -2474,6 +2486,13 @@ export default function WorshipModule() {
           </button>
         )}
       </div>
+
+      {/* SEKCJA: WYDARZENIA */}
+      {activeTab === 'events' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[50] transition-colors">
+          <EventsTab ministry="worship" currentUserEmail={currentUser.email} />
+        </section>
+      )}
 
       {/* SEKCJA 1: GRAFIK ZESPOŁU */}
       {activeTab === 'schedule' && (

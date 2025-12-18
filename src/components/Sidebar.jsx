@@ -1,14 +1,74 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart, LayoutDashboard, FileText, MessageCircle } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
+import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart, LayoutDashboard, FileText, MessageCircle, Sparkles } from 'lucide-react';
 import { useUserRole } from '../hooks/useUserRole';
 import { usePermissions } from '../contexts/PermissionsContext';
+import { supabase } from '../lib/supabase';
 
 export default function Sidebar() {
   const location = useLocation();
   const active = location.pathname;
   const { userRole } = useUserRole();
   const { permissions, appSettings: moduleSettings, logoUrl } = usePermissions();
+
+  // Dynamiczne moduły z bazy danych
+  const [dynamicModules, setDynamicModules] = useState([]);
+  const [modulesLoaded, setModulesLoaded] = useState(false);
+
+  // Funkcja do ładowania modułów
+  const loadModules = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_modules')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        setDynamicModules(data);
+      }
+    } catch (err) {
+      console.log('Tabela app_modules nie istnieje jeszcze, używam statycznej listy');
+    } finally {
+      setModulesLoaded(true);
+    }
+  };
+
+  // Załaduj moduły z bazy danych i nasłuchuj na zmiany
+  useEffect(() => {
+    loadModules();
+
+    // Subskrybuj zmiany w tabeli app_modules (realtime)
+    let debounceTimer = null;
+    const channel = supabase
+      .channel('sidebar-modules-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'app_modules'
+        },
+        () => {
+          // Debounce - poczekaj 300ms na więcej zmian przed przeładowaniem
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            loadModules();
+          }, 300);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Pobierz komponent ikony po nazwie
+  const getIconComponent = (iconName) => {
+    return LucideIcons[iconName] || LucideIcons.Square;
+  };
 
   // Sprawdź czy użytkownik ma dostęp do modułu (can_read)
   const hasModuleAccess = (moduleResource) => {
@@ -34,11 +94,13 @@ export default function Sidebar() {
     media: 'module:media',
     atmosfera: 'module:atmosfera',
     kids: 'module:kids',
-    groups: 'module:homegroups',
+    homegroups: 'module:homegroups',
+    groups: 'module:homegroups', // alias
     finance: 'module:finance',
     teaching: 'module:teaching',
     prayer: 'module:prayer',
     komunikator: 'module:komunikator',
+    mlodziezowka: 'module:mlodziezowka',
     settings: 'module:settings'
   };
 
@@ -47,10 +109,15 @@ export default function Sidebar() {
     return moduleSettings[moduleKey] && hasModuleAccess(moduleResourceMap[moduleKey]);
   };
 
-  const allLinks = [
+  // Stałe linki nawigacyjne (zawsze widoczne)
+  const coreLinks = [
     { path: '/', icon: LayoutDashboard, label: 'Pulpit', show: true },
     { path: '/programs', icon: FileText, label: 'Programy', show: true },
     { path: '/calendar', icon: Calendar, label: 'Kalendarz', show: true },
+  ];
+
+  // Statyczne linki modułów (fallback jeśli brak danych z bazy)
+  const staticModuleLinks = [
     { path: '/members', icon: Users, label: 'Członkowie', show: isModuleVisible('members') },
     { path: '/worship', icon: Music, label: 'Grupa Uwielbienia', show: isModuleVisible('worship') },
     { path: '/media', icon: Video, label: 'MediaTeam', show: isModuleVisible('media') },
@@ -61,7 +128,28 @@ export default function Sidebar() {
     { path: '/teaching', icon: BookOpen, label: 'Nauczanie', show: hasModuleAccess('module:teaching') },
     { path: '/prayer', icon: Heart, label: 'Centrum Modlitwy', show: isModuleVisible('prayer') },
     { path: '/komunikator', icon: MessageCircle, label: 'Komunikator', show: hasModuleAccess('module:komunikator') },
+    { path: '/mlodziezowka', icon: Sparkles, label: 'Młodzieżówka', show: hasModuleAccess('module:mlodziezowka') },
   ];
+
+  // Wygeneruj linki modułów z bazy danych
+  const getDynamicModuleLinks = () => {
+    // Filtruj moduły: pomijamy dashboard, programs, calendar (są w coreLinks) oraz settings (osobno)
+    const coreKeys = ['dashboard', 'programs', 'calendar', 'settings'];
+
+    return dynamicModules
+      .filter(mod => !coreKeys.includes(mod.key))
+      .filter(mod => mod.is_enabled) // Tylko włączone moduły
+      .map(mod => ({
+        path: mod.path,
+        icon: getIconComponent(mod.icon),
+        label: mod.label,
+        show: hasModuleAccess(mod.resource_key)
+      }));
+  };
+
+  // Użyj dynamicznych modułów jeśli są dostępne, w przeciwnym razie statycznych
+  const moduleLinks = dynamicModules.length > 0 ? getDynamicModuleLinks() : staticModuleLinks;
+  const allLinks = [...coreLinks, ...moduleLinks];
 
   return (
     <div className="w-64 bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700 shadow-lg flex flex-col transition-colors duration-300 h-full relative z-40">

@@ -7,6 +7,7 @@ import {
   MapPin, Baby, Upload, UserPlus, Link as LinkIcon, DollarSign, ChevronLeft, ChevronRight, Tag
 } from 'lucide-react';
 import FinanceTab from '../shared/FinanceTab';
+import EventsTab from '../shared/EventsTab';
 import CustomSelect from '../../components/CustomSelect';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
@@ -297,6 +298,7 @@ export default function KidsModule() {
   const [students, setStudents] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState({ email: '', name: '' });
   const [uploading, setUploading] = useState(false);
   const [studentFilter, setStudentFilter] = useState('');
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -330,7 +332,14 @@ export default function KidsModule() {
     ministry: 'małe schWro'
   });
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUser({ email: user.email, name: user.user_metadata?.full_name || user.email });
+    };
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'finances') {
@@ -538,6 +547,17 @@ export default function KidsModule() {
       {/* TABS */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
         <button
+          onClick={() => setActiveTab('events')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'events'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Calendar size={16} className="inline mr-2" />
+          Wydarzenia
+        </button>
+        <button
           onClick={() => setActiveTab('schedule')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
             activeTab === 'schedule'
@@ -597,6 +617,13 @@ export default function KidsModule() {
           </button>
         )}
       </div>
+
+      {/* WYDARZENIA TAB */}
+      {activeTab === 'events' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+          <EventsTab ministry="kids" currentUserEmail={currentUser.email} />
+        </section>
+      )}
 
       {/* GRAFIK TAB */}
       {activeTab === 'schedule' && (

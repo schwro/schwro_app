@@ -25,6 +25,15 @@ import CalendarModule from './modules/CalendarModule';
 import TeachingModule from './modules/Teaching/TeachingModule';
 import PrayerWallModule from './modules/PrayerWall/PrayerWallModule';
 import KomunikatorModule from './modules/Komunikator/KomunikatorModule';
+import MlodziezowkaModule from './modules/MlodziezowkaModule';
+import CustomModule from './modules/CustomModule/CustomModule';
+
+// Lista kluczy systemowych modułów (mają dedykowane komponenty)
+const SYSTEM_MODULE_KEYS = [
+  'dashboard', 'programs', 'calendar', 'members', 'worship', 'media',
+  'atmosfera', 'kids', 'homegroups', 'finance', 'teaching', 'prayer',
+  'komunikator', 'mlodziezowka', 'settings'
+];
 
 // Komponent do wyświetlania toast notifications
 function ToastNotifications({ userEmail }) {
@@ -35,7 +44,8 @@ function ToastNotifications({ userEmail }) {
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+  const [customModules, setCustomModules] = useState([]);
+
   // Stan dla trybu ciemnego (domyślnie false)
   const [darkMode, setDarkMode] = useState(localStorage.getItem('theme') === 'dark');
 
@@ -51,6 +61,41 @@ export default function App() {
   }, [darkMode]);
 
   const toggleTheme = () => setDarkMode(!darkMode);
+
+  // Pobierz niestandardowe moduły z bazy danych
+  useEffect(() => {
+    const fetchCustomModules = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_modules')
+          .select('*')
+          .eq('is_enabled', true)
+          .order('display_order', { ascending: true });
+
+        if (!error && data) {
+          // Filtruj tylko moduły niestandardowe (nie systemowe)
+          const custom = data.filter(m => !SYSTEM_MODULE_KEYS.includes(m.key));
+          setCustomModules(custom);
+        }
+      } catch (err) {
+        console.log('Błąd pobierania niestandardowych modułów:', err);
+      }
+    };
+
+    fetchCustomModules();
+
+    // Subskrybuj zmiany w modułach
+    const channel = supabase
+      .channel('app-modules-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_modules' }, () => {
+        fetchCustomModules();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -149,10 +194,30 @@ export default function App() {
                 <Route path="/komunikator" element={
                   <ProtectedRoute resource="module:komunikator"><KomunikatorModule /></ProtectedRoute>
                 } />
+                <Route path="/mlodziezowka" element={
+                  <ProtectedRoute resource="module:mlodziezowka"><MlodziezowkaModule /></ProtectedRoute>
+                } />
                 <Route path="/settings" element={
                   <ProtectedRoute resource="module:settings"><GlobalSettings /></ProtectedRoute>
                 } />
                 <Route path="/profile" element={<UserSettings />} />
+
+                {/* Dynamiczne trasy dla niestandardowych modułów */}
+                {customModules.map(mod => (
+                  <Route
+                    key={mod.id}
+                    path={mod.path}
+                    element={
+                      <ProtectedRoute resource={mod.resource_key}>
+                        <CustomModule />
+                      </ProtectedRoute>
+                    }
+                  />
+                ))}
+
+                {/* Trasa generyczna dla modułów z parametrem (fallback) */}
+                <Route path="/module/:moduleKey" element={<CustomModule />} />
+
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
