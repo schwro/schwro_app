@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabase';
-import { Plus, Search, Trash2, X, User, Mail, Phone, Save } from 'lucide-react';
+import { Plus, Search, Trash2, X, User, Mail, Phone, Check, Edit2 } from 'lucide-react';
 
 export default function MembersTab({ moduleKey, moduleName }) {
   const [members, setMembers] = useState([]);
@@ -9,19 +9,46 @@ export default function MembersTab({ moduleKey, moduleName }) {
   const [searchFilter, setSearchFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', role: '' });
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '' });
+
+  // Służby z team_roles
+  const [moduleRoles, setModuleRoles] = useState([]);
+  const [memberRoles, setMemberRoles] = useState([]);
+  const [selectedMemberRoles, setSelectedMemberRoles] = useState([]);
 
   const tableName = `custom_${moduleKey}_members`;
+
+  // Pobierz służby dla tego modułu
+  const fetchModuleRoles = async () => {
+    try {
+      const { data: rolesData } = await supabase
+        .from('team_roles')
+        .select('*')
+        .eq('team_type', moduleKey)
+        .eq('is_active', true)
+        .order('display_order');
+      setModuleRoles(rolesData || []);
+
+      // Pobierz przypisania członków do służb
+      const { data: memberRolesData } = await supabase
+        .from('team_member_roles')
+        .select('*')
+        .eq('member_table', tableName);
+      setMemberRoles(memberRolesData || []);
+    } catch (err) {
+      console.error('Błąd pobierania służb:', err);
+    }
+  };
 
   // Pobierz członków
   const fetchMembers = async () => {
     setLoading(true);
     try {
-      // Najpierw sprawdź czy tabela istnieje, jeśli nie - utwórz
+      // Najpierw sprawdź czy tabela istnieje
       const { error: checkError } = await supabase.from(tableName).select('id').limit(1);
 
       if (checkError && checkError.code === '42P01') {
-        // Tabela nie istnieje - wyświetl komunikat
+        // Tabela nie istnieje
         setMembers([]);
         setLoading(false);
         return;
@@ -44,6 +71,7 @@ export default function MembersTab({ moduleKey, moduleName }) {
 
   useEffect(() => {
     fetchMembers();
+    fetchModuleRoles();
   }, [moduleKey]);
 
   // Filtrowanie
@@ -52,23 +80,83 @@ export default function MembersTab({ moduleKey, moduleName }) {
     m.email?.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
+  // Próbuj utworzyć tabelę jeśli nie istnieje
+  const ensureTableExists = async () => {
+    try {
+      await supabase.rpc('create_custom_members_table', {
+        table_name: tableName
+      });
+      return true;
+    } catch (err) {
+      return false;
+    }
+  };
+
+  // Pobierz służby członka do edycji
+  const loadMemberRoles = (memberId) => {
+    const roles = memberRoles
+      .filter(mr => String(mr.member_id) === String(memberId))
+      .map(mr => mr.role_id);
+    setSelectedMemberRoles(roles);
+  };
+
+  // Pobierz nazwy służb członka
+  const getMemberRoleNames = (memberId) => {
+    const roleIds = memberRoles
+      .filter(mr => String(mr.member_id) === String(memberId))
+      .map(mr => mr.role_id);
+    return moduleRoles
+      .filter(r => roleIds.includes(r.id))
+      .map(r => r.name);
+  };
+
   // Zapisz członka
   const handleSave = async () => {
     if (!form.full_name) return;
 
     try {
+      await ensureTableExists();
+
+      let memberId = editingMember?.id;
+
       if (editingMember) {
-        await supabase.from(tableName).update(form).eq('id', editingMember.id);
+        const { error } = await supabase.from(tableName).update(form).eq('id', editingMember.id);
+        if (error) throw error;
       } else {
-        await supabase.from(tableName).insert([form]);
+        const { data: newMember, error } = await supabase.from(tableName).insert([form]).select().single();
+        if (error) throw error;
+        memberId = newMember.id;
       }
+
+      // Zapisz przypisania do służb
+      if (memberId) {
+        // Usuń obecne przypisania
+        await supabase
+          .from('team_member_roles')
+          .delete()
+          .eq('member_id', String(memberId))
+          .eq('member_table', tableName);
+
+        // Dodaj nowe przypisania
+        if (selectedMemberRoles.length > 0) {
+          const assignments = selectedMemberRoles.map(roleId => ({
+            member_id: String(memberId),
+            member_table: tableName,
+            role_id: roleId
+          }));
+          await supabase.from('team_member_roles').insert(assignments);
+        }
+      }
+
       setShowModal(false);
       setEditingMember(null);
-      setForm({ full_name: '', email: '', phone: '', role: '' });
+      setForm({ full_name: '', email: '', phone: '' });
+      setSelectedMemberRoles([]);
       fetchMembers();
+      fetchModuleRoles();
     } catch (err) {
       console.error('Błąd zapisu:', err);
-      alert('Błąd zapisu członka. Upewnij się, że tabela istnieje w bazie danych.');
+      alert('Błąd zapisu członka. Uruchom migrację SQL w Supabase Dashboard, aby włączyć automatyczne tworzenie tabel.');
     }
   };
 
@@ -76,8 +164,17 @@ export default function MembersTab({ moduleKey, moduleName }) {
   const handleDelete = async (id) => {
     if (!confirm('Usunąć tego członka?')) return;
     try {
+      // Usuń przypisania do służb
+      await supabase
+        .from('team_member_roles')
+        .delete()
+        .eq('member_id', String(id))
+        .eq('member_table', tableName);
+
+      // Usuń członka
       await supabase.from(tableName).delete().eq('id', id);
       fetchMembers();
+      fetchModuleRoles();
     } catch (err) {
       console.error('Błąd usuwania:', err);
     }
@@ -89,9 +186,17 @@ export default function MembersTab({ moduleKey, moduleName }) {
     setForm({
       full_name: member.full_name || '',
       email: member.email || '',
-      phone: member.phone || '',
-      role: member.role || ''
+      phone: member.phone || ''
     });
+    loadMemberRoles(member.id);
+    setShowModal(true);
+  };
+
+  // Otwórz modal do dodawania
+  const openAddModal = () => {
+    setEditingMember(null);
+    setForm({ full_name: '', email: '', phone: '' });
+    setSelectedMemberRoles([]);
     setShowModal(true);
   };
 
@@ -122,15 +227,11 @@ export default function MembersTab({ moduleKey, moduleName }) {
             />
           </div>
           <button
-            onClick={() => {
-              setEditingMember(null);
-              setForm({ full_name: '', email: '', phone: '', role: '' });
-              setShowModal(true);
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl font-medium flex items-center gap-2 hover:shadow-lg transition"
+            onClick={openAddModal}
+            className="px-4 py-2 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl font-medium flex items-center gap-2 hover:shadow-lg hover:shadow-pink-500/30 transition"
           >
             <Plus size={18} />
-            Dodaj
+            Dodaj członka
           </button>
         </div>
       </div>
@@ -138,65 +239,78 @@ export default function MembersTab({ moduleKey, moduleName }) {
       {/* Lista członków */}
       {filteredMembers.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMembers.map(member => (
-            <div
-              key={member.id}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition group"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white font-bold">
-                    {member.full_name?.charAt(0)?.toUpperCase() || '?'}
+          {filteredMembers.map(member => {
+            const roleNames = getMemberRoleNames(member.id);
+            return (
+              <div
+                key={member.id}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition group"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white font-bold">
+                      {member.full_name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-white">{member.full_name}</h4>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-white">{member.full_name}</h4>
-                    {member.role && (
-                      <span className="text-xs bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 px-2 py-0.5 rounded-full">
-                        {member.role}
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                    <button
+                      onClick={() => openEditModal(member)}
+                      className="p-1.5 text-gray-400 hover:text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-900/20 rounded-lg transition"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(member.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Służby jako tagi */}
+                {roleNames.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {roleNames.map((roleName, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 px-2 py-0.5 rounded-full"
+                      >
+                        {roleName}
                       </span>
+                    ))}
+                  </div>
+                )}
+
+                {(member.email || member.phone) && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-1">
+                    {member.email && (
+                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <Mail size={14} />
+                        {member.email}
+                      </div>
+                    )}
+                    {member.phone && (
+                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <Phone size={14} />
+                        {member.phone}
+                      </div>
                     )}
                   </div>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <button
-                    onClick={() => openEditModal(member)}
-                    className="p-1.5 text-gray-400 hover:text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-900/20 rounded-lg transition"
-                  >
-                    <User size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(member.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                )}
               </div>
-              {(member.email || member.phone) && (
-                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-1">
-                  {member.email && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                      <Mail size={14} />
-                      {member.email}
-                    </div>
-                  )}
-                  {member.phone && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                      <Phone size={14} />
-                      {member.phone}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="p-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center">
           <User size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
           <p className="text-gray-500 dark:text-gray-400">Brak członków</p>
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-            Kliknij "Dodaj" aby dodać pierwszego członka
+            Kliknij "Dodaj członka" aby dodać pierwszego członka
           </p>
         </div>
       )}
@@ -204,71 +318,116 @@ export default function MembersTab({ moduleKey, moduleName }) {
       {/* Modal */}
       {showModal && document.body && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-white/20 dark:border-gray-700">
+            <div className="flex justify-between mb-6">
               <h3 className="font-bold text-xl text-gray-800 dark:text-white">
                 {editingMember ? 'Edytuj członka' : 'Nowy członek'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition text-gray-500 dark:text-gray-400"
+              >
                 <X size={20} />
               </button>
             </div>
             <div className="space-y-4">
+              {/* Imię i nazwisko */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
-                  Imię i nazwisko *
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">
+                  Imię i nazwisko
                 </label>
                 <input
                   type="text"
                   value={form.full_name}
                   onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                   placeholder="Jan Kowalski"
                 />
               </div>
+
+              {/* Służby / Instrumenty jako tagi */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
-                  Email
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">
+                  Służby / Instrumenty
                 </label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
-                  placeholder="jan@example.com"
-                />
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {moduleRoles.map(role => {
+                      const isSelected = selectedMemberRoles.includes(role.id);
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedMemberRoles(prev => prev.filter(id => id !== role.id));
+                            } else {
+                              setSelectedMemberRoles(prev => [...prev, role.id]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {isSelected && <Check size={14} />}
+                          {role.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {moduleRoles.length === 0 && (
+                    <p className="text-gray-400 dark:text-gray-500 text-sm text-center py-2">
+                      Brak zdefiniowanych służb. Dodaj je w zakładce "Służby".
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
-                  Telefon
-                </label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
-                  placeholder="+48 123 456 789"
-                />
+
+              {/* Telefon i Email w jednym wierszu */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">
+                    Telefon
+                  </label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                    placeholder="+48 123 456 789"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                    placeholder="jan@example.com"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
-                  Rola
-                </label>
-                <input
-                  type="text"
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
-                  placeholder="np. Lider, Członek"
-                />
+
+              {/* Przyciski */}
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-5 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                >
+                  Anuluj
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg hover:shadow-pink-500/50 transition font-medium"
+                >
+                  Zapisz
+                </button>
               </div>
-              <button
-                onClick={handleSave}
-                className="w-full py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg transition"
-              >
-                <Save size={18} />
-                Zapisz
-              </button>
             </div>
           </div>
         </div>,

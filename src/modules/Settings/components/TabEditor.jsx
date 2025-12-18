@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, AlertCircle, Calendar, CheckSquare, DollarSign, Users, MessageSquare, Layers } from 'lucide-react';
+import { X, Save, AlertCircle, Calendar, CheckSquare, DollarSign, Users, MessageSquare, Layers, CalendarDays, UserCog } from 'lucide-react';
 import IconPicker from './IconPicker';
 
 // Dostępne typy komponentów
@@ -10,7 +10,9 @@ const COMPONENT_TYPES = [
   { key: 'tasks', label: 'Zadania', icon: CheckSquare, description: 'Tablica kanban z zadaniami' },
   { key: 'finance', label: 'Finanse', icon: DollarSign, description: 'Przychody i wydatki' },
   { key: 'members', label: 'Członkowie', icon: Users, description: 'Lista członków zespołu' },
-  { key: 'wall', label: 'Tablica', icon: MessageSquare, description: 'Tablica z wpisami i komentarzami' }
+  { key: 'wall', label: 'Tablica', icon: MessageSquare, description: 'Tablica z wpisami i komentarzami' },
+  { key: 'schedule', label: 'Grafik', icon: CalendarDays, description: 'Harmonogram służb na wydarzenia' },
+  { key: 'duty', label: 'Służby', icon: UserCog, description: 'Zarządzanie służbami i przypisaniami' }
 ];
 
 export default function TabEditor({ tab, moduleId, moduleName, onClose, onSave, existingKeys = [] }) {
@@ -51,7 +53,9 @@ export default function TabEditor({ tab, moduleId, moduleName, onClose, onSave, 
         tasks: 'CheckSquare',
         finance: 'DollarSign',
         members: 'Users',
-        wall: 'MessageSquare'
+        wall: 'MessageSquare',
+        schedule: 'CalendarDays',
+        duty: 'UserCog'
       };
       if (iconMap[form.component_type]) {
         setForm(prev => ({ ...prev, icon: iconMap[form.component_type] }));

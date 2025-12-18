@@ -74,6 +74,45 @@ export function useModules() {
     }
   }, []);
 
+  // Inicjalizacja wszystkich struktur dla niestandardowego modułu
+  const initializeCustomModule = useCallback(async (moduleKey) => {
+    try {
+      // Wywołaj główną funkcję inicjalizacji (tworzy wszystkie tabele i kolumny)
+      const { error } = await supabase.rpc('initialize_custom_module', {
+        module_key: moduleKey
+      });
+
+      if (error) {
+        // Jeśli główna funkcja nie istnieje, próbuj pojedyncze funkcje
+        console.log('RPC initialize_custom_module nie dostępne, próbuję pojedyncze funkcje...');
+
+        // Tabela członków
+        await supabase.rpc('create_custom_members_table', {
+          table_name: `custom_${moduleKey}_members`
+        });
+
+        // Tabela zadań
+        await supabase.rpc('create_custom_tasks_table', {
+          table_name: `custom_${moduleKey}_tasks`
+        });
+
+        // Tabela tablicy
+        await supabase.rpc('create_custom_wall_table', {
+          table_name: `custom_${moduleKey}_wall`
+        });
+
+        // Kolumna grafiku
+        await supabase.rpc('create_schedule_column', {
+          module_key: moduleKey
+        });
+      } else {
+        console.log(`Struktury dla modułu ${moduleKey} utworzone pomyślnie`);
+      }
+    } catch (err) {
+      console.log('Struktury modułu zostaną utworzone automatycznie przez trigger w bazie danych');
+    }
+  }, []);
+
   // Dodaj moduł
   const addModule = useCallback(async (moduleData) => {
     try {
@@ -92,13 +131,17 @@ export function useModules() {
 
       if (insertError) throw insertError;
 
+      // Inicjalizuj wszystkie struktury dla nowego modułu
+      // (trigger w bazie danych również to robi, ale wywołujemy dla pewności)
+      await initializeCustomModule(moduleData.key);
+
       setModules(prev => [...prev, data]);
       return { success: true, data };
     } catch (err) {
       console.error('Błąd dodawania modułu:', err);
       return { success: false, error: err.message };
     }
-  }, [modules]);
+  }, [modules, initializeCustomModule]);
 
   // Aktualizuj moduł
   const updateModule = useCallback(async (id, updates) => {

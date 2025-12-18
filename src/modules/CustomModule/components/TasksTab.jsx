@@ -27,6 +27,19 @@ export default function TasksTab({ moduleKey, moduleName, currentUserEmail }) {
 
   const tableName = `custom_${moduleKey}_tasks`;
 
+  // Próbuj utworzyć tabelę jeśli nie istnieje
+  const ensureTableExists = async () => {
+    try {
+      await supabase.rpc('create_custom_tasks_table', {
+        table_name: tableName
+      });
+      return true;
+    } catch (err) {
+      // Ignoruj błąd - tabela może już istnieć lub RPC nie jest dostępne
+      return false;
+    }
+  };
+
   // Pobierz zadania
   const fetchTasks = async () => {
     setLoading(true);
@@ -75,6 +88,9 @@ export default function TasksTab({ moduleKey, moduleName, currentUserEmail }) {
     if (!form.title) return;
 
     try {
+      // Upewnij się że tabela istnieje przed zapisem
+      await ensureTableExists();
+
       const taskData = {
         ...form,
         module_key: moduleKey

@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 import EventsTab from '../shared/EventsTab';
 import FinanceTab from '../shared/FinanceTab';
 import WallTab from '../shared/WallTab';
+import ScheduleTab from '../shared/ScheduleTab';
+import DutyTab from '../shared/DutyTab';
 import MembersTab from './components/MembersTab';
 import TasksTab from './components/TasksTab';
 
@@ -194,6 +196,12 @@ function TabContent({ tab, moduleKey, moduleName }) {
 
     case 'wall':
       return <WallTab ministry={moduleKey} currentUserEmail={currentUserEmail} currentUserName={currentUserName} />;
+
+    case 'schedule':
+      return <ScheduleTab moduleKey={moduleKey} moduleName={moduleName} />;
+
+    case 'duty':
+      return <DutyTab moduleKey={moduleKey} moduleName={moduleName} />;
 
     case 'empty':
     default:
