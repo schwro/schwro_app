@@ -184,78 +184,178 @@ const CustomDatePicker = ({ label, value, onChange }) => {
   );
 };
 
-// --- ZAAWANSOWANA LOGIKA TRANSPOZYCJI ---
+// --- ZAAWANSOWANA LOGIKA TRANSPOZYCJI (zgodnie z wytycznymi PDF) ---
 
-// Baza chromatyczna - domyślny format wyjściowy (używamy krzyżyki: C#, D#, F#, G#, A#)
+// Lista tonacji do wyboru
+const KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+
+// Mapowanie stopni na akordy dla każdej tonacji (poprawny zapis enharmoniczny wg PDF)
+// Format: { tonacja: [I, II, III, IV, V, VI, VII] }
+const SCALE_DEGREES = {
+  'C':  ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
+  'C#': ['C#', 'D#', 'E#', 'F#', 'G#', 'A#', 'B#'],
+  'Db': ['Db', 'Eb', 'F', 'Gb', 'Ab', 'Bb', 'C'],
+  'D':  ['D', 'E', 'F#', 'G', 'A', 'B', 'C#'],
+  'Eb': ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D'],
+  'E':  ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#'],
+  'F':  ['F', 'G', 'A', 'Bb', 'C', 'D', 'E'],
+  'F#': ['F#', 'G#', 'A#', 'B', 'C#', 'D#', 'E#'],
+  'Gb': ['Gb', 'Ab', 'Bb', 'Cb', 'Db', 'Eb', 'F'],
+  'G':  ['G', 'A', 'B', 'C', 'D', 'E', 'F#'],
+  'Ab': ['Ab', 'Bb', 'C', 'Db', 'Eb', 'F', 'G'],
+  'A':  ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#'],
+  'Bb': ['Bb', 'C', 'D', 'Eb', 'F', 'G', 'A'],
+  'B':  ['B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#'],
+};
+
+// Chromatyczna skala (używamy krzyżyków dla tonacji z krzyżykami, bemoli dla tonacji z bemolami)
+const CHROMATIC_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const CHROMATIC_NOTES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+// Tonacje preferujące krzyżyki vs bemole
+const SHARP_KEYS = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
+const FLAT_KEYS = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'];
+
+// Baza chromatyczna - dla kompatybilności wstecznej
 const CHORDS_SCALE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
-// Mapa krzyżyków na bemole dla wyświetlania (C# -> Db, F# -> Gb)
-const SHARP_TO_FLAT = {
-  "C#": "Db",
-  "F#": "Gb"
-};
+/**
+ * Pobiera indeks chromatyczny nuty (0-11)
+ */
+function getNoteIndex(note) {
+  if (!note) return -1;
+  const noteUpper = note.charAt(0).toUpperCase();
+  const accidental = note.substring(1);
 
-// Funkcja konwersji tonacji na format z bemolami
-function toFlatKey(key) {
-  if (!key) return key;
-  // Sprawdź czy główna nuta (bez m, maj, 7 itp) ma krzyżyk do zamiany
-  const match = key.match(/^([A-G][#b]?)(.*)/);
-  if (match) {
-    const [, root, suffix] = match;
-    if (SHARP_TO_FLAT[root]) {
-      return SHARP_TO_FLAT[root] + suffix;
+  let baseIndex = { 'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11 }[noteUpper];
+  if (baseIndex === undefined) return -1;
+
+  if (accidental === '#') baseIndex = (baseIndex + 1) % 12;
+  else if (accidental === 'b') baseIndex = (baseIndex + 11) % 12;
+  else if (accidental === '##') baseIndex = (baseIndex + 2) % 12;
+  else if (accidental === 'bb') baseIndex = (baseIndex + 10) % 12;
+
+  return baseIndex;
+}
+
+// Alias dla kompatybilności wstecznej
+function getChordIndex(chord) {
+  return getNoteIndex(chord);
+}
+
+/**
+ * Wybiera odpowiednią nutę dla danej tonacji (poprawny zapis enharmoniczny wg PDF)
+ * Unika zapisów typu F##, Ab# - używa nut ze skali docelowej tonacji
+ */
+function getNoteForKey(noteIndex, targetKey) {
+  // Jeśli nuta istnieje w skali docelowej tonacji, użyj jej
+  const targetScale = SCALE_DEGREES[targetKey];
+  if (targetScale) {
+    for (const note of targetScale) {
+      if (getNoteIndex(note) === noteIndex) {
+        return note;
+      }
     }
   }
-  return key;
-}
 
-// Mapa normalizacji wejścia (żeby C# i Db były traktowane tak samo przy wyszukiwaniu)
-const NORMALIZE_MAP = {
-  "Cb": "B",
-  "Db": "C#",
-  "D#": "Eb",
-  "Fb": "E",
-  "E#": "F",
-  "Gb": "F#",
-  "G#": "Ab",
-  "A#": "Bb",
-  "B#": "C"
-};
-
-function getChordIndex(chord) {
-  // 1. Usuwamy ewentualne śmieci, zostawiamy samą literę + znak
-  let root = chord;
-  // 2. Sprawdzamy mapę normalizacji
-  if (NORMALIZE_MAP[root]) {
-    root = NORMALIZE_MAP[root];
+  // Użyj krzyżyków dla tonacji z krzyżykami, bemoli dla tonacji z bemolami
+  if (SHARP_KEYS.includes(targetKey)) {
+    return CHROMATIC_NOTES[noteIndex];
+  } else {
+    return CHROMATIC_NOTES_FLAT[noteIndex];
   }
-  // 3. Szukamy w skali
-  return CHORDS_SCALE.findIndex(c => c === root);
 }
 
+/**
+ * Transponuje pojedynczą nutę z zachowaniem poprawnego zapisu enharmonicznego
+ */
+function transposeNoteToKey(note, semitones, targetKey) {
+  const noteIndex = getNoteIndex(note);
+  if (noteIndex === -1) return note;
+
+  const newIndex = (noteIndex + semitones + 12) % 12;
+  return getNoteForKey(newIndex, targetKey);
+}
+
+/**
+ * Parsuje akord i zwraca jego składowe
+ * Obsługuje wszystkie modyfikatory z PDF: m, #, b, 2, 5, 6, 7, 11, 13, 69, sus2, sus4, maj7, dim, aug, etc.
+ */
+function parseChordFull(chord) {
+  if (!chord || typeof chord !== 'string') return null;
+
+  // Regex: root (A-G + opcjonalnie # lub b) + modyfikator + opcjonalnie /bas
+  const match = chord.match(/^([A-G][#b]?)(.*)$/);
+  if (!match) return null;
+
+  const root = match[1];
+  let rest = match[2];
+
+  // Sprawdź czy jest bas (slash chord)
+  let bass = null;
+  let modifier = rest;
+
+  const slashIndex = rest.indexOf('/');
+  if (slashIndex !== -1) {
+    modifier = rest.substring(0, slashIndex);
+    bass = rest.substring(slashIndex + 1);
+  }
+
+  return { root, modifier, bass };
+}
+
+/**
+ * Transponuje akord z zachowaniem poprawnego zapisu enharmonicznego (wg PDF)
+ * - Unika zapisów typu C#2 w tonacji Ab (powinno być Db2)
+ * - Prawidłowo transponuje akordy w przewrotach (D/F#, A/C#)
+ */
+function transposeChordToKey(chord, fromKey, toKey) {
+  const parsed = parseChordFull(chord);
+  if (!parsed) return chord;
+
+  const fromIndex = getNoteIndex(fromKey);
+  const toIndex = getNoteIndex(toKey);
+  if (fromIndex === -1 || toIndex === -1) return chord;
+
+  const semitones = toIndex - fromIndex;
+
+  const newRoot = transposeNoteToKey(parsed.root, semitones, toKey);
+  let result = newRoot + parsed.modifier;
+
+  if (parsed.bass) {
+    const newBass = transposeNoteToKey(parsed.bass, semitones, toKey);
+    result += '/' + newBass;
+  }
+
+  return result;
+}
+
+// Funkcja dla kompatybilności wstecznej (transpozycja o półtony bez tonacji docelowej)
 function transposeChord(chord, steps) {
   if (!chord) return "";
-  
-  const idx = getChordIndex(chord);
-  if (idx === -1) return chord; // Nie rozpoznano akordu, zwracamy oryginał
 
-  // Matematyka modulo z obsługą ujemnych liczb (dodajemy 120 prewencyjnie)
+  const idx = getChordIndex(chord);
+  if (idx === -1) return chord;
+
   const newIdx = (idx + steps + 120) % 12;
   return CHORDS_SCALE[newIdx];
 }
 
-function transposeLine(line, steps) {
-  if (!line) return "";
+/**
+ * Transponuje linię tekstu z akordami do nowej tonacji
+ * Używa poprawnego zapisu enharmonicznego zgodnie z PDF
+ */
+function transposeLineToKey(line, fromKey, toKey) {
+  if (!line || !fromKey || !toKey || fromKey === toKey) return line;
 
   // Rozdzielamy tekst na części: tagi HTML i tekst między nimi
-  // Tagi HTML nie powinny być przetwarzane pod kątem akordów
   const htmlTagRegex = /(<[^>]+>)/g;
   const parts = line.split(htmlTagRegex);
 
-  // Regex dla akordów - prosty pattern bez lookbehind (dla kompatybilności)
-  // Szukamy: [A-G] + opcjonalnie # lub b + suffix (m, maj7, 7, sus4, dim, aug, add9 itp.) + opcjonalnie /bas
-  // Suffix może zawierać: m, M, maj, min, cyfry, sus, add, dim, aug
-  const chordRegex = /([A-G][#b]?)([mM]?(?:aj|in)?[0-9]*(?:sus[24]?)?(?:add[0-9]+)?(?:dim|aug)?[0-9]*)(\/[A-G][#b]?)?/g;
+  // Regex dla akordów - rozbudowany dla wszystkich modyfikatorów z PDF
+  // Obsługuje: m, #, b, 2, 5, 6, 7, 11, 13, 69, (no3), sus2, sus4, sus4-3, 4-3, add2, add4, (add4), (add9), (11), (13),
+  // add11, add13, maj7, maj9, maj11, maj13, Δ, ø, dim, aug, alt, #7, (b5), (b6), (b9), (#4), (#5), (#5#9), (#5#11), (#11)
+  const chordRegex = /([A-G][#b]?)((?:[mM#b∆ø]|maj|min|dim|aug|alt|sus[24]?(?:-3)?|add[0-9]+|\((?:no3|add[49]|b[569]|#[45](?:#[9]|#11)?|11|13)\)|[0-9]+)*)(\/[A-G][#b]?)?/g;
 
   return parts.map(part => {
     // Jeśli to tag HTML - nie przetwarzaj
@@ -264,14 +364,50 @@ function transposeLine(line, steps) {
     }
 
     // Przetwórz tekst - szukaj akordów
-    return part.replace(chordRegex, (_, root, suffix, bass) => {
-      // Transponujemy korzeń
-      const newRoot = transposeChord(root, steps);
+    return part.replace(chordRegex, (match, root, suffix, bass) => {
+      // Jeśli nie ma root, zwróć oryginał
+      if (!root) return match;
+
+      // Transponujemy korzeń z poprawnym zapisem enharmonicznym
+      const fromIndex = getNoteIndex(fromKey);
+      const toIndex = getNoteIndex(toKey);
+      const semitones = toIndex - fromIndex;
+
+      const newRoot = transposeNoteToKey(root, semitones, toKey);
 
       // Transponujemy bas (jeśli istnieje)
       let newBass = "";
       if (bass) {
-        // bass to np. "/F#" -> ucinamy "/" i transponujemy resztę
+        const bassNote = bass.substring(1);
+        newBass = "/" + transposeNoteToKey(bassNote, semitones, toKey);
+      }
+
+      return newRoot + (suffix || "") + newBass;
+    });
+  }).join('');
+}
+
+// Funkcja dla kompatybilności wstecznej (transpozycja o półtony)
+function transposeLine(line, steps) {
+  if (!line || steps === 0) return line;
+
+  const htmlTagRegex = /(<[^>]+>)/g;
+  const parts = line.split(htmlTagRegex);
+
+  const chordRegex = /([A-G][#b]?)((?:[mM#b∆ø]|maj|min|dim|aug|alt|sus[24]?(?:-3)?|add[0-9]+|\((?:no3|add[49]|b[569]|#[45](?:#[9]|#11)?|11|13)\)|[0-9]+)*)(\/[A-G][#b]?)?/g;
+
+  return parts.map(part => {
+    if (part.startsWith('<') && part.endsWith('>')) {
+      return part;
+    }
+
+    return part.replace(chordRegex, (match, root, suffix, bass) => {
+      if (!root) return match;
+
+      const newRoot = transposeChord(root, steps);
+
+      let newBass = "";
+      if (bass) {
         const bassNote = bass.substring(1);
         newBass = "/" + transposeChord(bassNote, steps);
       }
@@ -280,6 +416,281 @@ function transposeLine(line, steps) {
     });
   }).join('');
 }
+
+// --- FORMATOWANIE AKORDÓW (rozmiary czcionek) ---
+
+// Lista wszystkich modyfikatorów akordów (najdłuższe najpierw, aby regex działał poprawnie)
+const CHORD_MODIFIERS = [
+  // Złożone modyfikatory
+  'maj13', 'maj11', 'maj9', 'maj7',
+  'add13', 'add11', 'add9', 'add4', 'add2',
+  'sus4-3', '4-3',
+  'sus13', 'sus11', 'sus9', 'sus7', 'sus4', 'sus2', 'sus',
+  '(add9)', '(add4)', '(add11)', '(add13)',
+  '(#5#11)', '(#5#9)', '(b9)', '(b6)', '(b5)', '(#11)', '(#5)', '(#4)', '(no3)', '(11)', '(13)',
+  '#5#9', '#5#11',
+  'dim7', 'dim',
+  'aug',
+  'alt',
+  '#7',
+  'm13', 'm11', 'm9', 'm7', 'm6',
+  '69',
+  '13', '11', '9', '7', '6', '5', '2',
+  '∆', 'ø',
+  '#m', 'bm',
+  'm', '#', 'b'
+].sort((a, b) => b.length - a.length);
+
+/**
+ * Tworzy regex do znajdowania akordów w tekście
+ */
+const createChordRegex = () => {
+  const escapedModifiers = CHORD_MODIFIERS.map(m =>
+    m.replace(/[()#∆ø]/g, c => `\\${c}`)
+  );
+  const modifierPattern = `(?:${escapedModifiers.join('|')})*`;
+  return new RegExp(
+    `(?<![a-zA-Z0-9_"'=])([A-G][#b]?)(${modifierPattern})(\\/[A-G][#b]?)?(?![a-zA-Z0-9])`,
+    'g'
+  );
+};
+
+/**
+ * Formatuje wszystkie akordy w treści HTML z odpowiednimi rozmiarami czcionek
+ * - Główna litera: bazowy rozmiar, pogrubienie
+ * - Modyfikatory (#, b, m, 7, sus, etc.): -2pt
+ * - Slash i bas: -1pt
+ * - Znaki chromatyczne basu: -3pt
+ */
+const formatChordsWithFontSizes = (htmlContent, baseFontSize = 14) => {
+  if (!htmlContent) return htmlContent;
+
+  const modifierSize = baseFontSize - 2;
+  const bassSize = baseFontSize - 1;
+  const bassAccidentalSize = baseFontSize - 3;
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = htmlContent;
+
+  const processTextNodes = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      if (!text || !text.trim()) return;
+      if (!/[A-G]/.test(text)) return;
+
+      const chordRegex = createChordRegex();
+      let lastIndex = 0;
+      let match;
+      const fragments = [];
+      let hasMatch = false;
+
+      while ((match = chordRegex.exec(text)) !== null) {
+        hasMatch = true;
+
+        if (match.index > lastIndex) {
+          fragments.push(document.createTextNode(text.substring(lastIndex, match.index)));
+        }
+
+        const fullMatch = match[0];
+        const root = match[1];
+        const modifier = match[2] || '';
+        const bassWithSlash = match[3] || '';
+
+        const chordSpan = document.createElement('span');
+        chordSpan.setAttribute('data-chord', fullMatch);
+
+        // Główna litera (pogrubiona, bazowy rozmiar)
+        const rootMain = document.createElement('span');
+        rootMain.style.fontSize = `${baseFontSize}px`;
+        rootMain.style.fontWeight = 'bold';
+        rootMain.textContent = root.charAt(0);
+        chordSpan.appendChild(rootMain);
+
+        // Znak chromatyczny przy prymie (#/b) - mniejszy o 2pt
+        if (root.length > 1) {
+          const rootAccidental = document.createElement('span');
+          rootAccidental.style.fontSize = `${modifierSize}px`;
+          rootAccidental.textContent = root.substring(1);
+          chordSpan.appendChild(rootAccidental);
+        }
+
+        // Modyfikator - mniejszy o 2pt
+        if (modifier) {
+          const modSpan = document.createElement('span');
+          modSpan.style.fontSize = `${modifierSize}px`;
+          modSpan.textContent = modifier;
+          chordSpan.appendChild(modSpan);
+        }
+
+        // Bas (slash chord) - mniejszy o 1pt, znak chromatyczny o 3pt
+        if (bassWithSlash) {
+          const bass = bassWithSlash.substring(1);
+
+          const slashSpan = document.createElement('span');
+          slashSpan.style.fontSize = `${bassSize}px`;
+          slashSpan.textContent = '/';
+          chordSpan.appendChild(slashSpan);
+
+          const bassMain = document.createElement('span');
+          bassMain.style.fontSize = `${bassSize}px`;
+          bassMain.style.fontWeight = 'bold';
+          bassMain.textContent = bass.charAt(0);
+          chordSpan.appendChild(bassMain);
+
+          if (bass.length > 1) {
+            const bassAccidental = document.createElement('span');
+            bassAccidental.style.fontSize = `${bassAccidentalSize}px`;
+            bassAccidental.textContent = bass.substring(1);
+            chordSpan.appendChild(bassAccidental);
+          }
+        }
+
+        fragments.push(chordSpan);
+        lastIndex = match.index + fullMatch.length;
+      }
+
+      if (hasMatch) {
+        if (lastIndex < text.length) {
+          fragments.push(document.createTextNode(text.substring(lastIndex)));
+        }
+
+        const parent = node.parentNode;
+        fragments.forEach(frag => parent.insertBefore(frag, node));
+        parent.removeChild(node);
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.hasAttribute('data-chord')) return;
+      if (node.tagName === 'STYLE' || node.tagName === 'SCRIPT') return;
+      Array.from(node.childNodes).forEach(child => processTextNodes(child));
+    }
+  };
+
+  processTextNodes(tempDiv);
+  return tempDiv.innerHTML;
+};
+
+/**
+ * Formatuje akordy dla wydruku PDF z wyrównaniem do dołu
+ * Wszystkie elementy mają ten sam rozmiar czcionki, ale mniejsze są w tagu <small>
+ * z vertical-align: text-bottom dla wyrównania dolnych krawędzi
+ */
+const formatChordsForPDF = (htmlContent, baseFontSize = 14) => {
+  if (!htmlContent) return htmlContent;
+
+  // Rozmiary czcionek
+  const mainSize = baseFontSize;
+  const smallSize = Math.round(baseFontSize * 0.7); // 70% dla modyfikatorów
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = htmlContent;
+
+  const processTextNodes = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      if (!text || !text.trim()) return;
+      if (!/[A-G]/.test(text)) return;
+
+      const chordRegex = createChordRegex();
+      let lastIndex = 0;
+      let match;
+      const fragments = [];
+      let hasMatch = false;
+
+      while ((match = chordRegex.exec(text)) !== null) {
+        hasMatch = true;
+
+        if (match.index > lastIndex) {
+          fragments.push(document.createTextNode(text.substring(lastIndex, match.index)));
+        }
+
+        const fullMatch = match[0];
+        const root = match[1];
+        const modifier = match[2] || '';
+        const bassWithSlash = match[3] || '';
+
+        // Kontener akordu - używamy display:inline-flex z align-items:baseline
+        const chordSpan = document.createElement('span');
+        chordSpan.setAttribute('data-chord', fullMatch);
+        chordSpan.style.whiteSpace = 'nowrap';
+        chordSpan.style.display = 'inline';
+        chordSpan.style.fontFamily = 'Arial, sans-serif';
+        chordSpan.style.color = '#000';
+
+        // Główna litera (pogrubiona, bazowy rozmiar)
+        const rootMain = document.createElement('span');
+        rootMain.style.fontSize = `${mainSize}px`;
+        rootMain.style.fontWeight = 'bold';
+        rootMain.textContent = root.charAt(0);
+        chordSpan.appendChild(rootMain);
+
+        // Znak chromatyczny przy prymie (#/b) - mniejszy, przesunięty w dół
+        if (root.length > 1) {
+          const rootAccidental = document.createElement('span');
+          rootAccidental.style.fontSize = `${smallSize}px`;
+          rootAccidental.style.position = 'relative';
+          rootAccidental.style.top = '4px';
+          rootAccidental.textContent = root.substring(1);
+          chordSpan.appendChild(rootAccidental);
+        }
+
+        // Modyfikator - mniejszy, przesunięty w dół
+        if (modifier) {
+          const modSpan = document.createElement('span');
+          modSpan.style.fontSize = `${smallSize}px`;
+          modSpan.style.position = 'relative';
+          modSpan.style.top = '4px';
+          modSpan.textContent = modifier;
+          chordSpan.appendChild(modSpan);
+        }
+
+        // Bas (slash chord)
+        if (bassWithSlash) {
+          const bass = bassWithSlash.substring(1);
+
+          const slashSpan = document.createElement('span');
+          slashSpan.style.fontSize = `${mainSize}px`;
+          slashSpan.textContent = '/';
+          chordSpan.appendChild(slashSpan);
+
+          const bassMain = document.createElement('span');
+          bassMain.style.fontSize = `${mainSize}px`;
+          bassMain.style.fontWeight = 'bold';
+          bassMain.textContent = bass.charAt(0);
+          chordSpan.appendChild(bassMain);
+
+          if (bass.length > 1) {
+            const bassAccidental = document.createElement('span');
+            bassAccidental.style.fontSize = `${smallSize}px`;
+            bassAccidental.style.position = 'relative';
+            bassAccidental.style.top = '4px';
+            bassAccidental.textContent = bass.substring(1);
+            chordSpan.appendChild(bassAccidental);
+          }
+        }
+
+        fragments.push(chordSpan);
+        lastIndex = match.index + fullMatch.length;
+      }
+
+      if (hasMatch) {
+        if (lastIndex < text.length) {
+          fragments.push(document.createTextNode(text.substring(lastIndex)));
+        }
+
+        const parent = node.parentNode;
+        fragments.forEach(frag => parent.insertBefore(frag, node));
+        parent.removeChild(node);
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.hasAttribute('data-chord')) return;
+      if (node.tagName === 'STYLE' || node.tagName === 'SCRIPT') return;
+      Array.from(node.childNodes).forEach(child => processTextNodes(child));
+    }
+  };
+
+  processTextNodes(tempDiv);
+  return tempDiv.innerHTML;
+};
 
 // --- KOMPONENTY POMOCNICZE DLA GRAFIKU ---
 
@@ -1005,8 +1416,13 @@ function SongDetailsModal({ song, onClose, onEdit }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [downloadingFile, setDownloadingFile] = useState(null);
 
-  // Transpozycja
-  const [transposeSteps, setTransposeSteps] = useState(0);
+  // Transpozycja - używamy tonacji docelowej (zgodnie z wytycznymi PDF)
+  const [targetKey, setTargetKey] = useState(song?.key || '');
+
+  // Reset targetKey gdy zmieni się pieśń
+  React.useEffect(() => {
+    setTargetKey(song?.key || '');
+  }, [song?.key]);
 
   // Funkcja pobierania pliku (obejście cross-origin)
   const handleDownloadFile = async (url, filename) => {
@@ -1064,15 +1480,22 @@ function SongDetailsModal({ song, onClose, onEdit }) {
     setLoadingHistory(false);
   }
 
-  // FUNKCJA GENEROWANIA I POBIERANIA PDF
+  // FUNKCJA GENEROWANIA I POBIERANIA PDF (z poprawnym zapisem enharmonicznym wg PDF)
   const handleDownloadPDF = async () => {
+      // Użyj transpozycji do tonacji docelowej z poprawnym zapisem enharmonicznym
       let transposedChords = song.chords_bars
-        ? transposeLine(song.chords_bars, transposeSteps)
+        ? (isTransposed
+            ? transposeLineToKey(song.chords_bars, originalKey, targetKey)
+            : song.chords_bars)
         : "";
+
+      // Formatuj akordy dla PDF (czarna czcionka, Arial, wyrównanie do baseline)
+      transposedChords = formatChordsForPDF(transposedChords, 11);
+
       // Dostosuj style dla PDF - zmniejsz szerokości i marginesy, zachowaj strukturę
       transposedChords = transposedChords
         .replace(/background:\s*rgba\(255,\s*192,\s*203,\s*0\.15\)\s*;?/gi, '')
-        .replace(/color:\s*inherit\s*;?/gi, 'color: #ec4899;')
+        .replace(/color:\s*inherit\s*;?/gi, 'color: #000;')
         // Zmniejsz szerokości taktów dla PDF
         .replace(/min-width:\s*80px/gi, 'min-width: 50px')
         .replace(/min-width:\s*100px/gi, 'min-width: 60px')
@@ -1084,9 +1507,12 @@ function SongDetailsModal({ song, onClose, onEdit }) {
         // Zmniejsz marginesy dla PDF
         .replace(/margin:\s*4px\s*0/gi, 'margin: 2px 0')
         .replace(/overflow:\s*hidden/gi, 'overflow: visible')
-        // Upewnij się, że border-left jest widoczny
-        .replace(/border-left:\s*2px\s*solid\s*currentColor/gi, 'border-left: 2px solid #ec4899');
-      const currentKey = toFlatKey(transposeChord(song.key, transposeSteps));
+        // Zmień kolory kresek taktów na czarny
+        .replace(/border-left:\s*[\d.]+px\s*solid\s*currentColor/gi, 'border-left: 1px solid #000')
+        .replace(/border-right:\s*[\d.]+px\s*solid\s*currentColor/gi, 'border-right: 1px solid #000')
+        .replace(/border-left:\s*2px\s*solid\s*#ec4899/gi, 'border-left: 1px solid #000')
+        .replace(/border-right:\s*2px\s*solid\s*#ec4899/gi, 'border-right: 1px solid #000');
+      const currentKey = targetKey || originalKey || '-';
 
       // Tworzymy element HTML z pieśnią
       const container = document.createElement('div');
@@ -1100,20 +1526,20 @@ function SongDetailsModal({ song, onClose, onEdit }) {
       container.innerHTML = `
         <div style="padding: 15px 0; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f0f0;">
           <div style="flex: 1;">
-            <h1 style="font-size: 28px; font-weight: 700; color: #ec4899; margin: 0;">${song.title}</h1>
+            <h1 style="font-size: 28px; font-weight: 700; color: #333; margin: 0;">${song.title}</h1>
           </div>
           <div style="display: flex; gap: 10px; align-items: stretch;">
-            <div style="background: #fef3f8; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="background: #f5f5f5; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center; border: 1px solid #e0e0e0;">
               <div style="font-size: 8px; color: #999; font-weight: 600; text-transform: uppercase; margin-bottom: 3px;">Tonacja</div>
-              <div style="font-size: 16px; color: #ec4899; font-weight: 700;">${currentKey || '-'}</div>
+              <div style="font-size: 16px; color: #333; font-weight: 700;">${currentKey || '-'}</div>
             </div>
-            <div style="background: #fef3f8; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="background: #f5f5f5; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center; border: 1px solid #e0e0e0;">
               <div style="font-size: 8px; color: #999; font-weight: 600; text-transform: uppercase; margin-bottom: 3px;">Tempo</div>
-              <div style="font-size: 13px; color: #ec4899; font-weight: 700;">${song.tempo ? song.tempo + ' BPM' : '-'}</div>
+              <div style="font-size: 13px; color: #333; font-weight: 700;">${song.tempo ? song.tempo + ' BPM' : '-'}</div>
             </div>
-            <div style="background: #fef3f8; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="background: #f5f5f5; padding: 8px 12px; border-radius: 6px; text-align: center; min-width: 65px; display: flex; flex-direction: column; justify-content: center; border: 1px solid #e0e0e0;">
               <div style="font-size: 8px; color: #999; font-weight: 600; text-transform: uppercase; margin-bottom: 3px;">Metrum</div>
-              <div style="font-size: 16px; color: #ec4899; font-weight: 700;">${song.meter || '-'}</div>
+              <div style="font-size: 16px; color: #333; font-weight: 700;">${song.meter || '-'}</div>
             </div>
           </div>
         </div>
@@ -1124,12 +1550,12 @@ function SongDetailsModal({ song, onClose, onEdit }) {
             <pre style="font-family: Arial, sans-serif; white-space: pre-wrap; font-size: 9px; line-height: 1.6; color: #333; margin: 0;">${song.lyrics || 'Brak tekstu'}</pre>
           </div>
 
-          <div style="background: #fef3f8; border-radius: 6px; padding: 12px; border: 1px solid #fce7f3;">
-            <div style="font-size: 9px; text-transform: uppercase; color: #999; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #fce7f3;">
+          <div style="background: #fafafa; border-radius: 6px; padding: 12px; border: 1px solid #e5e5e5;">
+            <div style="font-size: 9px; text-transform: uppercase; color: #999; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #e5e5e5;">
               Akordy w taktach
-              ${transposeSteps !== 0 ? `<span style="background: #ec4899; color: white; padding: 2px 5px; border-radius: 3px; font-size: 7px; margin-left: 6px; text-transform: none;">transp. ${transposeSteps > 0 ? '+' + transposeSteps : transposeSteps}</span>` : ''}
+              ${isTransposed ? `<span style="background: #333; color: white; padding: 2px 5px; border-radius: 3px; font-size: 7px; margin-left: 6px; text-transform: none;">transp. ${originalKey} → ${targetKey}</span>` : ''}
             </div>
-            <div style="font-family: 'Courier New', monospace; font-size: 9px; line-height: 1.6; color: #ec4899; white-space: pre-wrap;">${transposedChords || 'Brak akordów'}</div>
+            <div style="font-family: Arial, sans-serif; font-size: 11px; line-height: 1.6; color: #000; white-space: pre-wrap;">${transposedChords || 'Brak akordów'}</div>
           </div>
         </div>
 
@@ -1201,14 +1627,22 @@ function SongDetailsModal({ song, onClose, onEdit }) {
       }
   };
 
-  // Obliczamy transponowane wartości do wyświetlenia
-  // Mapowanie krzyżyków na bemole tylko dla wyświetlanej tonacji
-  const SHARP_TO_FLAT_KEY = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb" };
-  const transposedKey = transposeChord(song.key, transposeSteps);
-  const displayKey = SHARP_TO_FLAT_KEY[transposedKey] || transposedKey;
-  const displayChords = song.chords_bars 
-    ? transposeLine(song.chords_bars, transposeSteps)
+  // Obliczamy transponowane wartości do wyświetlenia (zgodnie z wytycznymi PDF)
+  // Używamy tonacji docelowej z poprawnym zapisem enharmonicznym
+  const originalKey = song.key || '';
+  const displayKey = targetKey || originalKey || '-';
+  const isTransposed = originalKey && targetKey && originalKey !== targetKey;
+
+  // Transponuj akordy do nowej tonacji z poprawnym zapisem enharmonicznym
+  // Następnie zastosuj formatowanie czcionek (główna litera większa, modyfikatory mniejsze)
+  const transposedChords = song.chords_bars
+    ? (isTransposed
+        ? transposeLineToKey(song.chords_bars, originalKey, targetKey)
+        : song.chords_bars)
     : (song.chords || "Brak układu...");
+
+  // Zastosuj formatowanie rozmiaru czcionek dla akordów (14px bazowy)
+  const displayChords = formatChordsWithFontSizes(transposedChords, 14);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
@@ -1267,16 +1701,36 @@ function SongDetailsModal({ song, onClose, onEdit }) {
                     {/* PŁASKI PASEK: TONACJA | TEMPO | METRUM */}
                     <div className="flex flex-wrap items-center gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
                         
-                        {/* TONACJA + TRANSPOZYCJA */}
+                        {/* TONACJA ORYGINALNA */}
                         <div className="flex items-center gap-3 bg-white dark:bg-gray-800 px-4 py-2 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                             <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase">
                                 <Music size={14}/> Tonacja
                             </div>
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => setTransposeSteps(s => s - 1)} className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition"><Minus size={12}/></button>
-                                <span className="font-mono text-lg font-bold text-pink-600 dark:text-pink-400 min-w-[24px] text-center">{displayKey || "-"}</span>
-                                <button onClick={() => setTransposeSteps(s => s + 1)} className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition"><Plus size={12}/></button>
+                            <span className="font-mono text-lg font-bold text-pink-600 dark:text-pink-400 min-w-[24px] text-center">{song.key || "-"}</span>
+                        </div>
+
+                        {/* TRANSPOZYCJA - wybór tonacji docelowej (wg wytycznych PDF) */}
+                        <div className="flex items-center gap-3 bg-purple-50 dark:bg-purple-900/20 px-4 py-2 rounded-xl shadow-sm border border-purple-200 dark:border-purple-700">
+                            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 text-xs font-bold uppercase">
+                                Transponuj do
                             </div>
+                            <select
+                                value={targetKey}
+                                onChange={(e) => setTargetKey(e.target.value)}
+                                className="h-8 px-3 text-sm font-bold bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-600 rounded-lg text-purple-700 dark:text-purple-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            >
+                                {KEYS.map((k) => (
+                                    <option key={k} value={k}>{k}</option>
+                                ))}
+                            </select>
+                            {isTransposed && (
+                                <button
+                                    onClick={() => setTargetKey(originalKey)}
+                                    className="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 underline"
+                                >
+                                    Reset
+                                </button>
+                            )}
                         </div>
 
                         {/* TEMPO */}
@@ -1316,7 +1770,7 @@ function SongDetailsModal({ song, onClose, onEdit }) {
                         <div className="bg-pink-50/50 dark:bg-gray-800 rounded-xl p-5 border border-pink-100 dark:border-gray-700">
                             <div className="flex justify-between items-center mb-3">
                                 <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Akordy w taktach</h3>
-                                {transposeSteps !== 0 && <span className="text-[10px] font-bold text-pink-600 dark:text-pink-400 bg-pink-100 dark:bg-pink-900 px-2 py-0.5 rounded">TRANSPONOWANO ({transposeSteps > 0 ? `+${transposeSteps}` : transposeSteps})</span>}
+                                {isTransposed && <span className="text-[10px] font-bold text-pink-600 dark:text-pink-400 bg-pink-100 dark:bg-pink-900 px-2 py-0.5 rounded">TRANSPONOWANO ({originalKey} → {targetKey})</span>}
                             </div>
                             {/* Ukryj różowe tło komórek w widoku szczegółów */}
                             <style>{`

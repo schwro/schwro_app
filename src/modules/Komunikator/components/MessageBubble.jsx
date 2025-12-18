@@ -87,8 +87,13 @@ export default function MessageBubble({
 
   return (
     <div className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''} group`}>
-      {showAvatar && !isOwn && (
-        <UserAvatar user={message.sender} size="sm" className="flex-shrink-0 mt-1" />
+      {/* Avatar lub placeholder dla wyrównania */}
+      {!isOwn && (
+        showAvatar ? (
+          <UserAvatar user={message.sender} size="sm" className="flex-shrink-0 mt-1" />
+        ) : (
+          <div className="w-8 flex-shrink-0" />
+        )
       )}
 
       <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>

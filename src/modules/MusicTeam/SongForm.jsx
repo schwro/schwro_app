@@ -33,27 +33,381 @@ const DEGREE_LABELS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 // I=dur, II=moll, III=moll, IV=dur, V=dur, VI=moll, VII=zmniejszony
 const DEFAULT_CHORD_TYPES = ['', 'm', 'm', '', '', 'm', 'dim'];
 
+// Chromatyczna skala (używamy bemoli i krzyżyków odpowiednio)
+const CHROMATIC_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const CHROMATIC_NOTES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+// Mapowanie enharmoniczne (np. C# = Db)
+const ENHARMONIC_MAP = {
+  'C#': 'Db', 'Db': 'C#',
+  'D#': 'Eb', 'Eb': 'D#',
+  'E#': 'F', 'F': 'E#', 'Fb': 'E', 'E': 'Fb',
+  'F#': 'Gb', 'Gb': 'F#',
+  'G#': 'Ab', 'Ab': 'G#',
+  'A#': 'Bb', 'Bb': 'A#',
+  'B#': 'C', 'C': 'B#', 'Cb': 'B', 'B': 'Cb',
+};
+
+// Tonacje preferujące krzyżyki vs bemole
+const SHARP_KEYS = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
+const FLAT_KEYS = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'];
+
+/**
+ * Parsuje akord i zwraca jego składowe
+ * @param {string} chord - Akord do sparsowania (np. "Am7", "D/F#", "Bbmaj7")
+ * @returns {{ root: string, modifier: string, bass: string|null }}
+ */
+const parseChord = (chord) => {
+  if (!chord || typeof chord !== 'string') return null;
+
+  // Regex do parsowania akordu: root (litera + opcjonalnie # lub b) + modyfikator + opcjonalnie /bas
+  const match = chord.match(/^([A-G][#b]?)(.*)$/);
+  if (!match) return null;
+
+  const root = match[1];
+  let rest = match[2];
+
+  // Sprawdź czy jest bas (slash chord)
+  let bass = null;
+  let modifier = rest;
+
+  const slashIndex = rest.indexOf('/');
+  if (slashIndex !== -1) {
+    modifier = rest.substring(0, slashIndex);
+    bass = rest.substring(slashIndex + 1);
+  }
+
+  return { root, modifier, bass };
+};
+
+/**
+ * Pobiera indeks chromatyczny nuty (0-11)
+ * @param {string} note - Nuta (np. "C", "F#", "Bb")
+ * @returns {number} - Indeks 0-11
+ */
+const getNoteIndex = (note) => {
+  const noteUpper = note.charAt(0).toUpperCase();
+  const accidental = note.substring(1);
+
+  let baseIndex = { 'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11 }[noteUpper];
+  if (baseIndex === undefined) return -1;
+
+  if (accidental === '#') baseIndex = (baseIndex + 1) % 12;
+  else if (accidental === 'b') baseIndex = (baseIndex + 11) % 12;
+  else if (accidental === '##') baseIndex = (baseIndex + 2) % 12;
+  else if (accidental === 'bb') baseIndex = (baseIndex + 10) % 12;
+
+  return baseIndex;
+};
+
+/**
+ * Wybiera odpowiednią nutę dla danej tonacji (poprawny zapis enharmoniczny)
+ * @param {number} noteIndex - Indeks chromatyczny (0-11)
+ * @param {string} targetKey - Tonacja docelowa
+ * @returns {string} - Nuta z poprawnym zapisem
+ */
+const getNoteForKey = (noteIndex, targetKey) => {
+  // Jeśli nuta istnieje w skali docelowej tonacji, użyj jej
+  const targetScale = SCALE_DEGREES[targetKey];
+  if (targetScale) {
+    for (const note of targetScale) {
+      if (getNoteIndex(note) === noteIndex) {
+        return note;
+      }
+    }
+  }
+
+  // Użyj krzyżyków dla tonacji z krzyżykami, bemoli dla tonacji z bemolami
+  if (SHARP_KEYS.includes(targetKey)) {
+    return CHROMATIC_NOTES[noteIndex];
+  } else {
+    return CHROMATIC_NOTES_FLAT[noteIndex];
+  }
+};
+
+/**
+ * Transponuje pojedynczą nutę
+ * @param {string} note - Nuta do transpozycji
+ * @param {number} semitones - O ile półtonów transponować
+ * @param {string} targetKey - Tonacja docelowa (do wyboru zapisu enharmonicznego)
+ * @returns {string} - Przetransponowana nuta
+ */
+const transposeNote = (note, semitones, targetKey) => {
+  const noteIndex = getNoteIndex(note);
+  if (noteIndex === -1) return note;
+
+  const newIndex = (noteIndex + semitones + 12) % 12;
+  return getNoteForKey(newIndex, targetKey);
+};
+
+/**
+ * Transponuje akord z zachowaniem poprawnego zapisu enharmonicznego
+ * @param {string} chord - Akord do transpozycji (np. "Am7", "D/F#")
+ * @param {string} fromKey - Tonacja źródłowa
+ * @param {string} toKey - Tonacja docelowa
+ * @returns {string} - Przetransponowany akord
+ */
+const transposeChord = (chord, fromKey, toKey) => {
+  const parsed = parseChord(chord);
+  if (!parsed) return chord;
+
+  const fromIndex = getNoteIndex(fromKey);
+  const toIndex = getNoteIndex(toKey);
+  const semitones = toIndex - fromIndex;
+
+  const newRoot = transposeNote(parsed.root, semitones, toKey);
+  let result = newRoot + parsed.modifier;
+
+  if (parsed.bass) {
+    const newBass = transposeNote(parsed.bass, semitones, toKey);
+    result += '/' + newBass;
+  }
+
+  return result;
+};
+
+/**
+ * Formatuje akord z odpowiednimi rozmiarami czcionek zgodnie z wytycznymi:
+ * - Główna litera: rozmiar bazowy
+ * - Modyfikatory: 2pt mniejsze
+ * - Slash i bas: 1pt mniejszy, znaki przy basie: 3pt mniejsze
+ * @param {string} chord - Akord do sformatowania
+ * @param {number} baseFontSize - Bazowy rozmiar czcionki w px
+ * @returns {string} - HTML ze sformatowanym akordem
+ */
+const formatChordHtml = (chord, baseFontSize = 14) => {
+  const parsed = parseChord(chord);
+  if (!parsed) return chord;
+
+  const modifierSize = baseFontSize - 2;
+  const bassSize = baseFontSize - 1;
+  const bassAccidentalSize = baseFontSize - 3;
+
+  let html = `<span style="font-size:${baseFontSize}px;font-weight:bold;">${parsed.root.charAt(0)}</span>`;
+
+  // Jeśli pryma ma znak chromatyczny
+  if (parsed.root.length > 1) {
+    html += `<span style="font-size:${modifierSize}px;">${parsed.root.substring(1)}</span>`;
+  }
+
+  // Modyfikator
+  if (parsed.modifier) {
+    html += `<span style="font-size:${modifierSize}px;">${parsed.modifier}</span>`;
+  }
+
+  // Bas (slash chord)
+  if (parsed.bass) {
+    html += `<span style="font-size:${bassSize}px;">/</span>`;
+    html += `<span style="font-size:${bassSize}px;font-weight:bold;">${parsed.bass.charAt(0)}</span>`;
+
+    if (parsed.bass.length > 1) {
+      html += `<span style="font-size:${bassAccidentalSize}px;">${parsed.bass.substring(1)}</span>`;
+    }
+  }
+
+  return html;
+};
+
+/**
+ * Lista wszystkich modyfikatorów akordów (zgodnie z wytycznymi PDF)
+ * Sortujemy od najdłuższych do najkrótszych aby regex działał poprawnie
+ */
+const CHORD_MODIFIERS = [
+  // Złożone modyfikatory (najdłuższe najpierw)
+  'maj13', 'maj11', 'maj9', 'maj7',
+  'add13', 'add11', 'add9', 'add4', 'add2',
+  'sus4-3', '4-3',
+  'sus13', 'sus11', 'sus9', 'sus7', 'sus4', 'sus2', 'sus',
+  '(add9)', '(add4)', '(add11)', '(add13)',
+  '(#5#11)', '(#5#9)', '(b9)', '(b6)', '(b5)', '(#11)', '(#5)', '(#4)', '(no3)', '(11)', '(13)',
+  '#5#9', '#5#11',
+  'dim7', 'dim',
+  'aug',
+  'alt',
+  '#7',
+  'm13', 'm11', 'm9', 'm7', 'm6',
+  '69',
+  '13', '11', '9', '7', '6', '5', '2',
+  '∆', 'ø',
+  '#m', 'bm',
+  'm', '#', 'b'
+].sort((a, b) => b.length - a.length);
+
+/**
+ * Tworzy regex do znajdowania akordów w tekście
+ * Akord = [A-G] + opcjonalnie (#|b) + opcjonalnie modyfikator + opcjonalnie /bas
+ */
+const createChordRegex = () => {
+  // Budujemy regex dla modyfikatorów (escapujemy znaki specjalne)
+  const escapedModifiers = CHORD_MODIFIERS.map(m =>
+    m.replace(/[()#∆ø]/g, c => `\\${c}`)
+  );
+  const modifierPattern = `(?:${escapedModifiers.join('|')})*`;
+
+  // Pełny pattern akordu: litera + opcjonalnie #/b + modyfikatory + opcjonalnie /bas
+  // Nie łapiemy akordów które są już w tagach HTML (style=, class= etc.)
+  return new RegExp(
+    `(?<![a-zA-Z0-9_"'=])([A-G][#b]?)(${modifierPattern})(\\/[A-G][#b]?)?(?![a-zA-Z0-9])`,
+    'g'
+  );
+};
+
+/**
+ * Formatuje wszystkie akordy w treści HTML z odpowiednimi rozmiarami czcionek
+ * @param {string} htmlContent - Treść HTML z akordami
+ * @param {number} baseFontSize - Bazowy rozmiar czcionki w px
+ * @returns {string} - HTML ze sformatowanymi akordami
+ */
+const formatAllChordsInContent = (htmlContent, baseFontSize = 14) => {
+  if (!htmlContent) return htmlContent;
+
+  const modifierSize = baseFontSize - 2;
+  const bassSize = baseFontSize - 1;
+  const bassAccidentalSize = baseFontSize - 3;
+
+  // Używamy DOMParser do bezpiecznego przetwarzania HTML
+  // Przetwarzamy tylko tekstowe węzły, pomijając istniejące style
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = htmlContent;
+
+  // Funkcja rekurencyjnie przetwarzająca węzły tekstowe
+  const processTextNodes = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      if (!text || !text.trim()) return;
+
+      // Sprawdź czy tekst zawiera potencjalne akordy
+      if (!/[A-G]/.test(text)) return;
+
+      const chordRegex = createChordRegex();
+      let lastIndex = 0;
+      let match;
+      const fragments = [];
+      let hasMatch = false;
+
+      while ((match = chordRegex.exec(text)) !== null) {
+        hasMatch = true;
+
+        // Tekst przed akordem
+        if (match.index > lastIndex) {
+          fragments.push(document.createTextNode(text.substring(lastIndex, match.index)));
+        }
+
+        // Parsuj akord
+        const fullMatch = match[0];
+        const root = match[1]; // np. "A", "Bb", "F#"
+        const modifier = match[2] || ''; // np. "m7", "maj7", ""
+        const bassWithSlash = match[3] || ''; // np. "/G", "/F#"
+
+        // Twórz sformatowany element
+        const chordSpan = document.createElement('span');
+        chordSpan.setAttribute('data-chord', fullMatch);
+
+        // Główna litera (pierwsza litera nuty)
+        const rootMain = document.createElement('span');
+        rootMain.style.fontSize = `${baseFontSize}px`;
+        rootMain.style.fontWeight = 'bold';
+        rootMain.textContent = root.charAt(0);
+        chordSpan.appendChild(rootMain);
+
+        // Znak chromatyczny przy prymie (#/b)
+        if (root.length > 1) {
+          const rootAccidental = document.createElement('span');
+          rootAccidental.style.fontSize = `${modifierSize}px`;
+          rootAccidental.textContent = root.substring(1);
+          chordSpan.appendChild(rootAccidental);
+        }
+
+        // Modyfikator
+        if (modifier) {
+          const modSpan = document.createElement('span');
+          modSpan.style.fontSize = `${modifierSize}px`;
+          modSpan.textContent = modifier;
+          chordSpan.appendChild(modSpan);
+        }
+
+        // Bas (slash chord)
+        if (bassWithSlash) {
+          const bass = bassWithSlash.substring(1); // usuń "/"
+
+          const slashSpan = document.createElement('span');
+          slashSpan.style.fontSize = `${bassSize}px`;
+          slashSpan.textContent = '/';
+          chordSpan.appendChild(slashSpan);
+
+          const bassMain = document.createElement('span');
+          bassMain.style.fontSize = `${bassSize}px`;
+          bassMain.style.fontWeight = 'bold';
+          bassMain.textContent = bass.charAt(0);
+          chordSpan.appendChild(bassMain);
+
+          if (bass.length > 1) {
+            const bassAccidental = document.createElement('span');
+            bassAccidental.style.fontSize = `${bassAccidentalSize}px`;
+            bassAccidental.textContent = bass.substring(1);
+            chordSpan.appendChild(bassAccidental);
+          }
+        }
+
+        fragments.push(chordSpan);
+        lastIndex = match.index + fullMatch.length;
+      }
+
+      // Tekst po ostatnim akordzie
+      if (hasMatch) {
+        if (lastIndex < text.length) {
+          fragments.push(document.createTextNode(text.substring(lastIndex)));
+        }
+
+        // Zastąp oryginalny węzeł tekstowy
+        const parent = node.parentNode;
+        fragments.forEach(frag => parent.insertBefore(frag, node));
+        parent.removeChild(node);
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      // Pomijamy elementy które już mają data-chord (już sformatowane)
+      if (node.hasAttribute('data-chord')) return;
+
+      // Pomijamy style i script
+      if (node.tagName === 'STYLE' || node.tagName === 'SCRIPT') return;
+
+      // Przetwarzaj dzieci (kopiujemy listę bo będziemy modyfikować DOM)
+      Array.from(node.childNodes).forEach(child => processTextNodes(child));
+    }
+  };
+
+  processTextNodes(tempDiv);
+  return tempDiv.innerHTML;
+};
+
 // Stałe dla edytora akordów
 const TAB_SIZE = 8; // Ilość spacji dla Tab
 const SMALL_TAB_SIZE = 4; // Ilość spacji dla Shift+Tab
 const BAR_WIDTH = 80; // Szerokość taktu w pikselach (stała jak w Pages)
 
-// Szablon taktu ze stałą szerokością (inline-block) - z marginesami dla odstępu między wierszami
-const createBar = () => `<span class="bar" style="display:inline-block;min-width:${BAR_WIDTH}px;border-left:2px solid currentColor;padding-left:4px;margin:4px 0;vertical-align:top;">\u200B</span>`;
-const createBarEnd = () => `<span style="border-left:2px solid currentColor;margin:4px 0;"></span>`;
+// Funkcje tworzące szablony taktów (wywoływane przy każdym użyciu)
+// Każdy takt ma lewą kreskę, ostatni takt w grupie ma też prawą kreskę
+// Używamy 1px szerokości dla cieńszych, równych kresek
+const BAR_LINE_WIDTH = '1px';
+const createBar = () => `<span class="bar" style="display:inline-block;min-width:${BAR_WIDTH}px;border-left:${BAR_LINE_WIDTH} solid currentColor;padding:0 4px;margin:4px 0;vertical-align:top;">\u200B</span>`;
+const createDoubleBar = () => `<span class="bar" style="display:inline-block;min-width:${BAR_WIDTH * 2}px;border-left:${BAR_LINE_WIDTH} solid currentColor;padding:0 4px;margin:4px 0;vertical-align:top;">\u200B</span>`;
+// Ostatni takt - ma też prawą kreskę żeby zamknąć grupę
+const createLastBar = () => `<span class="bar bar-last" style="display:inline-block;min-width:${BAR_WIDTH}px;border-left:${BAR_LINE_WIDTH} solid currentColor;border-right:${BAR_LINE_WIDTH} solid currentColor;padding:0 4px;margin:4px 0;vertical-align:top;">\u200B</span>`;
+const createLastDoubleBar = () => `<span class="bar bar-last" style="display:inline-block;min-width:${BAR_WIDTH * 2}px;border-left:${BAR_LINE_WIDTH} solid currentColor;border-right:${BAR_LINE_WIDTH} solid currentColor;padding:0 4px;margin:4px 0;vertical-align:top;">\u200B</span>`;
 
-// Szablony sekcji muzycznych z elementami o stałej szerokości
+// Szablony sekcji muzycznych - używamy funkcji getTemplate zamiast statycznych template
+// Ostatni takt ma border-right żeby zamknąć grupę
 const MUSIC_SECTIONS = [
-  { label: 'Intro', template: `<div>[INTRO]</div><div>${createBar()}${createBar()}${createBar()}${createBar()}${createBarEnd()}</div>`, isHtml: true },
-  { label: 'Zwrotka', template: `<div>[ZWROTKA]</div><div>${createBar()}${createBar()}${createBar()}${createBar()}${createBarEnd()}</div>`, isHtml: true },
-  { label: 'Refren', template: `<div>[REFREN]</div><div>${createBar()}${createBar()}${createBar()}${createBar()}${createBarEnd()}</div>`, isHtml: true },
-  { label: 'Bridge', template: `<div>[BRIDGE]</div><div>${createBar()}${createBar()}${createBar()}${createBar()}${createBarEnd()}</div>`, isHtml: true },
-  { label: 'Solo', template: `<div>[SOLO]</div><div>${createBar()}${createBar()}${createBar()}${createBar()}${createBarEnd()}</div>`, isHtml: true },
-  { label: 'Outro', template: `<div>[OUTRO]</div><div>${createBar()}${createBar()}${createBar()}${createBar()}${createBarEnd()}</div>`, isHtml: true },
-  { label: 'Pusty Takt', template: `${createBar()}`, isHtml: true },
-  { label: '4 Takty', template: `<div>${createBar()}${createBar()}${createBar()}${createBar()}${createBarEnd()}</div>`, isHtml: true },
+  { label: 'Intro', getTemplate: () => `<div>[INTRO]</div><div>${createBar()}${createBar()}${createBar()}${createLastBar()}</div>`, isHtml: true },
+  { label: 'Zwrotka', getTemplate: () => `<div>[ZWROTKA]</div><div>${createBar()}${createBar()}${createBar()}${createLastBar()}</div>`, isHtml: true },
+  { label: 'Refren', getTemplate: () => `<div>[REFREN]</div><div>${createBar()}${createBar()}${createBar()}${createLastBar()}</div>`, isHtml: true },
+  { label: 'Bridge', getTemplate: () => `<div>[BRIDGE]</div><div>${createBar()}${createBar()}${createBar()}${createLastBar()}</div>`, isHtml: true },
+  { label: 'Solo', getTemplate: () => `<div>[SOLO]</div><div>${createBar()}${createBar()}${createBar()}${createLastBar()}</div>`, isHtml: true },
+  { label: 'Outro', getTemplate: () => `<div>[OUTRO]</div><div>${createBar()}${createBar()}${createBar()}${createLastBar()}</div>`, isHtml: true },
+  { label: 'Pusty Takt', getTemplate: () => `${createLastBar()}`, isHtml: true },
+  { label: 'Podwójny Takt', getTemplate: () => `${createLastDoubleBar()}`, isHtml: true },
+  { label: '4 Takty', getTemplate: () => `<div>${createBar()}${createBar()}${createBar()}${createLastBar()}</div>`, isHtml: true },
 ];
-
 
 // --- KOMPONENTY POMOCNICZE ---
 
@@ -230,8 +584,18 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
 
   const handleSubmit = async () => {
     if (!formData.title) return alert("Podaj tytuł pieśni");
-    console.log('SongForm handleSubmit - formData:', formData);
-    await onSave(formData);
+
+    // Formatuj akordy w chords_bars przed zapisem (zgodnie z wytycznymi PDF)
+    // Rozmiary: główna litera = bazowy, modyfikatory = -2pt, slash/bas = -1pt, znaki przy basie = -3pt
+    const formattedData = {
+      ...formData,
+      chords_bars: formData.chords_bars
+        ? formatAllChordsInContent(formData.chords_bars, chordsFontSize)
+        : formData.chords_bars
+    };
+
+    console.log('SongForm handleSubmit - formattedData:', formattedData);
+    await onSave(formattedData);
   };
 
   // Funkcje do obsługi załączników
@@ -386,11 +750,10 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
     if (!editor) return;
     editor.focus();
     document.execCommand('insertText', false, text);
-    setTimeout(() => {
-      const newContent = editor.innerHTML;
-      setFormData({ ...formData, chords_bars: newContent });
-      saveToHistory(newContent);
-    }, 0);
+    // Synchronicznie aktualizuj stan
+    const newContent = editor.innerHTML;
+    setFormData(prev => ({ ...prev, chords_bars: newContent }));
+    saveToHistory(newContent);
   };
 
   // Funkcja wstawiania HTML w miejscu kursora (z fallbackiem na Selection API)
@@ -399,54 +762,124 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
     if (!editor) return;
     editor.focus();
 
-    // Spróbuj użyć execCommand
-    const success = document.execCommand('insertHTML', false, html);
+    // Użyj Selection API bezpośrednio (bardziej niezawodne)
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
 
-    // Jeśli execCommand nie zadziałał, użyj Selection API
-    if (!success) {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
+      // Stwórz tymczasowy element do parsowania HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
 
-        // Stwórz tymczasowy element do parsowania HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-
-        // Wstaw wszystkie węzły z HTML
-        const fragment = document.createDocumentFragment();
-        while (tempDiv.firstChild) {
-          fragment.appendChild(tempDiv.firstChild);
-        }
-
-        range.insertNode(fragment);
-
-        // Przesuń kursor na koniec wstawionego elementu
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
+      // Wstaw wszystkie węzły z HTML
+      const fragment = document.createDocumentFragment();
+      let lastNode = null;
+      while (tempDiv.firstChild) {
+        lastNode = tempDiv.firstChild;
+        fragment.appendChild(lastNode);
       }
+
+      range.insertNode(fragment);
+
+      // Przesuń kursor na koniec wstawionego elementu
+      if (lastNode) {
+        range.setStartAfter(lastNode);
+        range.setEndAfter(lastNode);
+      }
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else {
+      // Fallback: użyj execCommand
+      document.execCommand('insertHTML', false, html);
     }
 
-    setTimeout(() => {
-      const newContent = editor.innerHTML;
-      setFormData({ ...formData, chords_bars: newContent });
-      saveToHistory(newContent);
-    }, 0);
+    // Synchronicznie aktualizuj stan
+    const newContent = editor.innerHTML;
+    setFormData(prev => ({ ...prev, chords_bars: newContent }));
+    saveToHistory(newContent);
   };
 
   // Funkcja wstawiania sekcji muzycznej (szablon - może być HTML lub tekst)
   const insertSection = (section) => {
+    // Wywołaj getTemplate() aby uzyskać świeży szablon przy każdym użyciu
+    const template = section.getTemplate();
     if (section.isHtml) {
-      insertHtmlAtCursor(section.template);
+      insertHtmlAtCursor(template);
     } else {
-      insertTextAtCursor(section.template);
+      insertTextAtCursor(template);
     }
   };
 
-  // Funkcja wstawiania akordów (w nawiasach kwadratowych, pogrubione i pomarańczowe)
+  // Funkcja wstawiania taktu - jeśli kursor jest wewnątrz taktu, wstaw po nim
+  // Poprzedni takt traci prawą kreskę, nowy takt ma prawą kreskę
+  const insertBarAtCursor = () => {
+    const editor = chordsTextareaRef.current;
+    if (!editor) return;
+    editor.focus();
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      insertHtmlAtCursor(createLastBar());
+      return;
+    }
+
+    // Sprawdź czy kursor jest wewnątrz taktu (span.bar)
+    let node = selection.anchorNode;
+    let barElement = null;
+
+    // Przeszukaj w górę drzewa DOM szukając elementu .bar
+    while (node && node !== editor) {
+      if (node.nodeType === Node.ELEMENT_NODE && node.classList && node.classList.contains('bar')) {
+        barElement = node;
+        break;
+      }
+      node = node.parentNode;
+    }
+
+    if (barElement) {
+      // Kursor jest wewnątrz taktu - wstaw nowy takt PO tym takcie
+
+      // Usuń prawą kreskę z aktualnego taktu (zamień na zwykły takt)
+      barElement.style.borderRight = 'none';
+      barElement.classList.remove('bar-last');
+
+      // Stwórz nowy takt z prawą kreską
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = createLastBar();
+      const newBar = tempDiv.firstChild;
+
+      // Wstaw po aktualnym takcie
+      if (barElement.nextSibling) {
+        barElement.parentNode.insertBefore(newBar, barElement.nextSibling);
+      } else {
+        barElement.parentNode.appendChild(newBar);
+      }
+
+      // Przesuń kursor do nowego taktu
+      const range = document.createRange();
+      range.setStart(newBar, 0);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      // Aktualizuj stan
+      const newContent = editor.innerHTML;
+      setFormData(prev => ({ ...prev, chords_bars: newContent }));
+      saveToHistory(newContent);
+    } else {
+      // Kursor nie jest w takcie - wstaw normalnie
+      insertHtmlAtCursor(createLastBar());
+    }
+  };
+
+  // Funkcja wstawiania akordów z formatowaniem zgodnym z wytycznymi:
+  // - główna litera: rozmiar bazowy, pogrubiona
+  // - modyfikatory (#, b, m, 7, maj7, etc.): 2pt mniejsze
+  // - slash i bas: 1pt mniejszy, znaki przy basie: 3pt mniejsze
   const insertChordAbove = (chord) => {
-    insertHtmlAtCursor(`<span style="color: #ea580c; font-weight: bold;">[${chord}]</span>`);
+    const formattedChord = formatChordHtml(chord, chordsFontSize);
+    insertHtmlAtCursor(`<span style="color: #ea580c;">[${formattedChord}]</span>`);
   };
 
   // Funkcja wstawiania akordu na podstawie stopnia (I-VII)
@@ -479,10 +912,10 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
       return;
     }
 
-    // | (pipe) = wstaw takt ze stałą szerokością (HTML)
+    // | (pipe) = wstaw takt ze stałą szerokością (HTML) - jeśli w takcie, wstaw po nim
     if (e.key === '|') {
       e.preventDefault();
-      insertHtmlAtCursor(createBar());
+      insertBarAtCursor();
       return;
     }
 
@@ -744,6 +1177,7 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                               </button>
                             );
                           })}
+
                         </div>
                       </div>
 
@@ -845,9 +1279,9 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
 
                         {/* Szybkie znaki */}
                         <button
-                          onMouseDown={(e) => { e.preventDefault(); insertHtmlAtCursor(createBar()); }}
+                          onMouseDown={(e) => { e.preventDefault(); insertBarAtCursor(); }}
                           className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 text-[11px] font-bold rounded-md border border-orange-200 dark:border-orange-800 transition font-mono"
-                          title="Takt ze stałą szerokością"
+                          title="Takt ze stałą szerokością (jeśli w takcie - dodaje po nim)"
                         >
                           |takt|
                         </button>
