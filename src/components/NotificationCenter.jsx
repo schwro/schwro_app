@@ -78,7 +78,7 @@ export default function NotificationCenter({ userEmail }) {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-[1000]">
+        <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-[1000]">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <h3 className="font-bold text-gray-900 dark:text-white">Powiadomienia</h3>
@@ -96,7 +96,7 @@ export default function NotificationCenter({ userEmail }) {
           </div>
 
           {/* Lista powiadomień - tylko nieprzeczytane */}
-          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+          <div className="max-h-[60vh] sm:max-h-[400px] overflow-y-auto custom-scrollbar">
             {unreadNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4">
                 <Bell size={48} className="text-gray-300 dark:text-gray-600 mb-3" />

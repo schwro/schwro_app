@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 
-import Sidebar from './components/Sidebar';
+import Sidebar, { SidebarProvider } from './components/Sidebar';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import ToastContainer from './components/ToastNotification';
@@ -168,17 +168,18 @@ export default function App() {
   return (
     <BrowserRouter>
       <PermissionsProvider>
-        <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-          <Sidebar />
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
-            {/* Toast Notifications - fixed positioned */}
-            <ToastNotifications userEmail={session.user?.email} />
-            {/* PWA Install Prompt */}
-            <InstallPrompt />
-            {/* Offline Banner */}
-            <OfflineBanner />
-            <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <SidebarProvider>
+          <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+            <Sidebar />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
+              {/* Toast Notifications - fixed positioned */}
+              <ToastNotifications userEmail={session.user?.email} />
+              {/* PWA Install Prompt */}
+              <InstallPrompt />
+              {/* Offline Banner */}
+              <OfflineBanner />
+              <main className="flex-1 overflow-y-auto p-4 lg:p-6 custom-scrollbar">
               <Routes>
                 <Route path="/" element={<PersonalDashboard user={session.user} />} />
                 <Route path="/programs" element={<ProgramsDashboard />} />
@@ -239,9 +240,10 @@ export default function App() {
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
-            </main>
+              </main>
+            </div>
           </div>
-        </div>
+        </SidebarProvider>
       </PermissionsProvider>
     </BrowserRouter>
   );

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
-import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart, LayoutDashboard, FileText, MessageCircle, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart, LayoutDashboard, FileText, MessageCircle, Sparkles, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
 import { useUserRole } from '../hooks/useUserRole';
 import { usePermissions } from '../contexts/PermissionsContext';
 import { supabase } from '../lib/supabase';
@@ -57,13 +57,53 @@ function Tooltip({ children, text, show }) {
 // Import stempla
 import stampLogo from '../media/stamp.png';
 
+// Kontekst dla mobile sidebar
+const SidebarContext = createContext({
+  isOpen: false,
+  toggle: () => {},
+  close: () => {}
+});
+
+export function useSidebar() {
+  return useContext(SidebarContext);
+}
+
+export function SidebarProvider({ children }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggle = () => setIsOpen(prev => !prev);
+  const close = () => setIsOpen(false);
+
+  return (
+    <SidebarContext.Provider value={{ isOpen, toggle, close }}>
+      {children}
+    </SidebarContext.Provider>
+  );
+}
+
+// Przycisk hamburgera do navbar
+export function MobileMenuButton() {
+  const { toggle } = useSidebar();
+
+  return (
+    <button
+      onClick={toggle}
+      className="lg:hidden p-2 -ml-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+      aria-label="Menu"
+    >
+      <Menu size={24} />
+    </button>
+  );
+}
+
 export default function Sidebar() {
   const location = useLocation();
   const active = location.pathname;
   const { userRole } = useUserRole();
   const { permissions, appSettings: moduleSettings, logoUrl } = usePermissions();
+  const { isOpen, close } = useSidebar();
 
-  // Stan zwinięcia sidebara (z localStorage)
+  // Stan zwinięcia sidebara (z localStorage) - tylko dla desktop
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
@@ -73,6 +113,23 @@ export default function Sidebar() {
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', isCollapsed);
   }, [isCollapsed]);
+
+  // Zamknij mobile sidebar przy zmianie ścieżki
+  useEffect(() => {
+    close();
+  }, [location.pathname]);
+
+  // Zablokuj scroll body gdy sidebar mobilny jest otwarty
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   // Dynamiczne moduły z bazy danych
   const [dynamicModules, setDynamicModules] = useState([]);
@@ -213,49 +270,49 @@ export default function Sidebar() {
   const moduleLinks = dynamicModules.length > 0 ? getDynamicModuleLinks() : staticModuleLinks;
   const allLinks = [...coreLinks, ...moduleLinks];
 
-  return (
-    <div className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700 shadow-lg flex flex-col transition-all duration-300 h-full relative z-40`}>
-
-      {/* Przycisk zwijania */}
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full shadow-md flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-pink-600 dark:hover:text-pink-400 hover:border-pink-300 dark:hover:border-pink-600 transition-all z-50"
-        title={isCollapsed ? 'Rozwiń sidebar' : 'Zwiń sidebar'}
-      >
-        {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-      </button>
-
+  // Wspólna zawartość sidebara
+  const SidebarContent = ({ isMobile = false }) => (
+    <>
       {/* LOGO */}
-      <div className={`${isCollapsed ? 'p-3' : 'p-6'} border-b border-gray-200/50 dark:border-gray-700 flex justify-center items-center shrink-0`}>
-        {isCollapsed ? (
+      <div className={`${isCollapsed && !isMobile ? 'p-3' : 'p-4 lg:p-6'} border-b border-gray-200/50 dark:border-gray-700 flex justify-center items-center shrink-0 relative`}>
+        {isMobile && (
+          <button
+            onClick={close}
+            className="absolute top-4 right-4 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+          >
+            <X size={24} />
+          </button>
+        )}
+        {isCollapsed && !isMobile ? (
           // Stempel gdy sidebar jest zwinięty
           <img src={stampLogo} alt="Logo" className="w-12 h-14 object-contain transition-all duration-300" />
         ) : logoUrl ? (
           <img
             src={logoUrl}
             alt="Logo"
-            className="w-full max-h-32 object-contain rounded-md transition-all duration-300"
+            className="w-full max-h-20 lg:max-h-32 object-contain rounded-md transition-all duration-300"
             onError={(e) => { e.target.style.display = 'none'; }}
           />
         ) : (
-          <div className="w-full aspect-video text-4xl bg-gradient-to-br from-pink-100 to-orange-100 dark:from-pink-900 dark:to-orange-900 rounded-xl flex items-center justify-center text-pink-600 dark:text-pink-300 font-bold shadow-sm transition-all duration-300">
+          <div className="w-full aspect-video text-3xl lg:text-4xl bg-gradient-to-br from-pink-100 to-orange-100 dark:from-pink-900 dark:to-orange-900 rounded-xl flex items-center justify-center text-pink-600 dark:text-pink-300 font-bold shadow-sm transition-all duration-300">
             S
           </div>
         )}
       </div>
 
       {/* NAWIGACJA */}
-      <nav className={`flex-1 ${isCollapsed ? 'p-2' : 'p-4'} space-y-1 overflow-y-auto custom-scrollbar mt-2`}>
+      <nav className={`flex-1 ${isCollapsed && !isMobile ? 'p-2' : 'p-3 lg:p-4'} space-y-1 overflow-y-auto custom-scrollbar mt-2`}>
         {allLinks.filter(l => l.show).map(link => {
           const isActive = active === link.path;
           return (
-            <Tooltip key={link.path} text={link.label} show={isCollapsed}>
+            <Tooltip key={link.path} text={link.label} show={isCollapsed && !isMobile}>
               <Link
                 to={link.path}
-                className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-xl transition-all group ${isActive ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-lg shadow-pink-500/30 font-medium' : 'text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-700 hover:text-pink-600 dark:hover:text-white'}`}
+                onClick={isMobile ? close : undefined}
+                className={`flex items-center ${isCollapsed && !isMobile ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-xl transition-all group ${isActive ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-lg shadow-pink-500/30 font-medium' : 'text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-700 hover:text-pink-600 dark:hover:text-white'}`}
               >
                 <link.icon size={20} className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-pink-500 dark:group-hover:text-white transition-colors'}`} />
-                {!isCollapsed && <span className="text-sm truncate">{link.label}</span>}
+                {(isMobile || !isCollapsed) && <span className="text-sm truncate">{link.label}</span>}
               </Link>
             </Tooltip>
           );
@@ -264,18 +321,50 @@ export default function Sidebar() {
 
       {/* USTAWIENIA */}
       {hasModuleAccess('module:settings') && (
-        <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t border-gray-200/50 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 shrink-0`}>
-          <Tooltip text="Ustawienia" show={isCollapsed}>
+        <div className={`${isCollapsed && !isMobile ? 'p-2' : 'p-3 lg:p-4'} border-t border-gray-200/50 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 shrink-0`}>
+          <Tooltip text="Ustawienia" show={isCollapsed && !isMobile}>
             <Link
               to="/settings"
-              className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-xl transition-all w-full ${active === '/settings' ? 'bg-gray-800 dark:bg-gray-900 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'}`}
+              onClick={isMobile ? close : undefined}
+              className={`flex items-center ${isCollapsed && !isMobile ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-xl transition-all w-full ${active === '/settings' ? 'bg-gray-800 dark:bg-gray-900 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'}`}
             >
               <Settings size={20} className="shrink-0" />
-              {!isCollapsed && <span className="text-sm font-medium">Ustawienia</span>}
+              {(isMobile || !isCollapsed) && <span className="text-sm font-medium">Ustawienia</span>}
             </Link>
           </Tooltip>
         </div>
       )}
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <div className={`hidden lg:flex ${isCollapsed ? 'w-20' : 'w-64'} bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700 shadow-lg flex-col transition-all duration-300 h-full relative z-40`}>
+        {/* Przycisk zwijania */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="absolute -right-3 top-20 w-6 h-6 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full shadow-md flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-pink-600 dark:hover:text-pink-400 hover:border-pink-300 dark:hover:border-pink-600 transition-all z-50"
+          title={isCollapsed ? 'Rozwiń sidebar' : 'Zwiń sidebar'}
+        >
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
+        <SidebarContent isMobile={false} />
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {isOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-50 transition-opacity"
+          onClick={close}
+        />
+      )}
+
+      {/* Mobile Sidebar Drawer */}
+      <div className={`lg:hidden fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ease-out flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <SidebarContent isMobile={true} />
+      </div>
+    </>
   );
 }

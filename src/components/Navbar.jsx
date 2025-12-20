@@ -3,6 +3,7 @@ import { Sun, Moon, LogOut, User as UserIcon, Circle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import NotificationCenter from './NotificationCenter';
 import { useMyPresence, statusLabels } from '../hooks/usePresence';
+import { MobileMenuButton } from './Sidebar';
 
 export default function Navbar({ user, darkMode, toggleTheme }) {
   const [userProfile, setUserProfile] = useState(null);
@@ -60,15 +61,16 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
 
   return (
     // z-40 aby navbar był nad treścią, ale pod modalami (z-[100])
-    <div className="relative z-40 h-16 bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700 flex items-center justify-between px-6 transition-colors duration-300">
+    <div className="relative z-40 h-14 lg:h-16 bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700 flex items-center justify-between px-3 lg:px-6 transition-colors duration-300">
 
       {/* Lewa strona */}
-      <div className="flex items-center gap-4">
-        {/* Breadcrumbs itp. */}
+      <div className="flex items-center gap-2 lg:gap-4">
+        {/* Hamburger menu - tylko mobile */}
+        <MobileMenuButton />
       </div>
 
       {/* Prawa strona */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 lg:gap-4">
 
         {/* Przełącznik Motywu */}
         <button
@@ -76,18 +78,18 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
           className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
           title="Zmień motyw"
         >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          {darkMode ? <Sun size={18} className="lg:w-5 lg:h-5" /> : <Moon size={18} className="lg:w-5 lg:h-5" />}
         </button>
 
         {/* Powiadomienia */}
         <NotificationCenter userEmail={user?.email} />
 
-        <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1"></div>
+        <div className="hidden sm:block h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
         {/* Profil Użytkownika */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 lg:gap-3">
           {/* Status i nazwa - z menu do zmiany statusu */}
-          <div className="text-right hidden md:block relative">
+          <div className="text-right hidden lg:block relative">
             <p className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-none">
               {displayName}
             </p>
@@ -122,7 +124,7 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
 
           {/* Kontener grupy musi być relative */}
           <div className="relative group">
-            <button className="relative w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-600 p-[2px] cursor-pointer shadow-md hover:shadow-lg transition-all block">
+            <button className="relative w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-600 p-[2px] cursor-pointer shadow-md hover:shadow-lg transition-all block">
               {userProfile?.avatar_url ? (
                 <img
                   src={userProfile.avatar_url}
