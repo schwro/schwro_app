@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { FolderOpen, Search, Plus, X } from 'lucide-react';
+import { FolderOpen, Search, X } from 'lucide-react';
 import useFolders from './hooks/useFolders';
 import useMaterials from './hooks/useMaterials';
 import FolderTree from './components/FolderTree';
@@ -135,7 +135,7 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
             <FolderOpen className="text-white" size={20} />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Materialy</h1>
+            <h1 className="text-lg font-semibold text-gray-900">Materiały</h1>
             <p className="text-xs text-gray-500">Pliki i dokumenty</p>
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Szukaj plikow..."
+              placeholder="Szukaj plików..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
@@ -190,32 +190,6 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
           </div>
 
           <div className="p-4 h-full overflow-y-auto">
-            {/* New folder button */}
-            {canEdit && (
-              <button
-                onClick={() => handleCreateFolder(null)}
-                className="w-full flex items-center gap-2 px-3 py-2 mb-4 text-sm text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-              >
-                <Plus size={18} />
-                Nowy folder
-              </button>
-            )}
-
-            {/* Root level (all files) */}
-            <button
-              onClick={() => handleSelectFolder(null)}
-              className={`
-                w-full flex items-center gap-2 px-3 py-2 mb-2 text-sm rounded-lg transition-colors
-                ${selectedFolderId === null && !isSearching
-                  ? 'bg-amber-100 text-amber-800'
-                  : 'text-gray-600 hover:bg-gray-100'
-                }
-              `}
-            >
-              <FolderOpen size={18} />
-              Wszystkie pliki
-            </button>
-
             {/* Folder tree */}
             <FolderTree
               folders={folders}
@@ -252,7 +226,7 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
                   onClick={handleClearSearch}
                   className="ml-2 text-amber-600 hover:text-amber-800 underline"
                 >
-                  Wyczysc
+                  Wyczyść
                 </button>
               </p>
             </div>

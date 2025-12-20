@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DollarSign, TrendingUp, Receipt, Calendar, Plus, Upload, Tag, X, FileText, Trash2, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, BarChart3, PieChart, ArrowUpRight, ArrowDownRight, Users, Building2, Settings, Banknote, CreditCard } from 'lucide-react';
+import { DollarSign, TrendingUp, Receipt, Calendar, Plus, Upload, Tag, X, FileText, Trash2, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, BarChart3, PieChart, ArrowUpRight, ArrowDownRight, Users, Building2, Settings, Banknote, CreditCard, FolderOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 import CustomSelect from '../components/CustomSelect';
+import MaterialsTab from './shared/MaterialsTab';
 
 // Hook to calculate dropdown position with smart positioning (up/down)
 function useDropdownPosition(triggerRef, isOpen) {
@@ -780,6 +781,17 @@ const FinanceModule = () => {
         >
           <BarChart3 size={16} className="inline mr-2" />
           Raporty
+        </button>
+        <button
+          onClick={() => setActiveTab('files')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'files'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <FolderOpen size={16} className="inline mr-2" />
+          Pliki
         </button>
       </div>
 
@@ -1788,6 +1800,13 @@ const FinanceModule = () => {
               );
             })()}
           </div>
+        </section>
+      )}
+
+      {/* FILES TAB */}
+      {activeTab === 'files' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+          <MaterialsTab moduleKey="finance" canEdit={true} />
         </section>
       )}
 

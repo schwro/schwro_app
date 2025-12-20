@@ -5,10 +5,11 @@ import {
   Plus, Search, Trash2, Edit2, X, User,
   Mail, Phone, CheckCircle, XCircle,
   MapPin, Users, Home, Calendar, FileText,
-  Upload, Eye, Check
+  Upload, Eye, Check, FolderOpen
 } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
 import CustomDatePicker from '../components/CustomDatePicker';
+import MaterialsTab from './shared/MaterialsTab';
 
 // --- STAŁE DANE ---
 
@@ -30,6 +31,7 @@ const MINISTRY_OPTIONS = [
 // --- GŁÓWNY KOMPONENT ---
 
 export default function Members() {
+  const [activeTab, setActiveTab] = useState('members');
   const [members, setMembers] = useState([]);
   const [homeGroups, setHomeGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -407,6 +409,34 @@ export default function Members() {
         </h1>
       </div>
 
+      {/* TAB NAVIGATION */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
+        <button
+          onClick={() => setActiveTab('members')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'members'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Users size={16} className="inline mr-2" />
+          Członkowie
+        </button>
+        <button
+          onClick={() => setActiveTab('files')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'files'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <FolderOpen size={16} className="inline mr-2" />
+          Pliki
+        </button>
+      </div>
+
+      {/* MEMBERS TAB */}
+      {activeTab === 'members' && (
       <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 transition-colors duration-300">
 
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -538,6 +568,14 @@ export default function Members() {
           )}
         </div>
       </section>
+      )}
+
+      {/* FILES TAB */}
+      {activeTab === 'files' && (
+        <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden transition-colors duration-300">
+          <MaterialsTab moduleKey="members" canEdit={true} />
+        </section>
+      )}
 
       {/* MODAL */}
       {showModal && document.body && createPortal(

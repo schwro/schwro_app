@@ -111,7 +111,7 @@ export default function CustomModule() {
 
       {/* TAB NAVIGATION - identyczny styl jak MediaTeamModule */}
       {tabs.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2 flex-wrap">
           {tabs.map(tab => {
             const TabIcon = getIconComponent(tab.icon);
             return (

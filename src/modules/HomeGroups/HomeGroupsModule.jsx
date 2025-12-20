@@ -6,10 +6,11 @@ import {
   Plus, Search, Trash2, X, Users, MapPin, Calendar,
   UserPlus, BookOpen, Upload, Link as LinkIcon,
   LayoutGrid, List, CheckSquare, MessageSquare, Send,
-  User, FileText, DollarSign
+  User, FileText, DollarSign, FolderOpen
 } from 'lucide-react';
 import FinanceTab from '../shared/FinanceTab';
 import EventsTab from '../shared/EventsTab';
+import MaterialsTab from '../shared/MaterialsTab';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
 
@@ -764,6 +765,17 @@ export default function HomeGroupsModule() {
           <Calendar size={16} className="inline mr-2" />
           Wydarzenia
         </button>
+        <button
+          onClick={() => setActiveTab('files')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'files'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <FolderOpen size={16} className="inline mr-2" />
+          Pliki
+        </button>
       </div>
 
       {/* GROUPS TAB */}
@@ -1212,6 +1224,13 @@ export default function HomeGroupsModule() {
       {activeTab === 'events' && (
         <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[50] transition-colors">
           <EventsTab ministry="homegroups" currentUserEmail={currentUserEmail} />
+        </section>
+      )}
+
+      {/* FILES TAB */}
+      {activeTab === 'files' && (
+        <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden transition-colors">
+          <MaterialsTab moduleKey="homegroups" canEdit={true} />
         </section>
       )}
 

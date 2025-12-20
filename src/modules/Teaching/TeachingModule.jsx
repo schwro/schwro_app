@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import {
   Calendar, BookOpen, Users, Plus, Edit3, Trash2, X, Loader2,
-  MessageSquare, ChevronDown, ChevronUp, Image as ImageIcon, Check, Mail, ArrowLeft
+  MessageSquare, ChevronDown, ChevronUp, Image as ImageIcon, Check, Mail, ArrowLeft, FolderOpen
 } from 'lucide-react';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
 import WallTab from '../shared/WallTab';
+import MaterialsTab from '../shared/MaterialsTab';
 import CustomDatePicker from '../../components/CustomDatePicker';
 
 // ================== TABLE SELECT COMPONENT ==================
@@ -1124,6 +1125,17 @@ export default function TeachingModule() {
             Mówcy
           </button>
         )}
+        <button
+          onClick={() => setActiveTab('files')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'files'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <FolderOpen size={16} className="inline mr-2" />
+          Pliki
+        </button>
       </div>
 
       {/* CONTENT */}
@@ -1169,6 +1181,12 @@ export default function TeachingModule() {
           onEdit={editSpeaker}
           onDelete={deleteSpeaker}
         />
+      )}
+
+      {activeTab === 'files' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <MaterialsTab moduleKey="teaching" canEdit={true} />
+        </section>
       )}
     </div>
   );

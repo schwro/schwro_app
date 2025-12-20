@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare, Download, Play, Pause, Volume2, Users } from 'lucide-react';
+import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare, Download, Play, Pause, Volume2, Users, FolderOpen } from 'lucide-react';
 import SongForm from './SongForm';
 import FinanceTab from '../shared/FinanceTab';
 import WallTab from '../shared/WallTab';
 import EventsTab from '../shared/EventsTab';
+import MaterialsTab from '../shared/MaterialsTab';
 import RolesTab from '../../components/RolesTab';
 import CustomSelect from '../../components/CustomSelect';
 import { useUserRole } from '../../hooks/useUserRole';
@@ -2510,6 +2511,17 @@ export default function WorshipModule() {
             Służby
           </button>
         )}
+        <button
+          onClick={() => setActiveTab('files')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'files'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <FolderOpen size={16} className="inline mr-2" />
+          Pliki
+        </button>
       </div>
 
       {/* SEKCJA: WYDARZENIA */}
@@ -2711,6 +2723,13 @@ export default function WorshipModule() {
           teamMembers={team}
           memberTable="worship_team"
         />
+      )}
+
+      {/* FILES TAB */}
+      {activeTab === 'files' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+          <MaterialsTab moduleKey="worship" canEdit={true} />
+        </section>
       )}
 
       {/* Modale */}

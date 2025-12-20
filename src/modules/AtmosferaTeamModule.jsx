@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import {
   Plus, Search, Trash2, X, Calendar, User, Users,
-  Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, HeartHandshake, DollarSign, Tag, Upload, FileText
+  Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, HeartHandshake, DollarSign, Tag, Upload, FileText, FolderOpen
 } from 'lucide-react';
 import FinanceTab from './shared/FinanceTab';
 import EventsTab from './shared/EventsTab';
+import MaterialsTab from './shared/MaterialsTab';
 import RolesTab from '../components/RolesTab';
 import CustomSelect from '../components/CustomSelect';
 import { useUserRole } from '../hooks/useUserRole';
@@ -766,6 +767,17 @@ export default function AtmosferaTeamModule() {
             Służby
           </button>
         )}
+        <button
+          onClick={() => setActiveTab('files')}
+          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+            activeTab === 'files'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <FolderOpen size={16} className="inline mr-2" />
+          Pliki
+        </button>
       </div>
 
       {/* WYDARZENIA */}
@@ -855,6 +867,13 @@ export default function AtmosferaTeamModule() {
           teamMembers={team}
           memberTable="atmosfera_members"
         />
+      )}
+
+      {/* FILES TAB */}
+      {activeTab === 'files' && (
+        <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden transition-colors duration-300">
+          <MaterialsTab moduleKey="atmosfera" canEdit={true} />
+        </section>
       )}
 
       {/* MODAL CZŁONKA */}

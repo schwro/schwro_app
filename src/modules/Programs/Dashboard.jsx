@@ -350,7 +350,7 @@ const MultiSelect = ({ label, options, value, onChange, absentMembers = [] }) =>
                 onClick={() => toggleSelection(person.full_name, isAbsent)}
               >
                 <span className={isAbsent ? 'line-through decoration-gray-400' : ''}>
-                  {person.full_name} <span className="text-xs ml-1 opacity-60">({person.role})</span>
+                  {person.full_name}{person.role && <span className="text-xs ml-1 opacity-60">({person.role})</span>}
                 </span>
                 {isSelected && !isAbsent && <Check size={16} />}
                 {isAbsent && <UserX size={16} className="text-red-300 dark:text-red-800" />}
@@ -896,6 +896,181 @@ const AbsenceMultiSelectDashboard = ({ options, value, onChange }) => {
   );
 };
 
+// --- DYNAMICZNA SEKCJA SCENA ---
+
+const DynamicScenaSection = ({
+  program,
+  setProgram,
+  teachingSpeakers,
+  mcMembers,
+  mcRoles,
+  mcMemberRoles
+}) => {
+  // Buduj pola dynamicznie na podstawie służb MC
+  const mcFields = mcRoles.length > 0
+    ? mcRoles.map(role => ({ key: role.field_key, label: role.name, roleId: role.id, source: 'mc' }))
+    : [
+        { key: 'prowadzenie', label: 'Prowadzenie', roleId: null, source: 'mc' },
+        { key: 'modlitwa', label: 'Modlitwa', roleId: null, source: 'mc' },
+        { key: 'wieczerza', label: 'Wieczerza', roleId: null, source: 'mc' },
+        { key: 'ogloszenia', label: 'Ogłoszenia', roleId: null, source: 'mc' }
+      ];
+
+  // Pole kazania - zawsze pobierane z Nauczanie (teaching_speakers)
+  const kazanieField = { key: 'kazanie', label: 'Kazanie', source: 'teaching' };
+
+  // Połącz pola: pola MC + kazanie
+  // Znajdź gdzie wstawić kazanie (po prowadzeniu/modlitwie, przed wieczerzą)
+  const allFields = [];
+  let kazanieAdded = false;
+
+  for (const field of mcFields) {
+    allFields.push(field);
+    // Dodaj kazanie po modlitwie lub prowadzeniu (jeśli modlitwa nie istnieje)
+    if (!kazanieAdded && (field.key === 'modlitwa' || field.key === 'prowadzenie')) {
+      // Sprawdź czy następne pole to nie kazanie
+      const nextIdx = mcFields.indexOf(field) + 1;
+      if (nextIdx >= mcFields.length || mcFields[nextIdx].key !== 'kazanie') {
+        allFields.push(kazanieField);
+        kazanieAdded = true;
+      }
+    }
+  }
+
+  // Jeśli kazanie nie zostało dodane, dodaj na końcu
+  if (!kazanieAdded) {
+    allFields.push(kazanieField);
+  }
+
+  // Filtrowanie członków MC według służby
+  const getMcMembersForRole = (roleId) => {
+    if (!roleId || mcMemberRoles.length === 0) {
+      return mcMembers;
+    }
+    const assignedMemberIds = mcMemberRoles
+      .filter(mr => mr.role_id === roleId)
+      .map(mr => String(mr.member_id));
+
+    if (assignedMemberIds.length === 0) {
+      return mcMembers;
+    }
+
+    return mcMembers.filter(member => assignedMemberIds.includes(String(member.id)));
+  };
+
+  const mcScheduleKey = 'custom_mc_schedule';
+
+  // Zmiana w sekcji Scena synchronizuje się z grafikami MC i Nauczanie
+  const handleChange = (fieldKey, newValue, source) => {
+    if (source === 'teaching') {
+      // Zapisz do teaching - znajdź speaker_id po nazwie
+      const speaker = teachingSpeakers.find(s => s.name === newValue);
+      setProgram(prev => ({
+        ...prev,
+        teaching: {
+          ...prev.teaching,
+          speaker_id: speaker?.id || null,
+          speaker_name: newValue // Dodatkowe pole dla wyświetlania
+        }
+      }));
+    } else {
+      // Zapisz do custom_mc_schedule
+      setProgram(prev => ({
+        ...prev,
+        [mcScheduleKey]: {
+          ...prev[mcScheduleKey],
+          [fieldKey]: newValue
+        }
+      }));
+    }
+  };
+
+  // Pobierz wartość z grafiku Nauczanie
+  const getSpeakerFromTeaching = () => {
+    // Najpierw sprawdź czy jest speaker_name (nowe pole)
+    if (program.teaching?.speaker_name) {
+      return program.teaching.speaker_name;
+    }
+    // Fallback na speaker_id
+    if (program.teaching?.speaker_id) {
+      const speaker = teachingSpeakers.find(s => s.id === program.teaching.speaker_id);
+      return speaker?.name || '';
+    }
+    return '';
+  };
+
+  // Pobierz wartość z grafiku MC
+  const getMcValueFromSchedule = (fieldKey) => {
+    if (program[mcScheduleKey]?.[fieldKey]) {
+      return program[mcScheduleKey][fieldKey];
+    }
+    return '';
+  };
+
+  // Konwertuj mówców na format zgodny z MultiSelect (full_name)
+  const speakersAsMembers = teachingSpeakers.map(s => ({ id: s.id, full_name: s.name }));
+
+  return (
+    <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-6 h-full hover:shadow-xl transition relative z-0">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Scena</h3>
+      </div>
+      <div className="space-y-4">
+        {allFields.map(field => {
+          // Dla kazania - używaj mówców z Nauczanie
+          if (field.source === 'teaching') {
+            const displayValue = getSpeakerFromTeaching();
+
+            return speakersAsMembers.length > 0 ? (
+              <MultiSelect
+                key={field.key}
+                label={field.label}
+                options={speakersAsMembers}
+                value={displayValue}
+                onChange={(newValue) => handleChange(field.key, newValue, 'teaching')}
+                absentMembers={[]}
+              />
+            ) : (
+              <div key={field.key}>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{field.label}</label>
+                <input
+                  className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200"
+                  value={displayValue}
+                  onChange={e => handleChange(field.key, e.target.value, 'teaching')}
+                />
+              </div>
+            );
+          }
+
+          // Dla pól MC - używaj członków MC, wartość bezpośrednio z grafiku MC
+          const displayValue = getMcValueFromSchedule(field.key);
+          const membersForRole = getMcMembersForRole(field.roleId);
+
+          return membersForRole.length > 0 ? (
+            <MultiSelect
+              key={field.key}
+              label={field.label}
+              options={membersForRole}
+              value={displayValue}
+              onChange={(newValue) => handleChange(field.key, newValue, 'mc')}
+              absentMembers={[]}
+            />
+          ) : (
+            <div key={field.key}>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{field.label}</label>
+              <input
+                className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200"
+                value={displayValue}
+                onChange={e => handleChange(field.key, e.target.value, 'mc')}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // --- GŁÓWNY KOMPONENT ---
 
 export default function Dashboard() {
@@ -926,6 +1101,12 @@ export default function Dashboard() {
   const [mediaMemberRoles, setMediaMemberRoles] = useState([]);
   const [atmosferaMemberRoles, setAtmosferaMemberRoles] = useState([]);
 
+  // Dane dla sekcji Scena - synchronizacja z Nauczanie i MC
+  const [teachingSpeakers, setTeachingSpeakers] = useState([]);
+  const [mcMembers, setMcMembers] = useState([]);
+  const [mcRoles, setMcRoles] = useState([]);
+  const [mcMemberRoles, setMcMemberRoles] = useState([]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -938,6 +1119,7 @@ export default function Dashboard() {
     fetchKidsData();
     fetchTeamRoles();
     fetchAllTeams();
+    fetchScenaData();
   }, []);
 
   const fetchKidsData = async () => {
@@ -1019,6 +1201,45 @@ export default function Dashboard() {
     }
   };
 
+  // Pobieranie danych dla dynamicznej sekcji Scena
+  const fetchScenaData = async () => {
+    try {
+      // Pobierz mówców z modułu Nauczanie
+      const { data: speakers } = await supabase.from('teaching_speakers').select('*').order('name');
+      setTeachingSpeakers(speakers || []);
+
+      // Pobierz członków MC (custom module)
+      const { data: mcMembersData, error: mcError } = await supabase
+        .from('custom_mc_members')
+        .select('*')
+        .order('full_name');
+
+      if (!mcError) {
+        setMcMembers(mcMembersData || []);
+      }
+
+      // Pobierz służby dla MC
+      const { data: mcRolesData } = await supabase
+        .from('team_roles')
+        .select('*')
+        .eq('team_type', 'mc')
+        .eq('is_active', true)
+        .order('display_order');
+
+      setMcRoles(mcRolesData || []);
+
+      // Pobierz przypisania członków MC do służb
+      const { data: mcMemberRolesData } = await supabase
+        .from('team_member_roles')
+        .select('*')
+        .eq('member_table', 'custom_mc_members');
+
+      setMcMemberRoles(mcMemberRolesData || []);
+    } catch (err) {
+      console.error('Błąd pobierania danych Scena:', err);
+    }
+  };
+
   const handleSave = async () => {
     if (program.id) {
       await supabase.from('programs').update(program).eq('id', program.id);
@@ -1053,7 +1274,9 @@ export default function Dashboard() {
         worship: worshipRoles,
         media: mediaRoles,
         atmosfera: atmosferaRoles,
-        kidsGroups: kidsGroups
+        kidsGroups: kidsGroups,
+        mc: mcRoles,
+        teachingSpeakers: teachingSpeakers
       };
 
       // 1. Pobierz PDF na dysk lokalny
@@ -1572,7 +1795,14 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
-              <SectionCard title="Scena" dataKey="scena" program={program} setProgram={setProgram} fields={[{ key: 'prowadzenie', label: 'Prowadzenie:' }, { key: 'modlitwa', label: 'Modlitwa:' }, { key: 'kazanie', label: 'Kazanie:' }, { key: 'wieczerza', label: 'Wieczerza:' }, { key: 'ogloszenia', label: 'Ogłoszenia:' }]} />
+              <DynamicScenaSection
+                program={program}
+                setProgram={setProgram}
+                teachingSpeakers={teachingSpeakers}
+                mcMembers={mcMembers}
+                mcRoles={mcRoles}
+                mcMemberRoles={mcMemberRoles}
+              />
               <SzkolkaSection program={program} setProgram={setProgram} kidsGroups={kidsGroups} kidsTeachers={kidsTeachers} />
             </div>
           </div>

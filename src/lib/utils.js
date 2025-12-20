@@ -202,10 +202,33 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
       ? [{ key: 'temat', label: 'Temat lekcji' }, ...teamRoles.kidsGroups.map(g => ({ key: g.id, label: g.name }))]
       : [{ key: 'temat', label: 'Temat lekcji' }, { key: 'mlodsza', label: 'Grupa Młodsza' }, { key: 'srednia', label: 'Grupa Średnia' }, { key: 'starsza', label: 'Grupa Starsza' }];
 
+    // Dynamiczne pola dla Sceny - używa teamRoles.mc jeśli dostępne, lub fallback do statycznych
+    const mcFields = teamRoles.mc?.length > 0
+      ? teamRoles.mc.map(r => ({ key: r.field_key, label: r.name }))
+      : [{ key: 'prowadzenie', label: 'Prowadzenie' }, { key: 'modlitwa', label: 'Modlitwa' }, { key: 'wieczerza', label: 'Wieczerza' }, { key: 'ogloszenia', label: 'Ogłoszenia' }];
+
+    // Dodaj pole kazanie (z teaching)
+    const scenaFields = [...mcFields, { key: 'kazanie', label: 'Kazanie', source: 'teaching' }];
+
+    // Buduj dane dla Sceny z custom_mc_schedule i teaching
+    const scenaData = {};
+    mcFields.forEach(f => {
+      if (program.custom_mc_schedule?.[f.key]) {
+        scenaData[f.key] = program.custom_mc_schedule[f.key];
+      }
+    });
+    // Kazanie z teaching
+    if (program.teaching?.speaker_name) {
+      scenaData.kazanie = program.teaching.speaker_name;
+    } else if (program.teaching?.speaker_id && teamRoles.teachingSpeakers) {
+      const speaker = teamRoles.teachingSpeakers.find(s => s.id === program.teaching.speaker_id);
+      if (speaker) scenaData.kazanie = speaker.name;
+    }
+
     const sectionConfigs = [
       { title: 'Atmosfera Team', data: program.atmosfera_team, fields: atmosferaFields },
       { title: 'MediaTeam', data: program.produkcja, fields: mediaFields },
-      { title: 'Scena', data: program.scena, fields: [{ key: 'prowadzenie', label: 'Prowadzenie' }, { key: 'modlitwa', label: 'Modlitwa' }, { key: 'kazanie', label: 'Kazanie' }, { key: 'wieczerza', label: 'Wieczerza' }, { key: 'ogloszenia', label: 'Ogłoszenia' }] },
+      { title: 'Scena', data: scenaData, fields: scenaFields },
       { title: 'Szkółka Niedzielna', data: program.szkolka, fields: szkolkaFields },
       { title: 'Zespół Uwielbienia', data: program.zespol, fields: worshipFields }
     ];
