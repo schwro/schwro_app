@@ -10,6 +10,7 @@ export default function MembersTab({ moduleKey, moduleName }) {
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [form, setForm] = useState({ full_name: '', email: '', phone: '' });
+  const [tableExists, setTableExists] = useState(true);
 
   // Służby z team_roles
   const [moduleRoles, setModuleRoles] = useState([]);
@@ -44,22 +45,29 @@ export default function MembersTab({ moduleKey, moduleName }) {
   const fetchMembers = async () => {
     setLoading(true);
     try {
-      // Najpierw sprawdź czy tabela istnieje
-      const { error: checkError } = await supabase.from(tableName).select('id').limit(1);
-
-      if (checkError && checkError.code === '42P01') {
-        // Tabela nie istnieje
-        setMembers([]);
-        setLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase
         .from(tableName)
         .select('*')
         .order('full_name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        // Wykryj różne warianty błędu "tabela nie istnieje"
+        const errMsg = error.message?.toLowerCase() || '';
+        const isTableMissing = error.code === '42P01' ||
+          errMsg.includes('does not exist') ||
+          errMsg.includes('schema cache') ||
+          errMsg.includes('could not find');
+
+        if (isTableMissing) {
+          setTableExists(false);
+          setMembers([]);
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
+
+      setTableExists(true);
       setMembers(data || []);
     } catch (err) {
       console.error('Błąd pobierania członków:', err);
@@ -79,18 +87,6 @@ export default function MembersTab({ moduleKey, moduleName }) {
     m.full_name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
     m.email?.toLowerCase().includes(searchFilter.toLowerCase())
   );
-
-  // Próbuj utworzyć tabelę jeśli nie istnieje
-  const ensureTableExists = async () => {
-    try {
-      await supabase.rpc('create_custom_members_table', {
-        table_name: tableName
-      });
-      return true;
-    } catch (err) {
-      return false;
-    }
-  };
 
   // Pobierz służby członka do edycji
   const loadMemberRoles = (memberId) => {
@@ -115,17 +111,30 @@ export default function MembersTab({ moduleKey, moduleName }) {
     if (!form.full_name) return;
 
     try {
-      await ensureTableExists();
-
       let memberId = editingMember?.id;
+      let result;
 
       if (editingMember) {
-        const { error } = await supabase.from(tableName).update(form).eq('id', editingMember.id);
-        if (error) throw error;
+        result = await supabase.from(tableName).update(form).eq('id', editingMember.id);
       } else {
-        const { data: newMember, error } = await supabase.from(tableName).insert([form]).select().single();
-        if (error) throw error;
-        memberId = newMember.id;
+        result = await supabase.from(tableName).insert([form]).select().single();
+        if (result.data) memberId = result.data.id;
+      }
+
+      if (result.error) {
+        // Wykryj różne warianty błędu "tabela nie istnieje"
+        const errMsg = result.error.message?.toLowerCase() || '';
+        const isTableMissing = result.error.code === '42P01' ||
+          errMsg.includes('does not exist') ||
+          errMsg.includes('schema cache') ||
+          errMsg.includes('could not find');
+
+        if (isTableMissing) {
+          setTableExists(false);
+          setShowModal(false);
+          return;
+        }
+        throw result.error;
       }
 
       // Zapisz przypisania do służb
@@ -156,7 +165,7 @@ export default function MembersTab({ moduleKey, moduleName }) {
       fetchModuleRoles();
     } catch (err) {
       console.error('Błąd zapisu:', err);
-      alert('Błąd zapisu członka. Uruchom migrację SQL w Supabase Dashboard, aby włączyć automatyczne tworzenie tabel.');
+      alert('Błąd zapisu członka: ' + err.message);
     }
   };
 
@@ -204,6 +213,67 @@ export default function MembersTab({ moduleKey, moduleName }) {
     return (
       <div className="p-10 text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mx-auto"></div>
+      </div>
+    );
+  }
+
+  // Jeśli tabela nie istnieje, pokaż instrukcję
+  if (!tableExists) {
+    const sqlScript = `-- Utwórz tabelę ${tableName}
+CREATE TABLE ${tableName} (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  full_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  avatar_url TEXT,
+  notes TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Włącz RLS
+ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;
+
+-- Polityka dostępu dla zalogowanych użytkowników
+CREATE POLICY "${tableName}_policy" ON ${tableName}
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- Uprawnienia
+GRANT ALL ON ${tableName} TO authenticated;
+GRANT ALL ON ${tableName} TO anon;`;
+
+    return (
+      <div className="p-8 text-center">
+        <div className="max-w-2xl mx-auto bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-2">
+            Tabela nie istnieje
+          </h3>
+          <p className="text-yellow-700 dark:text-yellow-300 mb-4">
+            Aby korzystać z członków w tym module, utwórz tabelę w Supabase.
+          </p>
+          <div className="bg-gray-900 rounded-xl p-4 text-left overflow-x-auto">
+            <pre className="text-green-400 text-xs whitespace-pre">{sqlScript}</pre>
+          </div>
+          <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-4">
+            Skopiuj powyższy kod i wykonaj go w Supabase SQL Editor.
+          </p>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(sqlScript);
+              alert('Skopiowano do schowka!');
+            }}
+            className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded-xl hover:bg-yellow-700 transition"
+          >
+            Skopiuj SQL
+          </button>
+          <button
+            onClick={fetchMembers}
+            className="mt-4 ml-2 px-4 py-2 bg-pink-600 text-white rounded-xl hover:bg-pink-700 transition"
+          >
+            Odśwież
+          </button>
+        </div>
       </div>
     );
   }

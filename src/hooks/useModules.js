@@ -256,7 +256,7 @@ export function useModules() {
       console.error('Błąd dodawania zakładki:', err);
       return { success: false, error: err.message };
     }
-  }, [tabs]);
+  }, [tabs, modules]);
 
   // Aktualizuj zakładkę
   const updateTab = useCallback(async (tabId, moduleId, updates) => {

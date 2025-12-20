@@ -143,11 +143,25 @@ export default function DutyTab({ moduleKey, moduleName }) {
 
   const memberTableName = `custom_${moduleKey}_members`;
 
+  // Definicja struktury tabeli members
+  const MEMBERS_TABLE_COLUMNS = `
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    avatar_url TEXT,
+    notes TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  `;
+
   // Próbuj utworzyć tabelę członków jeśli nie istnieje
   const ensureMembersTableExists = async () => {
     try {
-      await supabase.rpc('create_custom_members_table', {
-        table_name: memberTableName
+      await supabase.rpc('create_dynamic_table', {
+        p_table_name: memberTableName,
+        p_columns: MEMBERS_TABLE_COLUMNS
       });
       return true;
     } catch (err) {

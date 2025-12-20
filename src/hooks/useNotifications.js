@@ -171,34 +171,65 @@ export function useNotifications(userEmail) {
     // Subskrypcja real-time - bez filtra (filtrujemy po stronie klienta)
     // Filtr z emailem może nie działać poprawnie ze znakiem @
     const channelName = `notifications-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const subscription = supabase
-      .channel(channelName)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications'
-      }, (payload) => {
-        const newNotification = payload.new;
+    let subscription = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+    let retryTimeout = null;
 
-        // Filtruj tylko powiadomienia dla tego użytkownika
-        if (newNotification.user_email !== userEmail) return;
+    const setupSubscription = () => {
+      // Użyj unikalnej nazwy kanału z timestampem aby uniknąć konfliktów
+      const uniqueChannelName = `${channelName}_${Date.now()}`;
 
-        // Dodaj do listy (unikaj duplikatów)
-        setNotifications(prev => {
-          if (prev.some(n => n.id === newNotification.id)) return prev;
-          return [newNotification, ...prev];
+      subscription = supabase
+        .channel(uniqueChannelName, {
+          config: {
+            broadcast: { self: true },
+            presence: { key: userEmail }
+          }
+        })
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications'
+        }, (payload) => {
+          const newNotification = payload.new;
+
+          // Filtruj tylko powiadomienia dla tego użytkownika
+          if (newNotification.user_email !== userEmail) return;
+
+          // Dodaj do listy (unikaj duplikatów)
+          setNotifications(prev => {
+            if (prev.some(n => n.id === newNotification.id)) return prev;
+            return [newNotification, ...prev];
+          });
+          setUnreadCount(prev => prev + 1);
+
+          // Pokaż wewnętrzny toast
+          showToast(newNotification);
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            retryCount = 0; // Reset po udanym połączeniu
+          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+            // Ciche ponowne próby bez logowania - powiadomienia działają też bez realtime
+            if (retryCount < maxRetries) {
+              retryCount++;
+              retryTimeout = setTimeout(() => {
+                if (subscription) {
+                  supabase.removeChannel(subscription);
+                }
+                setupSubscription();
+              }, 5000 * retryCount);
+            }
+          }
         });
-        setUnreadCount(prev => prev + 1);
+    };
 
-        // Pokaż wewnętrzny toast
-        showToast(newNotification);
-      })
-      .subscribe((status) => {
-        console.log('Notifications subscription status:', status);
-      });
+    setupSubscription();
 
     return () => {
-      supabase.removeChannel(subscription);
+      if (retryTimeout) clearTimeout(retryTimeout);
+      if (subscription) supabase.removeChannel(subscription);
     };
   }, [userEmail, fetchNotifications, showToast]);
 

@@ -204,6 +204,30 @@ const MINISTRY_CONFIG = {
   }
 };
 
+// Funkcja do uzyskania konfiguracji dla modułu (obsługuje niestandardowe moduły)
+function getModuleConfig(ministry) {
+  // Jeśli istnieje predefiniowana konfiguracja, użyj jej
+  if (MINISTRY_CONFIG[ministry]) {
+    return MINISTRY_CONFIG[ministry];
+  }
+
+  // Dla niestandardowych modułów - użyj domyślnej konfiguracji z dynamiczną nazwą tabeli
+  return {
+    tableName: `custom_${ministry}_events`,
+    icon: '📅',
+    title: 'Wydarzenia',
+    defaultType: 'spotkanie',
+    types: [
+      { value: 'spotkanie', label: 'Spotkanie' },
+      { value: 'szkolenie', label: 'Szkolenie' },
+      { value: 'warsztat', label: 'Warsztat' },
+      { value: 'wydarzenie', label: 'Wydarzenie' },
+      { value: 'inne', label: 'Inne' }
+    ],
+    color: 'pink'
+  };
+}
+
 // Modal edycji wydarzenia
 const EventModal = ({ event, onClose, onSave, onDelete, config }) => {
   const [form, setForm] = useState({
@@ -311,12 +335,13 @@ const EventModal = ({ event, onClose, onSave, onDelete, config }) => {
 
 // Główny komponent EventsTab
 export default function EventsTab({ ministry, currentUserEmail }) {
-  const config = MINISTRY_CONFIG[ministry];
+  const config = getModuleConfig(ministry);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [tableExists, setTableExists] = useState(true);
 
   useEffect(() => {
     fetchEvents();
@@ -329,16 +354,36 @@ export default function EventsTab({ ministry, currentUserEmail }) {
     today.setHours(0, 0, 0, 0);
     const todayISO = today.toISOString();
 
-    const { data, error } = await supabase
-      .from(config.tableName)
-      .select('*')
-      .gte('start_date', todayISO)
-      .order('start_date', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from(config.tableName)
+        .select('*')
+        .gte('start_date', todayISO)
+        .order('start_date', { ascending: true });
 
-    if (error) {
-      console.error('Błąd pobierania wydarzeń:', error);
-    } else {
-      setEvents(data || []);
+      if (error) {
+        // Wykryj różne warianty błędu "tabela nie istnieje"
+        const errMsg = error.message?.toLowerCase() || '';
+        const isTableMissing = error.code === '42P01' ||
+          errMsg.includes('does not exist') ||
+          errMsg.includes('schema cache') ||
+          errMsg.includes('could not find');
+
+        if (isTableMissing) {
+          setTableExists(false);
+          setEvents([]);
+          setLoading(false);
+          return;
+        }
+        console.error('Błąd pobierania wydarzeń:', error);
+        setEvents([]);
+      } else {
+        setTableExists(true);
+        setEvents(data || []);
+      }
+    } catch (err) {
+      console.error('Błąd pobierania wydarzeń:', err);
+      setEvents([]);
     }
     setLoading(false);
   };
@@ -357,6 +402,18 @@ export default function EventsTab({ ministry, currentUserEmail }) {
     }
 
     if (error) {
+      // Wykryj różne warianty błędu "tabela nie istnieje"
+      const errMsg = error.message?.toLowerCase() || '';
+      const isTableMissing = error.code === '42P01' ||
+        errMsg.includes('does not exist') ||
+        errMsg.includes('schema cache') ||
+        errMsg.includes('could not find');
+
+      if (isTableMissing) {
+        setTableExists(false);
+        setShowModal(null);
+        return;
+      }
       alert(`Błąd zapisu wydarzenia: ${error.message}`);
     } else {
       setShowModal(null);
@@ -403,7 +460,71 @@ export default function EventsTab({ ministry, currentUserEmail }) {
     return found ? found.label : type;
   };
 
-  if (!config) return null;
+  // Dodaj kolor pink do colorClasses jeśli go brakuje
+  if (!colorClasses[config.color]) {
+    colorClasses[config.color] = 'from-pink-500 to-orange-500';
+  }
+
+  // Jeśli tabela nie istnieje, pokaż instrukcję
+  if (!tableExists) {
+    const sqlScript = `-- Utwórz tabelę ${config.tableName}
+CREATE TABLE ${config.tableName} (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  start_date TIMESTAMPTZ,
+  location TEXT,
+  max_participants INTEGER,
+  event_type TEXT DEFAULT 'spotkanie',
+  created_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Włącz RLS
+ALTER TABLE ${config.tableName} ENABLE ROW LEVEL SECURITY;
+
+-- Polityka dostępu dla zalogowanych użytkowników
+CREATE POLICY "${config.tableName}_policy" ON ${config.tableName}
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- Uprawnienia
+GRANT ALL ON ${config.tableName} TO authenticated;
+GRANT ALL ON ${config.tableName} TO anon;`;
+
+    return (
+      <div className="p-8 text-center">
+        <div className="max-w-2xl mx-auto bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-6">
+          <h3 className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-2">
+            Tabela nie istnieje
+          </h3>
+          <p className="text-yellow-700 dark:text-yellow-300 mb-4">
+            Aby korzystać z wydarzeń w tym module, utwórz tabelę w Supabase.
+          </p>
+          <div className="bg-gray-900 rounded-xl p-4 text-left overflow-x-auto">
+            <pre className="text-green-400 text-xs whitespace-pre">{sqlScript}</pre>
+          </div>
+          <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-4">
+            Skopiuj powyższy kod i wykonaj go w Supabase SQL Editor.
+          </p>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(sqlScript);
+              alert('Skopiowano do schowka!');
+            }}
+            className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded-xl hover:bg-yellow-700 transition"
+          >
+            Skopiuj SQL
+          </button>
+          <button
+            onClick={fetchEvents}
+            className="mt-4 ml-2 px-4 py-2 bg-pink-600 text-white rounded-xl hover:bg-pink-700 transition"
+          >
+            Odśwież
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
