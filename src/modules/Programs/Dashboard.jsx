@@ -532,95 +532,190 @@ const SortableRow = ({ row, index, program, setProgram, songs }) => {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="grid grid-cols-12 gap-4 p-3 items-start hover:bg-pink-50/30 dark:hover:bg-pink-900/10 transition duration-150 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 last:border-0">
-      <div className="col-span-1 flex items-center justify-center pt-2 cursor-grab text-gray-300 dark:text-gray-600 hover:text-pink-500 active:cursor-grabbing" {...attributes} {...listeners}>
-        <GripVertical size={20} />
-      </div>
+    <div ref={setNodeRef} style={style} className="p-3 hover:bg-pink-50/30 dark:hover:bg-pink-900/10 transition duration-150 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 last:border-0">
+      {/* Desktop: grid layout */}
+      <div className="hidden lg:grid grid-cols-12 gap-4 items-start">
+        <div className="col-span-1 flex items-center justify-center pt-2 cursor-grab text-gray-300 dark:text-gray-600 hover:text-pink-500 active:cursor-grabbing" {...attributes} {...listeners}>
+          <GripVertical size={20} />
+        </div>
 
-      <div className="col-span-3">
-        <ElementSelector 
-          value={row.element || ''}
-          options={PROGRAM_ELEMENTS}
-          onChange={(newValue) => {
-            const newSchedule = [...program.schedule];
-            newSchedule[index].element = newValue;
-            setProgram(prev => ({ ...prev, schedule: newSchedule }));
-          }}
-        />
-      </div>
-
-      <div className="col-span-3">
-        <input 
-          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
-          placeholder="Jan Kowalski"
-          value={row.person || ''}
-          onChange={e => {
-            const newSchedule = [...program.schedule];
-            newSchedule[index].person = e.target.value;
-            setProgram(prev => ({ ...prev, schedule: newSchedule }));
-          }}
-        />
-      </div>
-
-      <div className="col-span-4">
-        {(row.element || '').toLowerCase().includes('uwielbienie') ? (
-          <div className="space-y-2">
-            <SongSelector 
-              songs={songs}
-              onSelect={(song) => {
-                const newSong = { 
-                  internalId: Date.now() + Math.random(), 
-                  songId: song.id, 
-                  key: song.key || 'C' 
-                };
-                updateSongs([...currentSongs, newSong]);
-              }}
-            />
-            
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSongDragEnd}>
-              <SortableContext items={currentSongs.map(s => s.internalId)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-1">
-                  {currentSongs.map((item, idx) => {
-                    const songDef = songs.find(x => x.id === item.songId);
-                    if (!songDef) return null;
-                    return (
-                      <SortableSongItem 
-                        key={item.internalId} 
-                        item={item} 
-                        idx={idx} 
-                        songDef={songDef} 
-                        onRemove={removeSong}
-                        onChangeKey={changeSongKey}
-                      />
-                    );
-                  })}
-                </div>
-              </SortableContext>
-            </DndContext>
-          </div>
-        ) : (
-          <input 
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
-            value={row.details || ''}
-            onChange={e => {
+        <div className="col-span-3">
+          <ElementSelector
+            value={row.element || ''}
+            options={PROGRAM_ELEMENTS}
+            onChange={(newValue) => {
               const newSchedule = [...program.schedule];
-              newSchedule[index].details = e.target.value;
+              newSchedule[index].element = newValue;
               setProgram(prev => ({ ...prev, schedule: newSchedule }));
             }}
           />
-        )}
+        </div>
+
+        <div className="col-span-3">
+          <input
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
+            placeholder="Jan Kowalski"
+            value={row.person || ''}
+            onChange={e => {
+              const newSchedule = [...program.schedule];
+              newSchedule[index].person = e.target.value;
+              setProgram(prev => ({ ...prev, schedule: newSchedule }));
+            }}
+          />
+        </div>
+
+        <div className="col-span-4">
+          {(row.element || '').toLowerCase().includes('uwielbienie') ? (
+            <div className="space-y-2">
+              <SongSelector
+                songs={songs}
+                onSelect={(song) => {
+                  const newSong = {
+                    internalId: Date.now() + Math.random(),
+                    songId: song.id,
+                    key: song.key || 'C'
+                  };
+                  updateSongs([...currentSongs, newSong]);
+                }}
+              />
+
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSongDragEnd}>
+                <SortableContext items={currentSongs.map(s => s.internalId)} strategy={verticalListSortingStrategy}>
+                  <div className="flex flex-col gap-1">
+                    {currentSongs.map((item, idx) => {
+                      const songDef = songs.find(x => x.id === item.songId);
+                      if (!songDef) return null;
+                      return (
+                        <SortableSongItem
+                          key={item.internalId}
+                          item={item}
+                          idx={idx}
+                          songDef={songDef}
+                          onRemove={removeSong}
+                          onChangeKey={changeSongKey}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          ) : (
+            <input
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
+              value={row.details || ''}
+              onChange={e => {
+                const newSchedule = [...program.schedule];
+                newSchedule[index].details = e.target.value;
+                setProgram(prev => ({ ...prev, schedule: newSchedule }));
+              }}
+            />
+          )}
+        </div>
+
+        <div className="col-span-1 flex justify-center pt-2">
+          <button
+            onClick={() => {
+              const newSchedule = program.schedule.filter(r => r.id !== row.id);
+              setProgram(prev => ({ ...prev, schedule: newSchedule }));
+            }}
+            className="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 p-1.5 rounded-lg transition"
+          >
+            <Trash2 size={18}/>
+          </button>
+        </div>
       </div>
 
-      <div className="col-span-1 flex justify-center pt-2">
-        <button 
-          onClick={() => {
-            const newSchedule = program.schedule.filter(r => r.id !== row.id);
-            setProgram(prev => ({ ...prev, schedule: newSchedule }));
-          }}
-          className="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 p-1.5 rounded-lg transition"
-        >
-          <Trash2 size={18}/>
-        </button>
+      {/* Mobile: stacked layout */}
+      <div className="lg:hidden space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="cursor-grab text-gray-300 dark:text-gray-600 hover:text-pink-500 active:cursor-grabbing" {...attributes} {...listeners}>
+            <GripVertical size={18} />
+          </div>
+          <div className="flex-1">
+            <ElementSelector
+              value={row.element || ''}
+              options={PROGRAM_ELEMENTS}
+              onChange={(newValue) => {
+                const newSchedule = [...program.schedule];
+                newSchedule[index].element = newValue;
+                setProgram(prev => ({ ...prev, schedule: newSchedule }));
+              }}
+            />
+          </div>
+          <button
+            onClick={() => {
+              const newSchedule = program.schedule.filter(r => r.id !== row.id);
+              setProgram(prev => ({ ...prev, schedule: newSchedule }));
+            }}
+            className="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 p-1.5 rounded-lg transition flex-shrink-0"
+          >
+            <Trash2 size={16}/>
+          </button>
+        </div>
+
+        <div className="pl-6">
+          <input
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
+            placeholder="Osoba"
+            value={row.person || ''}
+            onChange={e => {
+              const newSchedule = [...program.schedule];
+              newSchedule[index].person = e.target.value;
+              setProgram(prev => ({ ...prev, schedule: newSchedule }));
+            }}
+          />
+        </div>
+
+        <div className="pl-6">
+          {(row.element || '').toLowerCase().includes('uwielbienie') ? (
+            <div className="space-y-2">
+              <SongSelector
+                songs={songs}
+                onSelect={(song) => {
+                  const newSong = {
+                    internalId: Date.now() + Math.random(),
+                    songId: song.id,
+                    key: song.key || 'C'
+                  };
+                  updateSongs([...currentSongs, newSong]);
+                }}
+              />
+
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSongDragEnd}>
+                <SortableContext items={currentSongs.map(s => s.internalId)} strategy={verticalListSortingStrategy}>
+                  <div className="flex flex-col gap-1">
+                    {currentSongs.map((item, idx) => {
+                      const songDef = songs.find(x => x.id === item.songId);
+                      if (!songDef) return null;
+                      return (
+                        <SortableSongItem
+                          key={item.internalId}
+                          item={item}
+                          idx={idx}
+                          songDef={songDef}
+                          onRemove={removeSong}
+                          onChangeKey={changeSongKey}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          ) : (
+            <input
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
+              placeholder="Szczegóły / Notatki"
+              value={row.details || ''}
+              onChange={e => {
+                const newSchedule = [...program.schedule];
+                newSchedule[index].details = e.target.value;
+                setProgram(prev => ({ ...prev, schedule: newSchedule }));
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
