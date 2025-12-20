@@ -1597,13 +1597,30 @@ export default function Dashboard() {
     ? program.zespol.absencja.split(',').map(s => s.trim()).filter(Boolean) 
     : [];
 
-  const ProgramItem = ({ p }) => (
-    <div 
+  // Stan widoku mobile: 'list' lub 'edit'
+  const [mobileView, setMobileView] = useState('list');
+
+  // Na mobile, gdy wybierzemy program, przełącz na widok edycji
+  const handleSelectProgram = (id) => {
+    setSelectedId(id);
+    if (window.innerWidth < 1024) {
+      setMobileView('edit');
+    }
+  };
+
+  // Wróć do listy na mobile
+  const handleBackToList = () => {
+    setMobileView('list');
+  };
+
+  // Zaktualizowany ProgramItem z nowym handlerem
+  const ProgramItemWithHandler = ({ p }) => (
+    <div
       key={p.id}
-      onClick={() => setSelectedId(p.id)}
+      onClick={() => handleSelectProgram(p.id)}
       className={`p-3 rounded-xl border cursor-pointer transition group relative overflow-hidden mb-2 ${
-        selectedId === p.id 
-          ? 'bg-white dark:bg-gray-800 border-pink-200 dark:border-pink-700 shadow-md ring-1 ring-pink-100 dark:ring-pink-900' 
+        selectedId === p.id
+          ? 'bg-white dark:bg-gray-800 border-pink-200 dark:border-pink-700 shadow-md ring-1 ring-pink-100 dark:ring-pink-900'
           : 'bg-white/40 dark:bg-gray-800/40 border-white/60 dark:border-gray-700/60 hover:bg-white/80 dark:hover:bg-gray-800/80 hover:shadow-sm'
       }`}
     >
@@ -1626,21 +1643,21 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="flex h-full bg-gradient-to-br from-pink-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-800 dark:text-gray-200">
+    <div className="flex flex-col lg:flex-row h-full bg-gradient-to-br from-pink-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-800 dark:text-gray-200">
       {/* LEWA KOLUMNA - LISTA */}
-      <div className="w-80 bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl border-r border-white/40 dark:border-gray-700/50 flex flex-col h-full">
-        <div className="p-6 border-b border-white/40 dark:border-gray-700/50">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent mb-4">Lista programów</h2>
+      <div className={`${mobileView === 'list' ? 'flex' : 'hidden'} lg:flex w-full lg:w-80 bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl border-b lg:border-b-0 lg:border-r border-white/40 dark:border-gray-700/50 flex-col h-full`}>
+        <div className="p-4 lg:p-6 border-b border-white/40 dark:border-gray-700/50">
+          <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent mb-4">Lista programów</h2>
           <div className="flex gap-2 mb-3">
             <div className="relative flex-1">
-              <input 
-                placeholder="Szukaj..." 
-                className="w-full px-4 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600" 
-                value={filter} 
-                onChange={e => setFilter(e.target.value)} 
+              <input
+                placeholder="Szukaj..."
+                className="w-full px-4 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
+                value={filter}
+                onChange={e => setFilter(e.target.value)}
               />
             </div>
-            <button 
+            <button
               onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
               className="px-3 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm transition"
               title="Sortuj"
@@ -1648,80 +1665,89 @@ export default function Dashboard() {
               <ArrowUpDown size={18} />
             </button>
           </div>
-          <button onClick={() => setSelectedId(null)} className="w-full bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white py-2 rounded-xl font-bold shadow-lg hover:shadow-pink-500/30 transition transform hover:-translate-y-0.5 text-sm flex items-center justify-center gap-2"><Plus size={16} /> Nowy Program</button>
+          <button onClick={() => { setSelectedId(null); if (window.innerWidth < 1024) setMobileView('edit'); }} className="w-full bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white py-2.5 rounded-xl font-bold shadow-lg hover:shadow-pink-500/30 transition transform hover:-translate-y-0.5 text-sm flex items-center justify-center gap-2"><Plus size={16} /> Nowy Program</button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           <div className="mb-4">
             <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 ml-1">Nadchodzące</h3>
-            {upcomingPrograms.length === 0 ? <div className="text-xs text-gray-400 dark:text-gray-500 italic ml-1">Brak planów</div> : upcomingPrograms.map(p => <ProgramItem key={p.id} p={p} />)}
+            {upcomingPrograms.length === 0 ? <div className="text-xs text-gray-400 dark:text-gray-500 italic ml-1">Brak planów</div> : upcomingPrograms.map(p => <ProgramItemWithHandler key={p.id} p={p} />)}
           </div>
           <div>
             <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 ml-1 hover:text-pink-600 dark:hover:text-pink-400 transition w-full text-left"><History size={12} /> Historia {showHistory ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</button>
-            {showHistory && <div className="animate-in fade-in slide-in-from-top-2 duration-200">{pastPrograms.map(p => <ProgramItem key={p.id} p={p} />)}</div>}
+            {showHistory && <div className="animate-in fade-in slide-in-from-top-2 duration-200">{pastPrograms.map(p => <ProgramItemWithHandler key={p.id} p={p} />)}</div>}
           </div>
         </div>
       </div>
 
       {/* PRAWA KOLUMNA - EDYCJA */}
-      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+      <div className={`${mobileView === 'edit' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col overflow-y-auto p-4 lg:p-8 custom-scrollbar`}>
         <div className="max-w-7xl mx-auto space-y-8">
           
           {/* EDYCJA PROGRAMU */}
-          <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/50 p-8">
-            <div className="flex justify-between items-start mb-8 pb-6 border-b border-gray-200/50 dark:border-gray-700/50">
+          <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl lg:rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/50 p-4 lg:p-8">
+            {/* Przycisk wróć - tylko mobile */}
+            <button
+              onClick={handleBackToList}
+              className="lg:hidden flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-4 hover:text-pink-600 dark:hover:text-pink-400 transition"
+            >
+              <ChevronLeft size={20} />
+              <span className="font-medium">Wróć do listy</span>
+            </button>
+
+            <div className="flex flex-col lg:flex-row justify-between items-start gap-4 mb-6 lg:mb-8 pb-4 lg:pb-6 border-b border-gray-200/50 dark:border-gray-700/50">
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">Program Nabożeństwa</h1>
-                <CustomDatePicker 
-                  value={program.date} 
-                  onChange={(v) => setProgram({...program, date: v})} 
+                <h1 className="text-xl lg:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">Program Nabożeństwa</h1>
+                <CustomDatePicker
+                  value={program.date}
+                  onChange={(v) => setProgram({...program, date: v})}
                 />
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto">
               <button
                 onClick={handleSendEmail}
                 disabled={isSending}
-                className="flex items-center gap-2 px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 font-medium text-sm disabled:opacity-50"
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 font-medium text-sm disabled:opacity-50"
                 title="Wyślij program przez e-mail"
               >
                 {isSending ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
-                Mail
+                <span className="hidden sm:inline">Mail</span>
               </button>
               <button
                 onClick={handleSaveAndUploadPDF}
                 disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2 text-pink-600 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors border border-pink-200 font-medium text-sm disabled:opacity-50"
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-pink-600 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors border border-pink-200 font-medium text-sm disabled:opacity-50"
                 title="Zapisz PDF na dysku i w chmurze Supabase"
               >
                 {isLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
-                PDF
+                <span className="hidden sm:inline">PDF</span>
               </button>
               <button
                 onClick={() => generateDocuments('ppt')}
-                className="flex items-center gap-2 px-4 py-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-200 font-medium text-sm"
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-200 font-medium text-sm"
               >
                 <Presentation size={18} />
-                PPT
+                <span className="hidden sm:inline">PPT</span>
               </button>
 
               <button
                 onClick={handleSave}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-pink-600 to-orange-500 hover:from-pink-700 hover:to-orange-600 text-white rounded-lg shadow-lg shadow-pink-500/20 hover:shadow-pink-500/30 transition-all font-medium text-sm"
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 lg:px-6 py-2.5 bg-gradient-to-r from-pink-600 to-orange-500 hover:from-pink-700 hover:to-orange-600 text-white rounded-lg shadow-lg shadow-pink-500/20 hover:shadow-pink-500/30 transition-all font-medium text-sm"
               >
                 <Save size={18} />
-                Zapisz
+                <span className="hidden sm:inline">Zapisz</span>
               </button>
             </div>
 
             </div>
 
-            <div className="bg-white/70 dark:bg-gray-800/40 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 dark:border-gray-700/50 p-6 mb-8 min-h-[500px]">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-xl text-gray-800 dark:text-white flex items-center gap-2"><div className="w-1.5 h-6 bg-pink-600 dark:bg-pink-500 rounded-full"></div>Plan szczegółowy</h3>
-                <button onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [], selectedSongs: [] }]})} className="bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-4 py-2 rounded-xl font-bold hover:shadow-lg transition">+ Dodaj Element</button>
+            <div className="bg-white/70 dark:bg-gray-800/40 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 dark:border-gray-700/50 p-4 lg:p-6 mb-6 lg:mb-8 min-h-[300px] lg:min-h-[500px]">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 lg:mb-6">
+                <h3 className="font-bold text-lg lg:text-xl text-gray-800 dark:text-white flex items-center gap-2"><div className="w-1.5 h-5 lg:h-6 bg-pink-600 dark:bg-pink-500 rounded-full"></div>Plan szczegółowy</h3>
+                <button onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [], selectedSongs: [] }]})} className="w-full sm:w-auto bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-4 py-2.5 rounded-xl font-bold hover:shadow-lg transition">+ Dodaj Element</button>
               </div>
-              <div className="bg-white/50 dark:bg-gray-900/50 rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner overflow-hidden">
-                <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider"><div className="col-span-1"></div><div className="col-span-3">Element</div><div className="col-span-3">Osoba</div><div className="col-span-4">Szczegóły / Notatki</div><div className="col-span-1"></div></div>
+              <div className="bg-white/50 dark:bg-gray-900/50 rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner overflow-hidden overflow-x-auto">
+                <div className="hidden lg:grid grid-cols-12 gap-4 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[600px]"><div className="col-span-1"></div><div className="col-span-3">Element</div><div className="col-span-3">Osoba</div><div className="col-span-4">Szczegóły / Notatki</div><div className="col-span-1"></div></div>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContext items={program.schedule.map(s => s.id)} strategy={verticalListSortingStrategy}>
                     <div>{program.schedule.map((row, idx) => <SortableRow key={row.id} row={row} index={idx} program={program} setProgram={setProgram} songs={songs} />)}</div>
@@ -1730,11 +1756,11 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-6 mb-6 hover:shadow-xl transition relative z-50">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zespół Uwielbienia</h3>
+            <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-4 lg:p-6 mb-4 lg:mb-6 hover:shadow-xl transition relative z-50">
+              <div className="flex justify-between items-center mb-4 lg:mb-6">
+                <h3 className="font-bold text-base lg:text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zespół Uwielbienia</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                 {(worshipRoles.length > 0
                   ? worshipRoles.map(role => ({ key: role.field_key, label: role.name, roleId: role.id }))
                   : [{ key: 'lider', label: 'Lider Uwielbienia', roleId: null }, { key: 'piano', label: 'Piano', roleId: null }, { key: 'gitara_akustyczna', label: 'Gitara Akustyczna', roleId: null }, { key: 'gitara_elektryczna', label: 'Gitara Elektryczna', roleId: null }, { key: 'bas', label: 'Gitara Basowa', roleId: null }, { key: 'wokale', label: 'Wokale', roleId: null }, { key: 'cajon', label: 'Cajon / Perkusja', roleId: null }]
@@ -1769,7 +1795,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-4 lg:mb-6 relative z-0">
               <DynamicTeamSection
                 title="Atmosfera Team"
                 dataKey="atmosfera_team"
@@ -1794,7 +1820,7 @@ export default function Dashboard() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-4 lg:mb-6 relative z-0">
               <DynamicScenaSection
                 program={program}
                 setProgram={setProgram}

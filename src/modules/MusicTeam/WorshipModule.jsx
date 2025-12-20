@@ -9,6 +9,7 @@ import EventsTab from '../shared/EventsTab';
 import MaterialsTab from '../shared/MaterialsTab';
 import RolesTab from '../../components/RolesTab';
 import CustomSelect from '../../components/CustomSelect';
+import ResponsiveTabs from '../../components/ResponsiveTabs';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
 import jsPDF from 'jspdf';
@@ -2420,122 +2421,43 @@ export default function WorshipModule() {
 
   if (loading) return <div className="p-10 text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div></div>;
 
+  // Definicja zakładek
+  const tabs = [
+    { id: 'wall', label: 'Tablica', icon: MessageSquare },
+    { id: 'events', label: 'Wydarzenia', icon: Calendar },
+    { id: 'schedule', label: 'Grafik', icon: Calendar },
+    { id: 'songs', label: 'Baza Pieśni', icon: Music },
+    ...(hasTabAccess('worship', 'members', userRole) ? [{ id: 'members', label: 'Członkowie', icon: User }] : []),
+    ...(hasTabAccess('worship', 'finances', userRole) ? [{ id: 'finances', label: 'Finanse', icon: DollarSign }] : []),
+    ...(hasTabAccess('worship', 'members', userRole) ? [{ id: 'roles', label: 'Służby', icon: Users }] : []),
+    { id: 'files', label: 'Pliki', icon: FolderOpen },
+  ];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 lg:space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Grupa Uwielbienia</h1>
+        <h1 className="text-2xl lg:text-4xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Grupa Uwielbienia</h1>
       </div>
 
       {/* TAB NAVIGATION */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
-        <button
-          onClick={() => setActiveTab('wall')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'wall'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <MessageSquare size={16} className="inline mr-2" />
-          Tablica
-        </button>
-        <button
-          onClick={() => setActiveTab('events')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'events'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Calendar size={16} className="inline mr-2" />
-          Wydarzenia
-        </button>
-        <button
-          onClick={() => setActiveTab('schedule')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'schedule'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Calendar size={16} className="inline mr-2" />
-          Grafik
-        </button>
-        <button
-          onClick={() => setActiveTab('songs')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'songs'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Music size={16} className="inline mr-2" />
-          Baza Pieśni
-        </button>
-        {hasTabAccess('worship', 'members', userRole) && (
-          <button
-            onClick={() => setActiveTab('members')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'members'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <User size={16} className="inline mr-2" />
-            Członkowie
-          </button>
-        )}
-        {hasTabAccess('worship', 'finances', userRole) && (
-          <button
-            onClick={() => setActiveTab('finances')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'finances'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <DollarSign size={16} className="inline mr-2" />
-            Finanse
-          </button>
-        )}
-        {hasTabAccess('worship', 'members', userRole) && (
-          <button
-            onClick={() => setActiveTab('roles')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'roles'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Users size={16} className="inline mr-2" />
-            Służby
-          </button>
-        )}
-        <button
-          onClick={() => setActiveTab('files')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'files'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <FolderOpen size={16} className="inline mr-2" />
-          Pliki
-        </button>
-      </div>
+      <ResponsiveTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* SEKCJA: WYDARZENIA */}
       {activeTab === 'events' && (
-        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[50] transition-colors">
+        <section className="bg-white dark:bg-gray-900 rounded-2xl lg:rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 lg:p-6 relative z-[50] transition-colors">
           <EventsTab ministry="worship" currentUserEmail={currentUser.email} />
         </section>
       )}
 
       {/* SEKCJA 1: GRAFIK ZESPOŁU */}
       {activeTab === 'schedule' && (
-      <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[50] transition-colors">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Grafik Zespołu</h2>
+      <section className="bg-white dark:bg-gray-900 rounded-2xl lg:rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 lg:p-6 relative z-[50] transition-colors">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 lg:mb-6">
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-800 dark:text-gray-100">Grafik Zespołu</h2>
         </div>
         <ScheduleTable
           programs={programs}
@@ -2549,12 +2471,12 @@ export default function WorshipModule() {
 
       {/* SEKCJA 2: BAZA PIEŚNI */}
       {activeTab === 'songs' && (
-      <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[40] transition-colors">
-        <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Baza Pieśni</h2>
-          <div className="flex gap-2">
-            <button onClick={() => setShowTagsModal(true)} className="bg-gradient-to-r from-pink-50 to-orange-50 dark:from-pink-900/40 dark:to-orange-900/40 text-pink-700 dark:text-pink-300 text-sm px-4 py-2.5 rounded-xl font-medium border border-pink-200 dark:border-pink-800 hover:from-pink-100 hover:to-orange-100 dark:hover:from-pink-900/60 dark:hover:to-orange-900/60 transition flex items-center gap-2"><Tag size={16}/> Zarządzaj tagami</button>
-            <button onClick={() => { setSongForm({}); setShowSongModal(true); }} className="bg-gradient-to-r from-orange-600 to-pink-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj pieśń</button>
+      <section className="bg-white dark:bg-gray-900 rounded-2xl lg:rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 lg:p-6 relative z-[40] transition-colors">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 lg:mb-6">
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-800 dark:text-gray-100">Baza Pieśni</h2>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button onClick={() => setShowTagsModal(true)} className="flex-1 sm:flex-none bg-gradient-to-r from-pink-50 to-orange-50 dark:from-pink-900/40 dark:to-orange-900/40 text-pink-700 dark:text-pink-300 text-sm px-3 lg:px-4 py-2.5 rounded-xl font-medium border border-pink-200 dark:border-pink-800 hover:from-pink-100 hover:to-orange-100 dark:hover:from-pink-900/60 dark:hover:to-orange-900/60 transition flex items-center justify-center gap-2"><Tag size={16}/> <span className="hidden sm:inline">Zarządzaj</span> Tagi</button>
+            <button onClick={() => { setSongForm({}); setShowSongModal(true); }} className="flex-1 sm:flex-none bg-gradient-to-r from-orange-600 to-pink-600 text-white text-sm px-4 lg:px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-orange-500/50 transition flex items-center justify-center gap-2"><Plus size={18}/> <span className="hidden sm:inline">Dodaj</span> Pieśń</button>
           </div>
         </div>
         
@@ -2642,12 +2564,12 @@ export default function WorshipModule() {
 
       {/* SEKCJA 3: CZŁONKOWIE ZESPOŁU */}
       {activeTab === 'members' && (
-      <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 relative z-[30] transition-colors">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Członkowie Zespołu</h2>
-          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setSelectedMemberRoles([]); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/50 transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
+      <section className="bg-white dark:bg-gray-900 rounded-2xl lg:rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 lg:p-6 relative z-[30] transition-colors">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 lg:mb-6">
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-800 dark:text-gray-100">Członkowie Zespołu</h2>
+          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setSelectedMemberRoles([]); setShowMemberModal(true); }} className="w-full sm:w-auto bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/50 transition flex items-center justify-center gap-2"><Plus size={18}/> Dodaj członka</button>
         </div>
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700">
               <tr>
@@ -2707,7 +2629,7 @@ export default function WorshipModule() {
 
       {/* WALL TAB */}
       {activeTab === 'wall' && (
-        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+        <section className="bg-white dark:bg-gray-900 rounded-2xl lg:rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 lg:p-6 transition-colors">
           <WallTab
             ministry="Grupa Uwielbienia"
             currentUserEmail={currentUser.email}
@@ -2727,7 +2649,7 @@ export default function WorshipModule() {
 
       {/* FILES TAB */}
       {activeTab === 'files' && (
-        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <section className="bg-white dark:bg-gray-900 rounded-2xl lg:rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
           <MaterialsTab moduleKey="worship" canEdit={true} />
         </section>
       )}

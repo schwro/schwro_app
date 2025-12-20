@@ -6,7 +6,8 @@ import {
   Plus, CheckCircle, Clock, Video, Music, X, Save,
   Users, HeartHandshake, Home, Baby, GripVertical, Trash2,
   ChevronDown, MapPin, AlignLeft, Search, Check, UserX,
-  FileText, LayoutGrid, List, LayoutList, Columns, CalendarPlus, ListTodo
+  FileText, LayoutGrid, List, LayoutList, Columns, CalendarPlus, ListTodo,
+  Filter, PanelLeftClose, PanelLeft
 } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -1100,6 +1101,15 @@ export default function CalendarModule() {
   });
   const [view, setView] = useState('month');
   const [eventCategories, setEventCategories] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
+
+  // Śledzenie rozmiaru okna dla responsywności
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Zapisz wybrane kalendarze do localStorage przy każdej zmianie
   useEffect(() => {
@@ -1676,65 +1686,129 @@ export default function CalendarModule() {
 
   // --- RENDER LOGIC FOR VIEWS ---
 
-  const renderMonthView = () => (
-    <>
-      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-        {['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela'].map(d => <div key={d} className="py-3 text-center text-xs font-bold text-gray-500 uppercase">{d}</div>)}
-      </div>
-      <div className="flex-1 grid grid-cols-7 auto-rows-fr bg-gray-200 dark:bg-gray-700 gap-px overflow-y-auto custom-scrollbar">
-        {emptyDays.map((_, i) => <div key={`em-${i}`} className="bg-gray-50/50 dark:bg-gray-900/50" />)}
-        {daysArray.map(d => {
-          const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
-          const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-          const dayEvents = filteredEvents.filter(e => e.date.getDate() === d && e.date.getMonth() === currentDate.getMonth());
-          return (
-            <div key={d} className="bg-white dark:bg-gray-900 min-h-[100px] p-2 relative group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
-              <div className="flex justify-between items-center mb-1">
-                <span className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${d === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() ? 'bg-pink-600 text-white' : 'text-gray-700 dark:text-gray-300'}`}>{d}</span>
-                <button onClick={() => handleAddClick(dateStr)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-400"><Plus size={14} /></button>
-              </div>
-              <div className="space-y-1 overflow-y-auto max-h-[100px] custom-scrollbar">
-                {dayEvents.map(ev => (
-                  <EventBadge key={ev.id} event={ev} onClick={() => handleEventClick(ev)} />
-                ))}
-              </div>
+  const renderMonthView = () => {
+    const dayNames = [
+      { short: 'Pn', full: 'Poniedziałek' },
+      { short: 'Wt', full: 'Wtorek' },
+      { short: 'Śr', full: 'Środa' },
+      { short: 'Cz', full: 'Czwartek' },
+      { short: 'Pt', full: 'Piątek' },
+      { short: 'So', full: 'Sobota' },
+      { short: 'Nd', full: 'Niedziela' },
+    ];
+
+    return (
+      <>
+        <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+          {dayNames.map(d => (
+            <div key={d.short} className="py-2 lg:py-3 text-center text-[10px] lg:text-xs font-bold text-gray-500 uppercase">
+              <span className="lg:hidden">{d.short}</span>
+              <span className="hidden lg:inline">{d.full}</span>
             </div>
-          )
-        })}
-        {Array.from({ length: (42 - (days + firstDay)) % 7 }).map((_, i) => <div key={`end-${i}`} className="bg-gray-50/50 dark:bg-gray-900/50" />)}
-      </div>
-    </>
-  );
+          ))}
+        </div>
+        <div className="flex-1 grid grid-cols-7 auto-rows-fr bg-gray-200 dark:bg-gray-700 gap-px overflow-y-auto custom-scrollbar">
+          {emptyDays.map((_, i) => <div key={`em-${i}`} className="bg-gray-50/50 dark:bg-gray-900/50" />)}
+          {daysArray.map(d => {
+            const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
+            const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const dayEvents = filteredEvents.filter(e => e.date.getDate() === d && e.date.getMonth() === currentDate.getMonth());
+            return (
+              <div key={d} className="bg-white dark:bg-gray-900 min-h-[60px] lg:min-h-[100px] p-1 lg:p-2 relative group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
+                <div className="flex justify-between items-center mb-0.5 lg:mb-1">
+                  <span className={`text-xs lg:text-sm font-bold w-5 h-5 lg:w-7 lg:h-7 flex items-center justify-center rounded-full ${d === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() ? 'bg-pink-600 text-white' : 'text-gray-700 dark:text-gray-300'}`}>{d}</span>
+                  <button onClick={() => handleAddClick(dateStr)} className="opacity-0 group-hover:opacity-100 p-0.5 lg:p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-400"><Plus size={12} /></button>
+                </div>
+                <div className="space-y-0.5 lg:space-y-1 overflow-y-auto max-h-[40px] lg:max-h-[100px] custom-scrollbar">
+                  {/* Mobile: pokaż max 2 wydarzenia */}
+                  <div className="lg:hidden">
+                    {dayEvents.slice(0, 2).map(ev => (
+                      <EventBadge key={ev.id} event={ev} onClick={() => handleEventClick(ev)} />
+                    ))}
+                    {dayEvents.length > 2 && (
+                      <div className="text-[9px] text-gray-400 text-center">+{dayEvents.length - 2}</div>
+                    )}
+                  </div>
+                  {/* Desktop: pokaż wszystkie */}
+                  <div className="hidden lg:block">
+                    {dayEvents.map(ev => (
+                      <EventBadge key={ev.id} event={ev} onClick={() => handleEventClick(ev)} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+          {Array.from({ length: (42 - (days + firstDay)) % 7 }).map((_, i) => <div key={`end-${i}`} className="bg-gray-50/50 dark:bg-gray-900/50" />)}
+        </div>
+      </>
+    );
+  };
 
   const renderWeekView = () => {
     const curr = new Date(currentDate);
-    const first = curr.getDate() - curr.getDay() + 1; 
+    const first = curr.getDate() - curr.getDay() + 1;
     const weekDays = Array.from({length: 7}, (_, i) => new Date(new Date(curr).setDate(first + i)));
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-         <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
-             {weekDays.map(d => (
-                 <div key={d.toString()} className="py-3 text-center border-r border-gray-100 dark:border-gray-700/50 last:border-0">
-                     <div className="text-xs text-gray-500 uppercase mb-1">{d.toLocaleDateString('pl-PL', {weekday: 'short'})}</div>
-                     <div className={`text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center mx-auto ${d.getDate() === new Date().getDate() && d.getMonth() === new Date().getMonth() ? 'bg-pink-600 text-white' : 'text-gray-800 dark:text-white'}`}>
-                         {d.getDate()}
-                     </div>
-                 </div>
-             ))}
-         </div>
-         <div className="flex-1 grid grid-cols-7 divide-x divide-gray-100 dark:divide-gray-700/50 overflow-y-auto custom-scrollbar bg-white dark:bg-gray-900">
-             {weekDays.map(d => {
-                 const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                 const dayEvents = filteredEvents.filter(e => e.date.getDate() === d.getDate() && e.date.getMonth() === d.getMonth());
-                 return (
-                    <div key={d.toString()} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition min-h-[200px]">
-                        {dayEvents.map(ev => <EventBadge key={ev.id} event={ev} onClick={() => handleEventClick(ev)} />)}
-                        <button onClick={() => handleAddClick(dateStr)} className="w-full mt-2 py-2 text-xs text-gray-300 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg transition flex items-center justify-center gap-1"><Plus size={12}/> Dodaj</button>
-                    </div>
-                 )
-             })}
-         </div>
+        {/* Desktop: 7 kolumn */}
+        <div className="hidden lg:block flex-1 overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
+            {weekDays.map(d => (
+              <div key={d.toString()} className="py-3 text-center border-r border-gray-100 dark:border-gray-700/50 last:border-0">
+                <div className="text-xs text-gray-500 uppercase mb-1">{d.toLocaleDateString('pl-PL', {weekday: 'short'})}</div>
+                <div className={`text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center mx-auto ${d.getDate() === new Date().getDate() && d.getMonth() === new Date().getMonth() ? 'bg-pink-600 text-white' : 'text-gray-800 dark:text-white'}`}>
+                  {d.getDate()}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="h-[calc(100%-70px)] grid grid-cols-7 divide-x divide-gray-100 dark:divide-gray-700/50 overflow-y-auto custom-scrollbar bg-white dark:bg-gray-900">
+            {weekDays.map(d => {
+              const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+              const dayEvents = filteredEvents.filter(e => e.date.getDate() === d.getDate() && e.date.getMonth() === d.getMonth());
+              return (
+                <div key={d.toString()} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition min-h-[200px]">
+                  {dayEvents.map(ev => <EventBadge key={ev.id} event={ev} onClick={() => handleEventClick(ev)} />)}
+                  <button onClick={() => handleAddClick(dateStr)} className="w-full mt-2 py-2 text-xs text-gray-300 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg transition flex items-center justify-center gap-1"><Plus size={12}/> Dodaj</button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Mobile: lista dni */}
+        <div className="lg:hidden flex-1 overflow-y-auto custom-scrollbar bg-white dark:bg-gray-900 p-3 space-y-3">
+          {weekDays.map(d => {
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const dayEvents = filteredEvents.filter(e => e.date.getDate() === d.getDate() && e.date.getMonth() === d.getMonth());
+            const isToday = d.getDate() === new Date().getDate() && d.getMonth() === new Date().getMonth();
+            return (
+              <div key={d.toString()} className={`p-3 rounded-xl border ${isToday ? 'border-pink-300 dark:border-pink-700 bg-pink-50/50 dark:bg-pink-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${isToday ? 'bg-pink-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>
+                    {d.getDate()}
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-800 dark:text-white">{d.toLocaleDateString('pl-PL', {weekday: 'long'})}</div>
+                    <div className="text-xs text-gray-500">{d.toLocaleDateString('pl-PL', {day: 'numeric', month: 'long'})}</div>
+                  </div>
+                  <button onClick={() => handleAddClick(dateStr)} className="ml-auto p-2 text-gray-400 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20 rounded-lg transition">
+                    <Plus size={18} />
+                  </button>
+                </div>
+                {dayEvents.length > 0 ? (
+                  <div className="space-y-1.5 ml-13">
+                    {dayEvents.map(ev => <EventBadge key={ev.id} event={ev} onClick={() => handleEventClick(ev)} />)}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 ml-13">Brak wydarzeń</div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   };
@@ -1745,22 +1819,30 @@ export default function CalendarModule() {
 
       return (
         <div className="flex-1 bg-white dark:bg-gray-900 overflow-y-auto custom-scrollbar flex">
+            {/* Nagłówek z datą na mobile */}
+            <div className="lg:hidden absolute top-0 left-0 right-0 p-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800 z-30">
+                <div className="text-center">
+                    <div className="font-bold text-gray-800 dark:text-white">{currentDate.toLocaleDateString('pl-PL', {weekday: 'long'})}</div>
+                    <div className="text-sm text-gray-500">{currentDate.toLocaleDateString('pl-PL', {day: 'numeric', month: 'long', year: 'numeric'})}</div>
+                </div>
+            </div>
+
             {/* Lewa kolumna godzin */}
-            <div className="w-16 flex-shrink-0 border-r border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900">
+            <div className="w-10 lg:w-16 flex-shrink-0 border-r border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900 mt-14 lg:mt-0">
                 {hours.map(h => (
-                    <div key={h} className="h-[80px] border-b border-gray-100 dark:border-gray-800 text-right pr-3 pt-2 text-xs text-gray-400 font-medium relative">
+                    <div key={h} className="h-[60px] lg:h-[80px] border-b border-gray-100 dark:border-gray-800 text-right pr-1 lg:pr-3 pt-1 lg:pt-2 text-[10px] lg:text-xs text-gray-400 font-medium relative">
                         {String(h).padStart(2, '0')}:00
                     </div>
                 ))}
             </div>
 
             {/* Prawa kolumna zdarzeń */}
-            <div className="flex-1 relative min-h-[1200px]">
+            <div className="flex-1 relative min-h-[900px] lg:min-h-[1200px] mt-14 lg:mt-0">
                 {/* Linie poziome */}
                 {hours.map(h => (
-                    <div key={h} className="h-[80px] border-b border-gray-100 dark:border-gray-800/50 w-full absolute" style={{top: (h-8)*80}}></div>
+                    <div key={h} className="h-[60px] lg:h-[80px] border-b border-gray-100 dark:border-gray-800/50 w-full absolute" style={{top: (h-8) * (isDesktop ? 80 : 60)}}></div>
                 ))}
-                
+
                 {/* Zdarzenia */}
                 {dayEvents.map(ev => {
                     // Pobieranie godziny z raw data jeśli dostępne, lub z daty
@@ -1773,30 +1855,31 @@ export default function CalendarModule() {
                     }
 
                     const startMin = (Math.max(8, h) - 8) * 60 + m;
-                    const top = (startMin / 60) * 80; 
-                    
+                    const hourHeight = isDesktop ? 80 : 60;
+                    const top = (startMin / 60) * hourHeight;
+
                     return (
                         <div
                             key={ev.id}
                             onClick={() => handleEventClick(ev)}
-                            className={`absolute left-2 right-2 rounded-xl p-3 shadow-sm border cursor-pointer hover:shadow-md transition z-10 ${ev.team === 'program' ? 'bg-pink-50 border-pink-200 text-pink-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}
-                            style={{ top: `${top}px`, height: '70px' }}
+                            className={`absolute left-1 lg:left-2 right-1 lg:right-2 rounded-lg lg:rounded-xl p-2 lg:p-3 shadow-sm border cursor-pointer hover:shadow-md transition z-10 ${ev.team === 'program' ? 'bg-pink-50 border-pink-200 text-pink-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}
+                            style={{ top: `${top}px`, height: isDesktop ? '70px' : '55px' }}
                         >
-                            <div className="flex items-center gap-2 text-xs font-bold opacity-70 mb-1">
-                                <Clock size={12}/>
+                            <div className="flex items-center gap-1 lg:gap-2 text-[10px] lg:text-xs font-bold opacity-70 mb-0.5 lg:mb-1">
+                                <Clock size={10} className="lg:w-3 lg:h-3"/>
                                 {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}
                             </div>
-                            <div className="font-bold truncate">{ev.title}</div>
-                            <div className="text-xs opacity-60 truncate">{TEAMS[ev.team]?.label}</div>
+                            <div className="font-bold truncate text-xs lg:text-base">{ev.title}</div>
+                            <div className="text-[10px] lg:text-xs opacity-60 truncate hidden lg:block">{TEAMS[ev.team]?.label}</div>
                         </div>
                     );
                 })}
 
                 {/* Aktualna godzina (linia) */}
                 {currentDate.getDate() === new Date().getDate() && (
-                    <div 
+                    <div
                         className="absolute w-full border-t-2 border-red-400 z-20 flex items-center"
-                        style={{ top: `${((new Date().getHours() - 8) * 60 + new Date().getMinutes()) / 60 * 80}px` }}
+                        style={{ top: `${((new Date().getHours() - 8) * 60 + new Date().getMinutes()) / 60 * (isDesktop ? 80 : 60)}px` }}
                     >
                         <div className="w-2 h-2 bg-red-400 rounded-full -ml-1"></div>
                     </div>
@@ -1809,15 +1892,15 @@ export default function CalendarModule() {
   const renderListView = () => {
       const sortedEvents = [...filteredEvents].sort((a,b) => a.date - b.date);
       return (
-        <div className="flex-1 bg-white dark:bg-gray-900 overflow-y-auto custom-scrollbar p-6">
-             <div className="max-w-4xl mx-auto space-y-2">
+        <div className="flex-1 bg-white dark:bg-gray-900 overflow-y-auto custom-scrollbar p-3 lg:p-6">
+             <div className="max-w-4xl mx-auto space-y-1 lg:space-y-2">
                  {sortedEvents.map(ev => (
-                     <div key={ev.id} onClick={() => handleEventClick(ev)} className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer transition">
-                         <div className="w-16 text-center">
-                             <div className="text-xs text-gray-400 uppercase font-bold">{ev.date.toLocaleDateString('pl-PL', {month: 'short'})}</div>
-                             <div className="text-xl font-bold text-gray-800 dark:text-white">{ev.date.getDate()}</div>
+                     <div key={ev.id} onClick={() => handleEventClick(ev)} className="flex items-center gap-2 lg:gap-4 p-2 lg:p-3 rounded-lg lg:rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer transition">
+                         <div className="w-12 lg:w-16 text-center flex-shrink-0">
+                             <div className="text-[10px] lg:text-xs text-gray-400 uppercase font-bold">{ev.date.toLocaleDateString('pl-PL', {month: 'short'})}</div>
+                             <div className="text-lg lg:text-xl font-bold text-gray-800 dark:text-white">{ev.date.getDate()}</div>
                          </div>
-                         <div className={`w-1 self-stretch rounded-full ${
+                         <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${
                            TEAMS[ev.team]?.color === 'pink' ? 'bg-pink-500' :
                            TEAMS[ev.team]?.color === 'rose' ? 'bg-rose-500' :
                            TEAMS[ev.team]?.color === 'orange' ? 'bg-orange-500' :
@@ -1827,32 +1910,41 @@ export default function CalendarModule() {
                            TEAMS[ev.team]?.color === 'yellow' ? 'bg-yellow-500' :
                            'bg-gray-300'
                          }`}></div>
-                         <div className="flex-1">
-                             <h4 className="font-bold text-gray-800 dark:text-gray-200">{ev.title}</h4>
-                             <div className="text-xs text-gray-500 flex gap-3 mt-0.5">
-                                 <span>{TEAMS[ev.team]?.label || ev.raw?.category}</span>
+                         <div className="flex-1 min-w-0">
+                             <h4 className="font-bold text-sm lg:text-base text-gray-800 dark:text-gray-200 truncate">{ev.title}</h4>
+                             <div className="text-[10px] lg:text-xs text-gray-500 flex gap-2 lg:gap-3 mt-0.5 flex-wrap">
+                                 <span className="truncate">{TEAMS[ev.team]?.label || ev.raw?.category}</span>
                                  {ev.raw?.due_time && <span>• {ev.raw.due_time}</span>}
                              </div>
                          </div>
                      </div>
                  ))}
-                 {sortedEvents.length === 0 && <div className="text-center text-gray-400 py-10">Brak wydarzeń w tym miesiącu</div>}
+                 {sortedEvents.length === 0 && <div className="text-center text-gray-400 py-10 text-sm lg:text-base">Brak wydarzeń w tym miesiącu</div>}
              </div>
         </div>
       )
   }
 
   return (
-    <div className="h-[calc(100vh-3rem)] flex flex-col gap-4">
+    <div className="h-[calc(100vh-3rem)] flex flex-col gap-2 lg:gap-4">
       {/* HEADER */}
-      <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-         <div className="flex items-center gap-3">
-            <div className="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-lg text-pink-600 dark:text-pink-400"><CalIcon size={24} /></div>
+      <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-3 lg:p-4 rounded-xl lg:rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+         <div className="flex items-center gap-2 lg:gap-3">
+            {/* Przycisk filtrów/sidebar na mobile */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300"
+            >
+              <Filter size={20} />
+            </button>
+            <div className="hidden sm:block p-2 bg-pink-50 dark:bg-pink-900/30 rounded-lg text-pink-600 dark:text-pink-400"><CalIcon size={24} /></div>
             <div>
-               <h1 className="text-xl font-bold text-gray-800 dark:text-white">Kalendarz</h1>
-               <p className="text-xs text-gray-500 dark:text-gray-400">Zarządzanie wydarzeniami i zadaniami</p>
+               <h1 className="text-base lg:text-xl font-bold text-gray-800 dark:text-white">Kalendarz</h1>
+               <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400">Zarządzanie wydarzeniami i zadaniami</p>
             </div>
          </div>
+
+         {/* View switcher - ikony na mobile, ikony+tekst na desktop */}
          <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
             {[
               { id: 'month', icon: LayoutGrid, label: 'Miesiąc' },
@@ -1860,20 +1952,44 @@ export default function CalendarModule() {
               { id: 'day', icon: LayoutList, label: 'Dzień' },
               { id: 'list', icon: List, label: 'Lista' },
             ].map(v => (
-              <button 
+              <button
                 key={v.id}
                 onClick={() => setView(v.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition ${view === v.id ? 'bg-white dark:bg-gray-800 text-pink-600 dark:text-pink-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                className={`p-2 lg:px-3 lg:py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition ${view === v.id ? 'bg-white dark:bg-gray-800 text-pink-600 dark:text-pink-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                title={v.label}
               >
-                 <v.icon size={14} /> {v.label}
+                 <v.icon size={16} /> <span className="hidden lg:inline">{v.label}</span>
               </button>
             ))}
          </div>
       </div>
 
-      <div className="flex-1 flex gap-6 overflow-hidden">
-        {/* SIDEBAR */}
-        <div className="w-64 flex-shrink-0 flex flex-col gap-6">
+      <div className="flex-1 flex gap-2 lg:gap-6 overflow-hidden relative">
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* SIDEBAR - stały na desktop, slide-in na mobile */}
+        <div className={`
+          fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
+          w-72 lg:w-64 flex-shrink-0 flex flex-col gap-4 lg:gap-6
+          bg-gray-50 dark:bg-gray-900 lg:bg-transparent
+          p-4 lg:p-0
+          transform transition-transform duration-300 ease-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}>
+          {/* Przycisk zamknięcia na mobile */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden absolute top-4 right-4 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
+          >
+            <X size={20} />
+          </button>
+
           <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <span className="font-bold text-lg text-gray-800 dark:text-white capitalize">{currentDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })}</span>
@@ -1886,36 +2002,36 @@ export default function CalendarModule() {
             <div className="grid grid-cols-7 gap-1">
               {emptyDays.map((_, i) => <div key={`e-${i}`} />)}
               {daysArray.map(d => (
-                <div key={d} onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), d))} className={`h-8 w-8 flex items-center justify-center text-sm rounded-full cursor-pointer hover:bg-pink-50 dark:hover:bg-gray-700 ${d === currentDate.getDate() ? 'bg-pink-600 text-white font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                <div key={d} onClick={() => { setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), d)); setSidebarOpen(false); }} className={`h-8 w-8 flex items-center justify-center text-sm rounded-full cursor-pointer hover:bg-pink-50 dark:hover:bg-gray-700 ${d === currentDate.getDate() ? 'bg-pink-600 text-white font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                   {d}
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="flex-1 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex-1 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-y-auto">
             <h3 className="font-bold text-gray-500 uppercase text-xs mb-4 tracking-wider">Twoje Kalendarze</h3>
             <div className="space-y-2">
               {Object.entries(TEAMS).map(([key, cfg]) => (
                 <label key={key} className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition select-none">
-                  <input 
-                    type="checkbox" 
-                    className="w-5 h-5 rounded border-gray-300 text-pink-600 focus:ring-pink-500 rounded cursor-pointer accent-pink-600" 
-                    checked={visibleTeams.includes(key)} 
-                    onChange={() => setVisibleTeams(p => p.includes(key) ? p.filter(k => k !== key) : [...p, key])} 
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 rounded border-gray-300 text-pink-600 focus:ring-pink-500 rounded cursor-pointer accent-pink-600"
+                    checked={visibleTeams.includes(key)}
+                    onChange={() => setVisibleTeams(p => p.includes(key) ? p.filter(k => k !== key) : [...p, key])}
                   />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cfg.label}</span>
                 </label>
               ))}
             </div>
-            <button onClick={() => handleAddClick(new Date().toISOString().split('T')[0])} className="w-full mt-6 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 hover:shadow-pink-500/50 transition transform hover:-translate-y-0.5">
+            <button onClick={() => { handleAddClick(new Date().toISOString().split('T')[0]); setSidebarOpen(false); }} className="w-full mt-6 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 hover:shadow-pink-500/50 transition transform hover:-translate-y-0.5">
               <Plus size={18} /> Dodaj
             </button>
           </div>
         </div>
 
         {/* MAIN CALENDAR CONTENT */}
-        <div className="flex-1 bg-white dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white dark:bg-gray-900/50 backdrop-blur-sm rounded-xl lg:rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
           {view === 'month' && renderMonthView()}
           {view === 'week' && renderWeekView()}
           {view === 'day' && renderDayView()}
