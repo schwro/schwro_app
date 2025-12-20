@@ -245,6 +245,28 @@ function getChordIndex(chord) {
 }
 
 /**
+ * Normalizuje akord - usuwa nieprawidłowe kombinacje #b lub b#
+ * np. A#b -> A, Bb# -> B, A#b7 -> A7
+ * Działa na całym akordzie, nie tylko na nucie
+ */
+function normalizeChord(chord) {
+  if (!chord || typeof chord !== 'string') return chord;
+
+  // Usuń kombinacje #b lub b# (wzajemnie się znoszą) - wielokrotnie, aż nie będzie więcej
+  let normalized = chord;
+  let prev;
+  do {
+    prev = normalized;
+    normalized = normalized.replace(/#b|b#/g, '');
+  } while (normalized !== prev);
+
+  // Upewnij się, że akord ma poprawny format
+  if (normalized.length === 0) return chord;
+
+  return normalized;
+}
+
+/**
  * Wybiera odpowiednią nutę dla danej tonacji (poprawny zapis enharmoniczny wg PDF)
  * Unika zapisów typu F##, Ab# - używa nut ze skali docelowej tonacji
  */
@@ -328,7 +350,8 @@ function transposeChordToKey(chord, fromKey, toKey) {
     result += '/' + newBass;
   }
 
-  return result;
+  // Normalizuj wynik - usuń nieprawidłowe kombinacje #b lub b#
+  return normalizeChord(result);
 }
 
 // Funkcja dla kompatybilności wstecznej (transpozycja o półtony bez tonacji docelowej)
@@ -383,7 +406,8 @@ function transposeLineToKey(line, fromKey, toKey) {
         newBass = "/" + transposeNoteToKey(bassNote, semitones, toKey);
       }
 
-      return newRoot + (suffix || "") + newBass;
+      // Normalizuj wynik - usuń nieprawidłowe kombinacje #b lub b#
+      return normalizeChord(newRoot + (suffix || "") + newBass);
     });
   }).join('');
 }
@@ -413,7 +437,8 @@ function transposeLine(line, steps) {
         newBass = "/" + transposeChord(bassNote, steps);
       }
 
-      return newRoot + (suffix || "") + newBass;
+      // Normalizuj wynik - usuń nieprawidłowe kombinacje #b lub b#
+      return normalizeChord(newRoot + (suffix || "") + newBass);
     });
   }).join('');
 }

@@ -32,7 +32,10 @@ export default function UserSettings() {
     try {
       // 1. Pobierz sesję (aby znać email)
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       setUserSession(user);
 
       // 2. Pobierz dane z tabeli app_users na podstawie emaila
@@ -40,7 +43,7 @@ export default function UserSettings() {
         .from('app_users')
         .select('*')
         .eq('email', user.email)
-        .single();
+        .maybeSingle();
 
       if (profile) {
         setFormData({

@@ -1002,7 +1002,7 @@ export default function PrayerWallModule() {
   if (roleLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin text-pink-600" size={40} />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 dark:border-pink-400"></div>
       </div>
     );
   }

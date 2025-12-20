@@ -53,6 +53,26 @@ const SHARP_KEYS = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
 const FLAT_KEYS = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'];
 
 /**
+ * Normalizuje akord - usuwa nieprawidłowe kombinacje #b lub b#
+ * np. A#b -> A, Bb# -> B, A#b7 -> A7
+ */
+const normalizeChord = (chord) => {
+  if (!chord || typeof chord !== 'string') return chord;
+
+  // Usuń kombinacje #b lub b# (wzajemnie się znoszą) - wielokrotnie, aż nie będzie więcej
+  let normalized = chord;
+  let prev;
+  do {
+    prev = normalized;
+    normalized = normalized.replace(/#b|b#/g, '');
+  } while (normalized !== prev);
+
+  if (normalized.length === 0) return chord;
+
+  return normalized;
+};
+
+/**
  * Parsuje akord i zwraca jego składowe
  * @param {string} chord - Akord do sparsowania (np. "Am7", "D/F#", "Bbmaj7")
  * @returns {{ root: string, modifier: string, bass: string|null }}
@@ -163,7 +183,8 @@ const transposeChord = (chord, fromKey, toKey) => {
     result += '/' + newBass;
   }
 
-  return result;
+  // Normalizuj wynik - usuń nieprawidłowe kombinacje #b lub b#
+  return normalizeChord(result);
 };
 
 /**
