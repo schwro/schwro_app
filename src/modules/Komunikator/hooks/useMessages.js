@@ -94,18 +94,25 @@ export default function useMessages(conversationId, userEmail) {
   }, [conversationId]);
 
   // Wyślij wiadomość
-  const sendMessage = async (content, attachments = [], conversationData = null) => {
+  const sendMessage = async (content, attachments = [], conversationData = null, replyToId = null) => {
     if (!conversationId || !userEmail) return null;
 
     try {
+      const messageData = {
+        conversation_id: conversationId,
+        sender_email: userEmail,
+        content,
+        attachments
+      };
+
+      // Dodaj reply_to_id jeśli istnieje
+      if (replyToId) {
+        messageData.reply_to_id = replyToId;
+      }
+
       const { data, error: sendError } = await supabase
         .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_email: userEmail,
-          content,
-          attachments
-        })
+        .insert(messageData)
         .select()
         .single();
 
@@ -229,6 +236,41 @@ export default function useMessages(conversationId, userEmail) {
     await fetchMessages(messages.length, true);
   };
 
+  // Przekaż wiadomość do innych konwersacji
+  const forwardMessage = async (message, targetConversationIds) => {
+    if (!message || !targetConversationIds || targetConversationIds.length === 0) return;
+
+    const results = [];
+
+    for (const targetConvId of targetConversationIds) {
+      try {
+        const forwardedContent = message.content;
+        const forwardedAttachments = message.attachments || [];
+
+        const { data, error: sendError } = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: targetConvId,
+            sender_email: userEmail,
+            content: forwardedContent,
+            attachments: forwardedAttachments,
+            forwarded_from: message.id
+          })
+          .select()
+          .single();
+
+        if (sendError) throw sendError;
+
+        results.push({ conversationId: targetConvId, message: data, success: true });
+      } catch (err) {
+        console.error('Error forwarding to conversation:', targetConvId, err);
+        results.push({ conversationId: targetConvId, success: false, error: err });
+      }
+    }
+
+    return results;
+  };
+
   // Dodaj wiadomość z real-time
   const addMessage = useCallback(async (newMessage) => {
     // Pobierz dane nadawcy z cache lub bazy
@@ -292,6 +334,7 @@ export default function useMessages(conversationId, userEmail) {
     deleteMessage,
     loadMore,
     addMessage,
+    forwardMessage,
     refetch: fetchMessages
   };
 }

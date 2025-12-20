@@ -30,7 +30,7 @@ export default function useConversations(userEmail) {
       // Pobierz konwersacje użytkownika z uczestnikami i ostatnią wiadomością
       const { data: participantData, error: participantError } = await supabase
         .from('conversation_participants')
-        .select('conversation_id, last_read_at, muted, role')
+        .select('conversation_id, last_read_at, muted, role, starred, archived')
         .eq('user_email', userEmail);
 
       if (participantError) throw participantError;
@@ -143,14 +143,21 @@ export default function useConversations(userEmail) {
           lastMessage: lastMsg,
           unreadCount: hasUnread ? 1 : 0, // Uproszczone - pokazuje czy są nieprzeczytane
           muted: myParticipation?.muted || false,
+          starred: myParticipation?.starred || false,
+          archived: myParticipation?.archived || false,
           myRole: myParticipation?.role || 'member'
         };
       });
 
-      // Sortuj - nieprzeczytane na górze, potem po updated_at
+      // Sortuj - gwiazdki na górze, potem nieprzeczytane, potem po updated_at
       conversationsWithMessages.sort((a, b) => {
+        // Gwiazdki zawsze na górze
+        if (a.starred && !b.starred) return -1;
+        if (!a.starred && b.starred) return 1;
+        // Potem nieprzeczytane
         if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
         if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
+        // Na końcu po dacie
         return new Date(b.updated_at) - new Date(a.updated_at);
       });
 
@@ -273,6 +280,56 @@ export default function useConversations(userEmail) {
     }
   };
 
+  // Przełącz gwiazdkę
+  const toggleStar = async (conversationId) => {
+    try {
+      const current = conversations.find(c => c.id === conversationId);
+      const newStarred = !current?.starred;
+
+      await supabase
+        .from('conversation_participants')
+        .update({ starred: newStarred })
+        .eq('conversation_id', conversationId)
+        .eq('user_email', userEmail);
+
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === conversationId ? { ...c, starred: newStarred } : c
+        ).sort((a, b) => {
+          if (a.starred && !b.starred) return -1;
+          if (!a.starred && b.starred) return 1;
+          if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+          if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
+          return new Date(b.updated_at) - new Date(a.updated_at);
+        })
+      );
+    } catch (err) {
+      console.error('Error toggling star:', err);
+    }
+  };
+
+  // Przełącz archiwizację
+  const toggleArchive = async (conversationId) => {
+    try {
+      const current = conversations.find(c => c.id === conversationId);
+      const newArchived = !current?.archived;
+
+      await supabase
+        .from('conversation_participants')
+        .update({ archived: newArchived })
+        .eq('conversation_id', conversationId)
+        .eq('user_email', userEmail);
+
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === conversationId ? { ...c, archived: newArchived } : c
+        )
+      );
+    } catch (err) {
+      console.error('Error toggling archive:', err);
+    }
+  };
+
   // Usuń konwersację (tylko dla direct)
   const deleteConversation = async (conversationId) => {
     try {
@@ -361,6 +418,8 @@ export default function useConversations(userEmail) {
     createDirectConversation,
     createGroupConversation,
     markAsRead,
-    deleteConversation
+    deleteConversation,
+    toggleStar,
+    toggleArchive
   };
 }

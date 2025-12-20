@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, AlertCircle, Calendar, CheckSquare, DollarSign, Users, MessageSquare, Layers, CalendarDays, UserCog } from 'lucide-react';
+import { X, Save, AlertCircle, Calendar, CheckSquare, DollarSign, Users, MessageSquare, Layers, CalendarDays, UserCog, FolderOpen } from 'lucide-react';
 import IconPicker from './IconPicker';
 
 // Dostępne typy komponentów
@@ -12,7 +12,8 @@ const COMPONENT_TYPES = [
   { key: 'members', label: 'Członkowie', icon: Users, description: 'Lista członków zespołu' },
   { key: 'wall', label: 'Tablica', icon: MessageSquare, description: 'Tablica z wpisami i komentarzami' },
   { key: 'schedule', label: 'Grafik', icon: CalendarDays, description: 'Harmonogram służb na wydarzenia' },
-  { key: 'duty', label: 'Służby', icon: UserCog, description: 'Zarządzanie służbami i przypisaniami' }
+  { key: 'duty', label: 'Służby', icon: UserCog, description: 'Zarządzanie służbami i przypisaniami' },
+  { key: 'materials', label: 'Materiały', icon: FolderOpen, description: 'Pliki i dokumenty do pobrania' }
 ];
 
 export default function TabEditor({ tab, moduleId, moduleName, onClose, onSave, existingKeys = [] }) {
@@ -55,7 +56,8 @@ export default function TabEditor({ tab, moduleId, moduleName, onClose, onSave, 
         members: 'Users',
         wall: 'MessageSquare',
         schedule: 'CalendarDays',
-        duty: 'UserCog'
+        duty: 'UserCog',
+        materials: 'FolderOpen'
       };
       if (iconMap[form.component_type]) {
         setForm(prev => ({ ...prev, icon: iconMap[form.component_type] }));

@@ -39,7 +39,9 @@ export default function KomunikatorModule() {
     createDirectConversation,
     createGroupConversation,
     markAsRead,
-    deleteConversation
+    deleteConversation,
+    toggleStar,
+    toggleArchive
   } = useConversations(userEmail);
 
   // Hook powiadomień - do oznaczania jako przeczytane
@@ -193,6 +195,8 @@ export default function KomunikatorModule() {
           selectedId={selectedConversation?.id}
           onSelect={handleSelectConversation}
           onNewConversation={() => setShowNewModal(true)}
+          onToggleStar={toggleStar}
+          onToggleArchive={toggleArchive}
           loading={loading}
           currentUserEmail={userEmail}
         />
@@ -213,6 +217,7 @@ export default function KomunikatorModule() {
           onOpenSettings={() => setShowSettingsModal(true)}
           onMarkAsRead={markAsRead}
           onDeleteConversation={handleDeleteConversation}
+          allConversations={conversations}
         />
       </div>
 

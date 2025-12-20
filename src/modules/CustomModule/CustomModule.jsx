@@ -7,6 +7,7 @@ import FinanceTab from '../shared/FinanceTab';
 import WallTab from '../shared/WallTab';
 import ScheduleTab from '../shared/ScheduleTab';
 import DutyTab from '../shared/DutyTab';
+import MaterialsTab from '../shared/MaterialsTab';
 import MembersTab from './components/MembersTab';
 import TasksTab from './components/TasksTab';
 
@@ -202,6 +203,9 @@ function TabContent({ tab, moduleKey, moduleName }) {
 
     case 'duty':
       return <DutyTab moduleKey={moduleKey} moduleName={moduleName} />;
+
+    case 'materials':
+      return <MaterialsTab moduleKey={moduleKey} canEdit={true} />;
 
     case 'empty':
     default:
