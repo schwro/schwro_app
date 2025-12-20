@@ -7,7 +7,9 @@ import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import ToastContainer from './components/ToastNotification';
+import InstallPrompt from './components/InstallPrompt';
 import { useNotifications } from './hooks/useNotifications';
+import useOffline from './hooks/useOffline';
 import Login from './modules/Login';
 import ResetPassword from './modules/ResetPassword';
 import PersonalDashboard from './modules/Dashboard/PersonalDashboard';
@@ -39,6 +41,19 @@ const SYSTEM_MODULE_KEYS = [
 function ToastNotifications({ userEmail }) {
   const { toasts, closeToast, handleToastClick } = useNotifications(userEmail);
   return <ToastContainer toasts={toasts} onClose={closeToast} onClick={handleToastClick} />;
+}
+
+// Komponent baneru offline
+function OfflineBanner() {
+  const { isOffline } = useOffline();
+
+  if (!isOffline) return null;
+
+  return (
+    <div className="bg-amber-500 text-white text-center py-2 px-4 text-sm font-medium">
+      Brak połączenia z internetem. Niektóre funkcje mogą być niedostępne.
+    </div>
+  );
 }
 
 export default function App() {
@@ -159,6 +174,10 @@ export default function App() {
             <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
             {/* Toast Notifications - fixed positioned */}
             <ToastNotifications userEmail={session.user?.email} />
+            {/* PWA Install Prompt */}
+            <InstallPrompt />
+            {/* Offline Banner */}
+            <OfflineBanner />
             <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
               <Routes>
                 <Route path="/" element={<PersonalDashboard user={session.user} />} />
