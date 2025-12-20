@@ -34,23 +34,34 @@ function useDropdownPosition(triggerRef, isOpen) {
         const spaceAbove = rect.top;
         const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
 
+        // Używamy position: fixed, więc koordynaty są względem viewport (bez scrollY/scrollX)
         setCoords({
-          top: openUpward
-            ? rect.top + window.scrollY - 4
-            : rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX,
-          width: rect.width,
+          top: openUpward ? rect.top : rect.bottom,
+          left: rect.left,
+          width: Math.max(rect.width, 200), // minimum 200px szerokości
           openUpward
         });
       };
 
+      // Wywołaj natychmiast
       updatePosition();
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
+
+      // Używamy requestAnimationFrame dla płynniejszego pozycjonowania
+      let rafId;
+      const rafUpdate = () => {
+        updatePosition();
+        rafId = requestAnimationFrame(rafUpdate);
+      };
+
+      // Aktualizuj na scroll (dowolnego kontenera) i resize
+      const handleScroll = () => updatePosition();
+      window.addEventListener('scroll', handleScroll, true);
+      window.addEventListener('resize', handleScroll);
 
       return () => {
-        window.removeEventListener('scroll', updatePosition, true);
-        window.removeEventListener('resize', updatePosition);
+        window.removeEventListener('scroll', handleScroll, true);
+        window.removeEventListener('resize', handleScroll);
+        if (rafId) cancelAnimationFrame(rafId);
       };
     }
   }, [isOpen]);
@@ -139,10 +150,9 @@ const CustomDatePicker = ({ value, onChange }) => {
             id="datepicker-portal"
             className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 w-[280px]"
             style={{
-              ...(coords.openUpward
-                ? { bottom: `calc(100vh - ${coords.top}px)` }
-                : { top: coords.top }),
-              left: coords.left
+              top: coords.openUpward ? 'auto' : `${coords.top}px`,
+              bottom: coords.openUpward ? `${window.innerHeight - coords.top + 4}px` : 'auto',
+              left: `${coords.left}px`
             }}
         >
            <div className="flex justify-between items-center mb-4">
@@ -241,13 +251,12 @@ const ElementSelector = ({ value, onChange, options }) => {
       {isOpen && coords.width > 0 && document.body && createPortal(
         <div
             id="element-selector-portal"
-            className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
             style={{
-              ...(coords.openUpward
-                ? { bottom: `calc(100vh - ${coords.top}px)` }
-                : { top: coords.top }),
-              left: coords.left,
-              width: coords.width
+              top: coords.openUpward ? 'auto' : `${coords.top}px`,
+              bottom: coords.openUpward ? `${window.innerHeight - coords.top + 4}px` : 'auto',
+              left: `${coords.left}px`,
+              width: `${coords.width}px`
             }}
         >
           {options.map((opt) => (
@@ -329,11 +338,10 @@ const MultiSelect = ({ label, options, value, onChange, absentMembers = [] }) =>
             id={`multiselect-portal-${label}`}
             className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
             style={{
-              ...(coords.openUpward
-                ? { bottom: `calc(100vh - ${coords.top}px)` }
-                : { top: coords.top }),
-              left: coords.left,
-              width: coords.width
+              top: coords.openUpward ? 'auto' : `${coords.top}px`,
+              bottom: coords.openUpward ? `${window.innerHeight - coords.top + 4}px` : 'auto',
+              left: `${coords.left}px`,
+              width: `${coords.width}px`
             }}
         >
           {options.map((person) => {
@@ -394,22 +402,21 @@ const SongSelector = ({ songs, onSelect }) => {
         <ChevronDown size={16} className="text-pink-400" />
       </div>
 
-      {isOpen && document.body && createPortal(
+      {isOpen && coords.width > 0 && document.body && createPortal(
         <div
             id="song-selector-portal"
-            className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 flex flex-col overflow-hidden"
             style={{
-              ...(coords.openUpward
-                ? { bottom: `calc(100vh - ${coords.top}px)` }
-                : { top: coords.top }),
-              left: coords.left,
-              width: coords.width
+              top: coords.openUpward ? 'auto' : `${coords.top}px`,
+              bottom: coords.openUpward ? `${window.innerHeight - coords.top + 4}px` : 'auto',
+              left: `${coords.left}px`,
+              width: `${coords.width}px`
             }}
         >
           <div className="p-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
             <div className="flex items-center gap-2 bg-white dark:bg-gray-900 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
               <Search size={14} className="text-gray-400" />
-              <input 
+              <input
                 autoFocus
                 className="bg-transparent outline-none text-sm w-full text-gray-700 dark:text-gray-200 placeholder-gray-400"
                 placeholder="Szukaj..."
@@ -423,7 +430,7 @@ const SongSelector = ({ songs, onSelect }) => {
               <div className="p-3 text-xs text-gray-400 text-center">Brak wyników</div>
             ) : (
               filteredSongs.map(s => (
-                <div 
+                <div
                   key={s.id}
                   className="px-4 py-2 hover:bg-pink-50 dark:hover:bg-pink-900/20 cursor-pointer text-sm text-gray-700 dark:text-gray-300 flex justify-between items-center border-b border-gray-50 dark:border-gray-800 last:border-0"
                   onClick={() => {
@@ -960,11 +967,10 @@ const AbsenceMultiSelectDashboard = ({ options, value, onChange }) => {
           id="absence-multiselect-portal"
           className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar"
           style={{
-            ...(coords.openUpward
-              ? { bottom: `calc(100vh - ${coords.top}px)` }
-              : { top: coords.top }),
-            left: coords.left,
-            width: coords.width
+            top: coords.openUpward ? 'auto' : `${coords.top}px`,
+            bottom: coords.openUpward ? `${window.innerHeight - coords.top + 4}px` : 'auto',
+            left: `${coords.left}px`,
+            width: `${coords.width}px`
           }}
         >
           {options.map((person) => {
