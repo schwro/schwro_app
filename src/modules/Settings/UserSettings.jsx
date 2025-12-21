@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { 
-  User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key
+import {
+  User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key, Bell, BellOff, Smartphone
 } from 'lucide-react';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 export default function UserSettings() {
   const [loading, setLoading] = useState(true);
@@ -22,6 +23,18 @@ export default function UserSettings() {
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Push notifications
+  const {
+    isSupported: pushSupported,
+    isSubscribed: pushSubscribed,
+    permission: pushPermission,
+    loading: pushLoading,
+    error: pushError,
+    subscribe: subscribePush,
+    unsubscribe: unsubscribePush,
+    sendTestNotification
+  } = usePushNotifications(formData.email);
 
   useEffect(() => {
     fetchUserProfile();
@@ -233,6 +246,86 @@ export default function UserSettings() {
                 {saving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} Zapisz zmiany
               </button>
             </div>
+          </div>
+
+          {/* POWIADOMIENIA PUSH */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 transition-colors duration-300">
+            <div className="flex items-center gap-3 mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400"><Smartphone size={24} /></div>
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Powiadomienia Push</h3>
+            </div>
+
+            {!pushSupported ? (
+              <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl text-gray-500 dark:text-gray-400">
+                <BellOff size={20} />
+                <span>Twoja przeglądarka nie obsługuje powiadomień push.</span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    {pushSubscribed ? (
+                      <Bell size={20} className="text-green-500" />
+                    ) : (
+                      <BellOff size={20} className="text-gray-400" />
+                    )}
+                    <div>
+                      <p className="font-medium text-gray-800 dark:text-gray-200">
+                        {pushSubscribed ? 'Powiadomienia włączone' : 'Powiadomienia wyłączone'}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {pushPermission === 'denied'
+                          ? 'Powiadomienia są zablokowane w ustawieniach przeglądarki'
+                          : pushSubscribed
+                            ? 'Otrzymujesz powiadomienia o nowych wiadomościach'
+                            : 'Włącz, aby otrzymywać powiadomienia nawet gdy aplikacja jest zamknięta'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={pushSubscribed ? unsubscribePush : subscribePush}
+                    disabled={pushLoading || pushPermission === 'denied'}
+                    className={`px-4 py-2 rounded-xl font-medium transition flex items-center gap-2 ${
+                      pushSubscribed
+                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    } ${(pushLoading || pushPermission === 'denied') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {pushLoading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : pushSubscribed ? (
+                      <>
+                        <BellOff size={16} />
+                        Wyłącz
+                      </>
+                    ) : (
+                      <>
+                        <Bell size={16} />
+                        Włącz
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {pushError && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm">
+                    <AlertCircle size={16} />
+                    {pushError}
+                  </div>
+                )}
+
+                {pushSubscribed && (
+                  <button
+                    onClick={sendTestNotification}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    <Bell size={14} />
+                    Wyślij testowe powiadomienie
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* BEZPIECZEŃSTWO */}

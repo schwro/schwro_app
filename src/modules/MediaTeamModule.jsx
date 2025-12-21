@@ -5,11 +5,12 @@ import {
   Plus, Search, Trash2, X, FileText, Music, Calendar, Download,
   AlertCircle, Paperclip, GripVertical, User, Users,
   LayoutGrid, List, CheckSquare, Filter, MessageSquare, Send,
-  Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, DollarSign, Tag, Upload, FolderOpen
+  Check, UserX, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, DollarSign, Tag, Upload, FolderOpen, Package
 } from 'lucide-react';
 import FinanceTab from './shared/FinanceTab';
 import EventsTab from './shared/EventsTab';
 import MaterialsTab from './shared/MaterialsTab';
+import EquipmentTab from './shared/EquipmentTab';
 import RolesTab from '../components/RolesTab';
 import CustomSelect from '../components/CustomSelect';
 import { useUserRole } from '../hooks/useUserRole';
@@ -1152,6 +1153,19 @@ export default function MediaTeamModule() {
             Służby
           </button>
         )}
+        {hasTabAccess('media', 'equipment', userRole) && (
+          <button
+            onClick={() => setActiveTab('equipment')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'equipment'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Package size={16} className="inline mr-2" />
+            Wyposażenie
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('files')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
@@ -1358,6 +1372,15 @@ export default function MediaTeamModule() {
         <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden transition-colors duration-300">
           <MaterialsTab moduleKey="media" canEdit={true} />
         </section>
+      )}
+
+      {/* EQUIPMENT TAB */}
+      {activeTab === 'equipment' && (
+        <EquipmentTab
+          ministryKey="media"
+          currentUserEmail={currentUserEmail}
+          canEdit={hasTabAccess('media', 'equipment', userRole)}
+        />
       )}
 
       {/* MODAL ZADANIA */}

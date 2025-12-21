@@ -6,11 +6,12 @@ import {
   Plus, Search, Trash2, X, Users, MapPin, Calendar,
   UserPlus, BookOpen, Upload, Link as LinkIcon,
   LayoutGrid, List, CheckSquare, MessageSquare, Send,
-  User, FileText, DollarSign, FolderOpen
+  User, FileText, DollarSign, FolderOpen, Package
 } from 'lucide-react';
 import FinanceTab from '../shared/FinanceTab';
 import EventsTab from '../shared/EventsTab';
 import MaterialsTab from '../shared/MaterialsTab';
+import EquipmentTab from '../shared/EquipmentTab';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
 
@@ -765,6 +766,19 @@ export default function HomeGroupsModule() {
           <Calendar size={16} className="inline mr-2" />
           Wydarzenia
         </button>
+        {hasTabAccess('homegroups', 'equipment', userRole) && (
+          <button
+            onClick={() => setActiveTab('equipment')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'equipment'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Package size={16} className="inline mr-2" />
+            Wyposażenie
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('files')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
@@ -1232,6 +1246,15 @@ export default function HomeGroupsModule() {
         <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden transition-colors">
           <MaterialsTab moduleKey="homegroups" canEdit={true} />
         </section>
+      )}
+
+      {/* EQUIPMENT TAB */}
+      {activeTab === 'equipment' && (
+        <EquipmentTab
+          ministryKey="homegroups"
+          currentUserEmail={currentUserEmail}
+          canEdit={hasTabAccess('homegroups', 'equipment', userRole)}
+        />
       )}
 
       {/* MODAL: Group/Leader/Member */}

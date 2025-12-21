@@ -6,9 +6,10 @@ import {
   AlertCircle, Paperclip, User, Users,
   LayoutGrid, List, CheckSquare, MessageSquare, Send,
   Check, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, DollarSign, Tag, Upload,
-  MapPin, Clock, Star, Heart
+  MapPin, Clock, Star, Heart, Package
 } from 'lucide-react';
 import FinanceTab from './shared/FinanceTab';
+import EquipmentTab from './shared/EquipmentTab';
 import RolesTab from '../components/RolesTab';
 import CustomSelect from '../components/CustomSelect';
 import { useUserRole } from '../hooks/useUserRole';
@@ -823,6 +824,19 @@ export default function MlodziezowkaModule() {
             Finanse
           </button>
         )}
+        {hasTabAccess('mlodziezowka', 'equipment', userRole) && (
+          <button
+            onClick={() => setActiveTab('equipment')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'equipment'
+                ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Package size={16} className="inline mr-2" />
+            Wyposażenie
+          </button>
+        )}
       </div>
 
       {/* WYDARZENIA */}
@@ -1061,6 +1075,15 @@ export default function MlodziezowkaModule() {
           expenses={expenses}
           onAddExpense={() => setShowExpenseModal(true)}
           onRefresh={fetchFinanceData}
+        />
+      )}
+
+      {/* EQUIPMENT TAB */}
+      {activeTab === 'equipment' && (
+        <EquipmentTab
+          ministryKey="mlodziezowka"
+          currentUserEmail={currentUserEmail}
+          canEdit={hasTabAccess('mlodziezowka', 'equipment', userRole)}
         />
       )}
 

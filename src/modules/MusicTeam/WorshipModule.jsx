@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare, Download, Play, Pause, Volume2, Users, FolderOpen } from 'lucide-react';
+import { Plus, Search, Trash2, X, FileText, Music, Calendar, ChevronDown, Check, ChevronUp, User, UserX, Link as LinkIcon, Clock, History, ExternalLink, Minus, Hash, DollarSign, ChevronLeft, ChevronRight, Tag, Upload, FileDown, MessageSquare, Download, Play, Pause, Volume2, Users, FolderOpen, Package } from 'lucide-react';
 import SongForm from './SongForm';
 import FinanceTab from '../shared/FinanceTab';
 import WallTab from '../shared/WallTab';
 import EventsTab from '../shared/EventsTab';
 import MaterialsTab from '../shared/MaterialsTab';
+import EquipmentTab from '../shared/EquipmentTab';
 import RolesTab from '../../components/RolesTab';
 import CustomSelect from '../../components/CustomSelect';
 import ResponsiveTabs from '../../components/ResponsiveTabs';
@@ -2430,6 +2431,7 @@ export default function WorshipModule() {
     ...(hasTabAccess('worship', 'members', userRole) ? [{ id: 'members', label: 'Członkowie', icon: User }] : []),
     ...(hasTabAccess('worship', 'finances', userRole) ? [{ id: 'finances', label: 'Finanse', icon: DollarSign }] : []),
     ...(hasTabAccess('worship', 'members', userRole) ? [{ id: 'roles', label: 'Służby', icon: Users }] : []),
+    ...(hasTabAccess('worship', 'equipment', userRole) ? [{ id: 'equipment', label: 'Wyposażenie', icon: Package }] : []),
     { id: 'files', label: 'Pliki', icon: FolderOpen },
   ];
 
@@ -2652,6 +2654,15 @@ export default function WorshipModule() {
         <section className="bg-white dark:bg-gray-900 rounded-2xl lg:rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
           <MaterialsTab moduleKey="worship" canEdit={true} />
         </section>
+      )}
+
+      {/* EQUIPMENT TAB */}
+      {activeTab === 'equipment' && (
+        <EquipmentTab
+          ministryKey="worship"
+          currentUserEmail={currentUser.email}
+          canEdit={hasTabAccess('worship', 'equipment', userRole)}
+        />
       )}
 
       {/* Modale */}

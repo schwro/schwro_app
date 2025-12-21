@@ -4,11 +4,12 @@ import { supabase } from '../../lib/supabase';
 import {
   Plus, Search, Trash2, X, FileText, Calendar, Check, UserX,
   ChevronUp, ChevronDown, Users, BookOpen, GraduationCap,
-  MapPin, Baby, Upload, UserPlus, Link as LinkIcon, DollarSign, ChevronLeft, ChevronRight, Tag, FolderOpen
+  MapPin, Baby, Upload, UserPlus, Link as LinkIcon, DollarSign, ChevronLeft, ChevronRight, Tag, FolderOpen, Package
 } from 'lucide-react';
 import FinanceTab from '../shared/FinanceTab';
 import EventsTab from '../shared/EventsTab';
 import MaterialsTab from '../shared/MaterialsTab';
+import EquipmentTab from '../shared/EquipmentTab';
 import CustomSelect from '../../components/CustomSelect';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
@@ -617,6 +618,19 @@ export default function KidsModule() {
             Finanse
           </button>
         )}
+        {hasTabAccess('kids', 'equipment', userRole) && (
+          <button
+            onClick={() => setActiveTab('equipment')}
+            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
+              activeTab === 'equipment'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Package size={16} className="inline mr-2" />
+            Wyposażenie
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('files')}
           className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
@@ -767,6 +781,15 @@ export default function KidsModule() {
         <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
           <MaterialsTab moduleKey="kids" canEdit={true} />
         </section>
+      )}
+
+      {/* EQUIPMENT TAB */}
+      {activeTab === 'equipment' && (
+        <EquipmentTab
+          ministryKey="kids"
+          currentUserEmail={currentUser.email}
+          canEdit={hasTabAccess('kids', 'equipment', userRole)}
+        />
       )}
 
       {/* MODALE - BEZ ZMIAN */}

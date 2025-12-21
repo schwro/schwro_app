@@ -15,7 +15,8 @@ export const TAB_PERMISSIONS = {
   homegroups: {
     schedule: null, // wszyscy
     members: ['rada_starszych', 'koordynator', 'lider'],
-    finances: ['rada_starszych', 'koordynator']
+    finances: ['rada_starszych', 'koordynator'],
+    equipment: ['rada_starszych', 'koordynator', 'lider']
   },
 
   // Moduł Media Team
@@ -23,7 +24,8 @@ export const TAB_PERMISSIONS = {
     schedule: null,
     tasks: null,
     members: ['rada_starszych', 'koordynator', 'lider'],
-    finances: ['rada_starszych', 'koordynator']
+    finances: ['rada_starszych', 'koordynator'],
+    equipment: ['rada_starszych', 'koordynator', 'lider']
   },
 
   // Moduł Małe SchWro
@@ -32,7 +34,8 @@ export const TAB_PERMISSIONS = {
     groups: null,
     teachers: ['rada_starszych', 'koordynator', 'lider'],
     students: null,
-    finances: ['rada_starszych', 'koordynator']
+    finances: ['rada_starszych', 'koordynator'],
+    equipment: ['rada_starszych', 'koordynator', 'lider']
   },
 
   // Moduł Grupa Uwielbienia
@@ -41,14 +44,16 @@ export const TAB_PERMISSIONS = {
     songs: null,
     members: ['rada_starszych', 'koordynator', 'lider'],
     finances: ['rada_starszych', 'koordynator'],
-    wall: null // Tablica dostępna dla wszystkich
+    wall: null, // Tablica dostępna dla wszystkich
+    equipment: ['rada_starszych', 'koordynator', 'lider']
   },
 
   // Moduł Atmosfera Team
   atmosfera: {
     schedule: null,
     members: ['rada_starszych', 'koordynator', 'lider'],
-    finances: ['rada_starszych', 'koordynator']
+    finances: ['rada_starszych', 'koordynator'],
+    equipment: ['rada_starszych', 'koordynator', 'lider']
   },
 
   // Moduł Nauczanie
@@ -71,7 +76,8 @@ export const TAB_PERMISSIONS = {
     tasks: null, // Zadania - wszyscy
     leaders: ['rada_starszych', 'koordynator', 'lider'], // Liderzy - tylko kadra
     members: ['rada_starszych', 'koordynator', 'lider'], // Członkowie - tylko kadra
-    finances: ['rada_starszych', 'koordynator'] // Finanse - tylko rada i koordynator
+    finances: ['rada_starszych', 'koordynator'], // Finanse - tylko rada i koordynator
+    equipment: ['rada_starszych', 'koordynator', 'lider'] // Wyposażenie - tylko kadra
   }
 };
 
