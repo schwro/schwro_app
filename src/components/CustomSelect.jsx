@@ -16,23 +16,29 @@ function useDropdownPosition(triggerRef, isOpen) {
         // Otwórz w górę jeśli nie ma miejsca na dole, ale jest na górze
         const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
 
+        // Użyj position: fixed z viewport coordinates (bez scrollY)
         setCoords({
-          top: openUpward
-            ? rect.top + window.scrollY - 4  // pozycja dla otwarcia w górę (będzie użyte jako bottom)
-            : rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX,
+          top: openUpward ? rect.top - 4 : rect.bottom + 4,
+          left: rect.left,
           width: rect.width,
           openUpward
         });
       };
 
       updatePosition();
+
+      // Zamknij dropdown przy scrollu zamiast próbować go śledzić
+      const handleScroll = () => {
+        // Aktualizuj pozycję przy scrollu
+        updatePosition();
+      };
+
       window.addEventListener('resize', updatePosition);
-      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('scroll', handleScroll, true);
 
       return () => {
         window.removeEventListener('resize', updatePosition);
-        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('scroll', handleScroll, true);
       };
     }
   }, [isOpen, triggerRef]);
@@ -121,10 +127,10 @@ export default function CustomSelect({
           className="portal-dropdown-select fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
           style={{
             ...(coords.openUpward
-              ? { bottom: `calc(100vh - ${coords.top}px)` }
+              ? { bottom: window.innerHeight - coords.top }
               : { top: coords.top }),
-            left: coords.left,
-            width: coords.width,
+            left: Math.max(8, Math.min(coords.left, window.innerWidth - coords.width - 8)),
+            width: Math.min(coords.width, window.innerWidth - 16),
             minWidth: compact ? '120px' : undefined
           }}
         >

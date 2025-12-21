@@ -1783,8 +1783,8 @@ export default function Dashboard() {
       </div>
 
       {/* PRAWA KOLUMNA - EDYCJA */}
-      <div className={`${mobileView === 'edit' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col overflow-y-auto p-4 lg:p-8 custom-scrollbar`}>
-        <div className="max-w-7xl mx-auto space-y-8">
+      <div className={`${mobileView === 'edit' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col overflow-y-auto p-2 sm:p-4 lg:p-8 custom-scrollbar`}>
+        <div className="w-full lg:max-w-7xl lg:mx-auto space-y-8">
           
           {/* EDYCJA PROGRAMU */}
           <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl lg:rounded-3xl shadow-2xl border border-white/40 dark:border-gray-700/50 p-4 lg:p-8">
@@ -1846,7 +1846,7 @@ export default function Dashboard() {
             <div className="bg-white/70 dark:bg-gray-800/40 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 dark:border-gray-700/50 p-4 lg:p-6 mb-6 lg:mb-8 min-h-[300px] lg:min-h-[500px]">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 lg:mb-6">
                 <h3 className="font-bold text-lg lg:text-xl text-gray-800 dark:text-white flex items-center gap-2"><div className="w-1.5 h-5 lg:h-6 bg-pink-600 dark:bg-pink-500 rounded-full"></div>Plan szczegółowy</h3>
-                <button onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [], selectedSongs: [] }]})} className="w-full sm:w-auto bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-4 py-2.5 rounded-xl font-bold hover:shadow-lg transition">+ Dodaj Element</button>
+                <button onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [], selectedSongs: [] }]})} className="hidden sm:block bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-4 py-2.5 rounded-xl font-bold hover:shadow-lg transition">+ Dodaj Element</button>
               </div>
               <div className="bg-white/50 dark:bg-gray-900/50 rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner overflow-hidden overflow-x-auto">
                 <div className="hidden lg:grid grid-cols-12 gap-4 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[600px]"><div className="col-span-1"></div><div className="col-span-3">Element</div><div className="col-span-3">Osoba</div><div className="col-span-4">Szczegóły / Notatki</div><div className="col-span-1"></div></div>
@@ -1856,6 +1856,8 @@ export default function Dashboard() {
                   </SortableContext>
                 </DndContext>
               </div>
+              {/* Przycisk Dodaj Element - tylko mobile, na dole */}
+              <button onClick={() => setProgram({...program, schedule: [...program.schedule, { id: Date.now(), element: '', person: '', details: '', songIds: [], selectedSongs: [] }]})} className="sm:hidden w-full mt-4 bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-4 py-3 rounded-xl font-bold hover:shadow-lg transition">+ Dodaj Element</button>
             </div>
 
             <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-4 lg:p-6 mb-4 lg:mb-6 hover:shadow-xl transition relative z-50">
