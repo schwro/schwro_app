@@ -10,6 +10,7 @@ import { hasTabAccess } from '../../utils/tabPermissions';
 import WallTab from '../shared/WallTab';
 import MaterialsTab from '../shared/MaterialsTab';
 import CustomDatePicker from '../../components/CustomDatePicker';
+import ResponsiveTabs from '../../components/ResponsiveTabs';
 
 // ================== TABLE SELECT COMPONENT ==================
 
@@ -1078,65 +1079,17 @@ export default function TeachingModule() {
       </div>
 
       {/* TAB NAVIGATION */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
-        <button
-          onClick={() => setActiveTab('wall')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'wall'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <MessageSquare size={16} className="inline mr-2" />
-          Tablica
-        </button>
-        <button
-          onClick={() => setActiveTab('schedule')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'schedule'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Calendar size={16} className="inline mr-2" />
-          Grafik
-        </button>
-        <button
-          onClick={() => setActiveTab('series')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'series'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <BookOpen size={16} className="inline mr-2" />
-          Serie
-        </button>
-        {hasTabAccess('teaching', 'speakers', userRole) && (
-          <button
-            onClick={() => setActiveTab('speakers')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'speakers'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Users size={16} className="inline mr-2" />
-            Mówcy
-          </button>
-        )}
-        <button
-          onClick={() => setActiveTab('files')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'files'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <FolderOpen size={16} className="inline mr-2" />
-          Pliki
-        </button>
-      </div>
+      <ResponsiveTabs
+        tabs={[
+          { id: 'wall', label: 'Tablica', icon: MessageSquare },
+          { id: 'schedule', label: 'Grafik', icon: Calendar },
+          { id: 'series', label: 'Serie', icon: BookOpen },
+          ...(hasTabAccess('teaching', 'speakers', userRole) ? [{ id: 'speakers', label: 'Mówcy', icon: Users }] : []),
+          { id: 'files', label: 'Pliki', icon: FolderOpen },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* CONTENT */}
       {activeTab === 'wall' && (

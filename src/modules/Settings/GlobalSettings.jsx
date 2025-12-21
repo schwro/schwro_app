@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import {
-  List, Plus, Trash2, X,
+  List, Plus, Trash2, X, Settings, Grid, Users, Shield, BookOpen,
   CheckCircle, AlertCircle, Upload,
   Image as ImageIcon, Eye, Edit3, ToggleLeft, ToggleRight, UserX, UserCheck, Check, ChevronDown, ChevronUp, Layers
 } from 'lucide-react';
 import CustomSelect from '../../components/CustomSelect';
 import ModuleManager from './components/ModuleManager';
+import ResponsiveTabs from '../../components/ResponsiveTabs';
 
 // --- MODULE TABS DEFINITION ---
 const MODULE_TABS = {
@@ -743,13 +744,18 @@ export default function GlobalSettings() {
         <div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">Konfiguracja</h1>
         </div>
-        <div className="flex bg-white/50 dark:bg-gray-800/50 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-x-auto">
-          {['general', 'modules', 'module_manager', 'users', 'permissions', 'dictionaries'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 rounded-lg text-sm font-bold transition capitalize whitespace-nowrap ${activeTab === tab ? 'bg-white dark:bg-gray-700 shadow text-pink-600 dark:text-pink-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-              {{ general: 'Organizacja', modules: 'Moduły', module_manager: 'Zarządzanie', users: 'Użytkownicy', permissions: 'Uprawnienia', dictionaries: 'Słowniki' }[tab]}
-            </button>
-          ))}
-        </div>
+        <ResponsiveTabs
+          tabs={[
+            { id: 'general', label: 'Organizacja', icon: Settings },
+            { id: 'modules', label: 'Moduły', icon: Grid },
+            { id: 'module_manager', label: 'Zarządzanie', icon: Layers },
+            { id: 'users', label: 'Użytkownicy', icon: Users },
+            { id: 'permissions', label: 'Uprawnienia', icon: Shield },
+            { id: 'dictionaries', label: 'Słowniki', icon: BookOpen },
+          ]}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+        />
       </div>
 
       {message && <div className={`p-4 rounded-xl flex items-center gap-2 cursor-pointer ${message.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800'}`} onClick={() => setMessage(null)}>{message.type === 'success' ? <CheckCircle size={20}/> : <AlertCircle size={20}/>} {message.text}</div>}

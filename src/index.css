@@ -83,3 +83,12 @@ button {
     width: 0%;
   }
 }
+
+/* Ukryj scrollbar dla horizontal tabs */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

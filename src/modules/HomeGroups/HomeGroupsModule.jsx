@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import CustomSelect from '../../components/CustomSelect';
 import CustomDatePicker from '../../components/CustomDatePicker';
+import ResponsiveTabs from '../../components/ResponsiveTabs';
 import {
   Plus, Search, Trash2, X, Users, MapPin, Calendar,
   UserPlus, BookOpen, Upload, Link as LinkIcon,
@@ -695,102 +696,20 @@ export default function HomeGroupsModule() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
-        <button
-          onClick={() => setActiveTab('groups')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'groups'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Users size={16} className="inline mr-2" />
-          Grupy
-        </button>
-        <button
-          onClick={() => setActiveTab('tasks')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'tasks'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <CheckSquare size={16} className="inline mr-2" />
-          Zadania
-        </button>
-        <button
-          onClick={() => setActiveTab('leaders')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'leaders'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <UserPlus size={16} className="inline mr-2" />
-          Liderzy
-        </button>
-        {hasTabAccess('homegroups', 'members', userRole) && (
-          <button
-            onClick={() => setActiveTab('members')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'members'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Users size={16} className="inline mr-2" />
-            Członkowie
-          </button>
-        )}
-        {hasTabAccess('homegroups', 'finances', userRole) && (
-          <button
-            onClick={() => setActiveTab('finances')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'finances'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <DollarSign size={16} className="inline mr-2" />
-            Finanse
-          </button>
-        )}
-        <button
-          onClick={() => setActiveTab('events')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'events'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Calendar size={16} className="inline mr-2" />
-          Wydarzenia
-        </button>
-        {hasTabAccess('homegroups', 'equipment', userRole) && (
-          <button
-            onClick={() => setActiveTab('equipment')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'equipment'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Package size={16} className="inline mr-2" />
-            Wyposażenie
-          </button>
-        )}
-        <button
-          onClick={() => setActiveTab('files')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'files'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <FolderOpen size={16} className="inline mr-2" />
-          Pliki
-        </button>
-      </div>
+      <ResponsiveTabs
+        tabs={[
+          { id: 'groups', label: 'Grupy', icon: Users },
+          { id: 'tasks', label: 'Zadania', icon: CheckSquare },
+          { id: 'leaders', label: 'Liderzy', icon: UserPlus },
+          ...(hasTabAccess('homegroups', 'members', userRole) ? [{ id: 'members', label: 'Członkowie', icon: Users }] : []),
+          ...(hasTabAccess('homegroups', 'finances', userRole) ? [{ id: 'finances', label: 'Finanse', icon: DollarSign }] : []),
+          { id: 'events', label: 'Wydarzenia', icon: Calendar },
+          ...(hasTabAccess('homegroups', 'equipment', userRole) ? [{ id: 'equipment', label: 'Wyposażenie', icon: Package }] : []),
+          { id: 'files', label: 'Pliki', icon: FolderOpen },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* GROUPS TAB */}
       {activeTab === 'groups' && (
@@ -1020,7 +939,8 @@ export default function HomeGroupsModule() {
 
           {viewMode === 'list' && (
             <div className="bg-white/50 dark:bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-              <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm min-w-[700px]">
                 <thead className="bg-gradient-to-r from-pink-50/80 to-orange-50/80 dark:from-pink-900/20 dark:to-orange-900/20 text-gray-700 dark:text-gray-300 font-bold border-b border-gray-200/50 dark:border-gray-700/50">
                   <tr>
                     <th className="p-4 w-10"></th>
@@ -1066,6 +986,7 @@ export default function HomeGroupsModule() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </section>
@@ -1100,7 +1021,8 @@ export default function HomeGroupsModule() {
           </div>
 
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm min-w-[600px]">
               <thead className="text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <tr>
                   <th className="p-4">Imię i nazwisko</th>
@@ -1140,6 +1062,7 @@ export default function HomeGroupsModule() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       )}
@@ -1173,7 +1096,8 @@ export default function HomeGroupsModule() {
           </div>
 
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm min-w-[700px]">
               <thead className="text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <tr>
                   <th className="p-4">Imię i nazwisko</th>
@@ -1219,6 +1143,7 @@ export default function HomeGroupsModule() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -10,6 +10,7 @@ import DutyTab from '../shared/DutyTab';
 import MaterialsTab from '../shared/MaterialsTab';
 import MembersTab from './components/MembersTab';
 import TasksTab from './components/TasksTab';
+import ResponsiveTabs from '../../components/ResponsiveTabs';
 
 export default function CustomModule() {
   const { moduleKey: paramKey } = useParams();
@@ -109,27 +110,17 @@ export default function CustomModule() {
         </h1>
       </div>
 
-      {/* TAB NAVIGATION - identyczny styl jak MediaTeamModule */}
+      {/* TAB NAVIGATION */}
       {tabs.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2 flex-wrap">
-          {tabs.map(tab => {
-            const TabIcon = getIconComponent(tab.icon);
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-                  activeTab === tab.key
-                    ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
-              >
-                <TabIcon size={16} className="inline mr-2" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        <ResponsiveTabs
+          tabs={tabs.map(tab => ({
+            id: tab.key,
+            label: tab.label,
+            icon: getIconComponent(tab.icon)
+          }))}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+        />
       )}
 
       {/* Zawartość - identyczny styl jak sekcje w MediaTeamModule */}

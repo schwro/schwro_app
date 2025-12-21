@@ -137,7 +137,8 @@ export default function PersonalDashboard({ user }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Desktop only - hide on mobile */}
+        <div className="hidden lg:flex items-center gap-2">
           {/* Refresh button */}
           <button
             onClick={refresh}

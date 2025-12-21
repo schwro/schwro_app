@@ -12,6 +12,7 @@ import FinanceTab from './shared/FinanceTab';
 import EquipmentTab from './shared/EquipmentTab';
 import RolesTab from '../components/RolesTab';
 import CustomSelect from '../components/CustomSelect';
+import ResponsiveTabs from '../components/ResponsiveTabs';
 import { useUserRole } from '../hooks/useUserRole';
 import { hasTabAccess } from '../utils/tabPermissions';
 
@@ -762,82 +763,18 @@ export default function MlodziezowkaModule() {
       </div>
 
       {/* TAB NAVIGATION */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2 flex-wrap">
-        <button
-          onClick={() => setActiveTab('events')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'events'
-              ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Calendar size={16} className="inline mr-2" />
-          Wydarzenia
-        </button>
-        <button
-          onClick={() => setActiveTab('tasks')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'tasks'
-              ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <CheckSquare size={16} className="inline mr-2" />
-          Zadania
-        </button>
-        {hasTabAccess('mlodziezowka', 'leaders', userRole) && (
-          <button
-            onClick={() => setActiveTab('leaders')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'leaders'
-                ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Star size={16} className="inline mr-2" />
-            Liderzy
-          </button>
-        )}
-        {hasTabAccess('mlodziezowka', 'members', userRole) && (
-          <button
-            onClick={() => setActiveTab('members')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'members'
-                ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Users size={16} className="inline mr-2" />
-            Członkowie
-          </button>
-        )}
-        {hasTabAccess('mlodziezowka', 'finances', userRole) && (
-          <button
-            onClick={() => setActiveTab('finances')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'finances'
-                ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <DollarSign size={16} className="inline mr-2" />
-            Finanse
-          </button>
-        )}
-        {hasTabAccess('mlodziezowka', 'equipment', userRole) && (
-          <button
-            onClick={() => setActiveTab('equipment')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'equipment'
-                ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Package size={16} className="inline mr-2" />
-            Wyposażenie
-          </button>
-        )}
-      </div>
+      <ResponsiveTabs
+        tabs={[
+          { id: 'events', label: 'Wydarzenia', icon: Calendar },
+          { id: 'tasks', label: 'Zadania', icon: CheckSquare },
+          ...(hasTabAccess('mlodziezowka', 'leaders', userRole) ? [{ id: 'leaders', label: 'Liderzy', icon: Star }] : []),
+          ...(hasTabAccess('mlodziezowka', 'members', userRole) ? [{ id: 'members', label: 'Członkowie', icon: Users }] : []),
+          ...(hasTabAccess('mlodziezowka', 'finances', userRole) ? [{ id: 'finances', label: 'Finanse', icon: DollarSign }] : []),
+          ...(hasTabAccess('mlodziezowka', 'equipment', userRole) ? [{ id: 'equipment', label: 'Wyposażenie', icon: Package }] : []),
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* WYDARZENIA */}
       {activeTab === 'events' && (
@@ -1007,7 +944,8 @@ export default function MlodziezowkaModule() {
             <button onClick={() => { setLeaderForm({ id: null, full_name: '', email: '', phone: '', role: '' }); setShowLeaderModal(true); }} className="bg-gradient-to-r from-pink-500 to-orange-500 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj lidera</button>
           </div>
           <div className="bg-white/50 dark:bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm min-w-[700px]">
               <thead className="bg-gradient-to-r from-pink-50/80 to-pink-50/80 dark:from-orange-900/20 dark:to-pink-900/20 text-gray-700 dark:text-gray-300 font-bold border-b border-gray-200/50 dark:border-gray-700/50">
                 <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Rola</th><th className="p-4">Email</th><th className="p-4">Telefon</th><th className="p-4 text-right">Akcje</th></tr>
               </thead>
@@ -1032,6 +970,7 @@ export default function MlodziezowkaModule() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       )}
@@ -1044,7 +983,8 @@ export default function MlodziezowkaModule() {
             <button onClick={() => { setMemberForm({ id: null, full_name: '', email: '', phone: '', birth_date: '', notes: '' }); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-500 to-orange-500 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
           </div>
           <div className="bg-white/50 dark:bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm min-w-[700px]">
               <thead className="bg-gradient-to-r from-pink-50/80 to-pink-50/80 dark:from-orange-900/20 dark:to-pink-900/20 text-gray-700 dark:text-gray-300 font-bold border-b border-gray-200/50 dark:border-gray-700/50">
                 <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Data urodzenia</th><th className="p-4">Email</th><th className="p-4">Telefon</th><th className="p-4 text-right">Akcje</th></tr>
               </thead>
@@ -1063,6 +1003,7 @@ export default function MlodziezowkaModule() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       )}

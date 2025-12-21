@@ -2571,8 +2571,9 @@ export default function WorshipModule() {
           <h2 className="text-xl lg:text-2xl font-bold text-gray-800 dark:text-gray-100">Członkowie Zespołu</h2>
           <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', status: 'Aktywny', phone: '', email: '' }); setSelectedMemberRoles([]); setShowMemberModal(true); }} className="w-full sm:w-auto bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-pink-500/50 transition flex items-center justify-center gap-2"><Plus size={18}/> Dodaj członka</button>
         </div>
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm min-w-[800px]">
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="p-4">Imię i nazwisko</th>
@@ -2614,6 +2615,7 @@ export default function WorshipModule() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       </section>
       )}

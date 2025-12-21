@@ -10,6 +10,7 @@ import {
 import CustomSelect from '../components/CustomSelect';
 import CustomDatePicker from '../components/CustomDatePicker';
 import MaterialsTab from './shared/MaterialsTab';
+import ResponsiveTabs from '../components/ResponsiveTabs';
 
 // --- STAŁE DANE ---
 
@@ -410,30 +411,14 @@ export default function Members() {
       </div>
 
       {/* TAB NAVIGATION */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
-        <button
-          onClick={() => setActiveTab('members')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'members'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Users size={16} className="inline mr-2" />
-          Członkowie
-        </button>
-        <button
-          onClick={() => setActiveTab('files')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'files'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <FolderOpen size={16} className="inline mr-2" />
-          Pliki
-        </button>
-      </div>
+      <ResponsiveTabs
+        tabs={[
+          { id: 'members', label: 'Członkowie', icon: Users },
+          { id: 'files', label: 'Pliki', icon: FolderOpen },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* MEMBERS TAB */}
       {activeTab === 'members' && (
@@ -468,7 +453,8 @@ export default function Members() {
         </div>
 
         <div className="bg-white/50 dark:bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm min-w-[800px]">
             <thead className="bg-gradient-to-r from-pink-50/80 to-orange-50/80 dark:from-pink-900/20 dark:to-orange-900/20 text-gray-700 dark:text-gray-300 font-bold border-b border-gray-200/50 dark:border-gray-700/50">
               <tr>
                 <th className="p-4 pl-6">Osoba</th>
@@ -560,6 +546,7 @@ export default function Members() {
               ))}
             </tbody>
           </table>
+          </div>
 
           {filteredMembers.length === 0 && (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">

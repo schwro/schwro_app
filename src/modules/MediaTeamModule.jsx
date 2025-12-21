@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import {
@@ -13,6 +13,7 @@ import MaterialsTab from './shared/MaterialsTab';
 import EquipmentTab from './shared/EquipmentTab';
 import RolesTab from '../components/RolesTab';
 import CustomSelect from '../components/CustomSelect';
+import ResponsiveTabs from '../components/ResponsiveTabs';
 import { useUserRole } from '../hooks/useUserRole';
 import { hasTabAccess } from '../utils/tabPermissions';
 
@@ -1080,104 +1081,20 @@ export default function MediaTeamModule() {
       </div>
 
       {/* TAB NAVIGATION */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 inline-flex gap-2">
-        <button
-          onClick={() => setActiveTab('events')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'events'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Calendar size={16} className="inline mr-2" />
-          Wydarzenia
-        </button>
-        <button
-          onClick={() => setActiveTab('schedule')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'schedule'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Calendar size={16} className="inline mr-2" />
-          Grafik
-        </button>
-        <button
-          onClick={() => setActiveTab('tasks')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'tasks'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <CheckSquare size={16} className="inline mr-2" />
-          Zadania
-        </button>
-        {hasTabAccess('media', 'members', userRole) && (
-          <button
-            onClick={() => setActiveTab('members')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'members'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <User size={16} className="inline mr-2" />
-            Członkowie
-          </button>
-        )}
-        {hasTabAccess('media', 'finances', userRole) && (
-          <button
-            onClick={() => setActiveTab('finances')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'finances'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <DollarSign size={16} className="inline mr-2" />
-            Finanse
-          </button>
-        )}
-        {hasTabAccess('media', 'members', userRole) && (
-          <button
-            onClick={() => setActiveTab('roles')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'roles'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Users size={16} className="inline mr-2" />
-            Służby
-          </button>
-        )}
-        {hasTabAccess('media', 'equipment', userRole) && (
-          <button
-            onClick={() => setActiveTab('equipment')}
-            className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-              activeTab === 'equipment'
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Package size={16} className="inline mr-2" />
-            Wyposażenie
-          </button>
-        )}
-        <button
-          onClick={() => setActiveTab('files')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'files'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <FolderOpen size={16} className="inline mr-2" />
-          Pliki
-        </button>
-      </div>
+      <ResponsiveTabs
+        tabs={[
+          { id: 'events', label: 'Wydarzenia', icon: Calendar },
+          { id: 'schedule', label: 'Grafik', icon: Calendar },
+          { id: 'tasks', label: 'Zadania', icon: CheckSquare },
+          ...(hasTabAccess('media', 'members', userRole) ? [{ id: 'members', label: 'Członkowie', icon: User }] : []),
+          ...(hasTabAccess('media', 'finances', userRole) ? [{ id: 'finances', label: 'Finanse', icon: DollarSign }] : []),
+          ...(hasTabAccess('media', 'members', userRole) ? [{ id: 'roles', label: 'Służby', icon: Users }] : []),
+          ...(hasTabAccess('media', 'equipment', userRole) ? [{ id: 'equipment', label: 'Wyposażenie', icon: Package }] : []),
+          { id: 'files', label: 'Pliki', icon: FolderOpen },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* SEKCJA: WYDARZENIA */}
       {activeTab === 'events' && (
@@ -1309,7 +1226,8 @@ export default function MediaTeamModule() {
           <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', email: '', phone: '' }); setSelectedMemberRoles([]); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
         </div>
         <div className="bg-white/50 dark:bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm min-w-[700px]">
             <thead className="bg-gradient-to-r from-pink-50/80 to-orange-50/80 dark:from-pink-900/20 dark:to-orange-900/20 text-gray-700 dark:text-gray-300 font-bold border-b border-gray-200/50 dark:border-gray-700/50">
               <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Służby</th><th className="p-4">Email</th><th className="p-4">Telefon</th><th className="p-4 text-right">Akcje</th></tr>
             </thead>
@@ -1343,6 +1261,7 @@ export default function MediaTeamModule() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       </section>
       )}

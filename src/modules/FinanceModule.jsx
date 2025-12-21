@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 import CustomSelect from '../components/CustomSelect';
 import MaterialsTab from './shared/MaterialsTab';
+import ResponsiveTabs from '../components/ResponsiveTabs';
 
 // Hook to calculate dropdown position with smart positioning (up/down)
 function useDropdownPosition(triggerRef, isOpen) {
@@ -737,63 +738,17 @@ const FinanceModule = () => {
         </div>
       </div>
 
-      <div className="flex gap-3 border-b border-gray-200 dark:border-gray-700 pb-2">
-        <button
-          onClick={() => setActiveTab('budget')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'budget'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <DollarSign size={16} className="inline mr-2" />
-          Budżet
-        </button>
-        <button
-          onClick={() => setActiveTab('income')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'income'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <TrendingUp size={16} className="inline mr-2" />
-          Wpływy
-        </button>
-        <button
-          onClick={() => setActiveTab('expenses')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'expenses'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <Receipt size={16} className="inline mr-2" />
-          Wydatki
-        </button>
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'reports'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <BarChart3 size={16} className="inline mr-2" />
-          Raporty
-        </button>
-        <button
-          onClick={() => setActiveTab('files')}
-          className={`px-6 py-2.5 rounded-xl font-medium transition text-sm ${
-            activeTab === 'files'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-md'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <FolderOpen size={16} className="inline mr-2" />
-          Pliki
-        </button>
-      </div>
+      <ResponsiveTabs
+        tabs={[
+          { id: 'budget', label: 'Budżet', icon: DollarSign },
+          { id: 'income', label: 'Wpływy', icon: TrendingUp },
+          { id: 'expenses', label: 'Wydatki', icon: Receipt },
+          { id: 'reports', label: 'Raporty', icon: BarChart3 },
+          { id: 'files', label: 'Pliki', icon: FolderOpen },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {activeTab === 'budget' && (
         <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-colors">
