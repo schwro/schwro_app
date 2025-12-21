@@ -809,6 +809,7 @@ export default function AtmosferaTeamModule() {
           teamType="atmosfera"
           teamMembers={team}
           memberTable="atmosfera_members"
+          onUpdate={fetchAtmosferaRoles}
         />
       )}
 

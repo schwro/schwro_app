@@ -477,33 +477,62 @@ export default function GlobalSettings() {
             const teamDef = teamDefinitions.find(t => t.key === teamKey);
             if (teamDef) {
               try {
-                // Sprawdź czy członek o tym imieniu już istnieje w zespole
-                const { data: existingMember } = await supabase
+                // Sprawdź czy członkowie o tym imieniu już istnieją w zespole
+                const { data: existingMembers } = await supabase
                   .from(teamDef.table)
-                  .select('id, email')
-                  .eq('full_name', fullName)
-                  .maybeSingle();
+                  .select('id, email, phone, status')
+                  .eq('full_name', fullName);
 
-                if (existingMember) {
-                  // Zaktualizuj istniejącego członka - dodaj email jeśli go nie miał
+                if (existingMembers && existingMembers.length > 0) {
+                  // Znajdź główny rekord (ten z emailem lub pierwszy)
+                  const primaryMember = existingMembers.find(m => m.email) || existingMembers[0];
+                  const duplicates = existingMembers.filter(m => m.id !== primaryMember.id);
+
+                  // Scal dane z duplikatów do głównego rekordu
                   const updateData = {};
-                  if (!existingMember.email && userForm.email) {
+                  if (!primaryMember.email && userForm.email) {
                     updateData.email = userForm.email;
                   }
-                  // Jeśli są dane do aktualizacji, wykonaj UPDATE
+                  if (!primaryMember.status) {
+                    updateData.status = 'Aktywny';
+                  }
+
+                  // Zbierz dane z duplikatów
+                  for (const dup of duplicates) {
+                    if (!primaryMember.email && dup.email) updateData.email = dup.email;
+                    if (!primaryMember.phone && dup.phone) updateData.phone = dup.phone;
+                    if (!primaryMember.status && dup.status) updateData.status = dup.status;
+                  }
+
+                  // Zaktualizuj główny rekord
                   if (Object.keys(updateData).length > 0) {
                     await supabase
                       .from(teamDef.table)
                       .update(updateData)
-                      .eq('id', existingMember.id);
+                      .eq('id', primaryMember.id);
                   }
-                  console.log(`Członek ${fullName} już istnieje w ${teamDef.table} - zaktualizowano`);
+
+                  // Przenieś przypisania służb z duplikatów na główny rekord i usuń duplikaty
+                  for (const dup of duplicates) {
+                    // Przenieś przypisania z team_member_roles
+                    await supabase
+                      .from('team_member_roles')
+                      .update({ member_id: String(primaryMember.id) })
+                      .eq('member_id', String(dup.id))
+                      .eq('member_table', teamDef.table);
+
+                    // Usuń duplikat
+                    await supabase.from(teamDef.table).delete().eq('id', dup.id);
+                  }
+
+                  console.log(`Członek ${fullName} już istnieje w ${teamDef.table} - zaktualizowano i scalono ${duplicates.length} duplikatów`);
                 } else {
                   // Dodaj nowego członka
                   const memberData = {
                     full_name: fullName,
                     email: userForm.email,
-                    phone: ''
+                    phone: '',
+                    status: 'Aktywny'
                   };
                   await supabase.from(teamDef.table).insert([memberData]);
                 }
@@ -547,7 +576,88 @@ export default function GlobalSettings() {
     }
   };
   const toggleUserStatus = async (user) => { await supabase.from('app_users').update({ is_active: !user.is_active }).eq('id', user.id); fetchData(); };
-  
+
+  // Funkcja do scalania zduplikowanych członków we wszystkich tabelach służb
+  const mergeDuplicateMembers = async () => {
+    if (!confirm('Czy na pewno chcesz scalić zduplikowanych członków? Ta operacja połączy członków o tym samym imieniu i nazwisku.')) {
+      return;
+    }
+
+    setMessage({ type: 'info', text: 'Scalanie duplikatów...' });
+    let totalMerged = 0;
+
+    try {
+      for (const teamDef of teamDefinitions) {
+        // Pobierz wszystkich członków z tej tabeli
+        const { data: allMembers } = await supabase
+          .from(teamDef.table)
+          .select('id, full_name, email, phone, status');
+
+        if (!allMembers) continue;
+
+        // Grupuj po full_name
+        const grouped = {};
+        for (const member of allMembers) {
+          const name = member.full_name?.trim().toLowerCase();
+          if (!name) continue;
+          if (!grouped[name]) grouped[name] = [];
+          grouped[name].push(member);
+        }
+
+        // Scal duplikaty
+        for (const [name, members] of Object.entries(grouped)) {
+          if (members.length <= 1) continue;
+
+          // Znajdź główny rekord (ten z emailem lub statusem lub pierwszy)
+          const primaryMember = members.find(m => m.email && m.status === 'Aktywny')
+            || members.find(m => m.email)
+            || members.find(m => m.status === 'Aktywny')
+            || members[0];
+          const duplicates = members.filter(m => m.id !== primaryMember.id);
+
+          // Scal dane
+          const updateData = {};
+          for (const dup of duplicates) {
+            if (!primaryMember.email && dup.email) updateData.email = dup.email;
+            if (!primaryMember.phone && dup.phone) updateData.phone = dup.phone;
+            if (!primaryMember.status && dup.status) updateData.status = dup.status;
+          }
+          if (!primaryMember.status && !updateData.status) {
+            updateData.status = 'Aktywny';
+          }
+
+          if (Object.keys(updateData).length > 0) {
+            await supabase.from(teamDef.table).update(updateData).eq('id', primaryMember.id);
+          }
+
+          // Przenieś przypisania służb i usuń duplikaty
+          for (const dup of duplicates) {
+            // Przenieś przypisania z team_member_roles
+            await supabase
+              .from('team_member_roles')
+              .update({ member_id: String(primaryMember.id) })
+              .eq('member_id', String(dup.id))
+              .eq('member_table', teamDef.table);
+
+            // Usuń duplikat
+            await supabase.from(teamDef.table).delete().eq('id', dup.id);
+            totalMerged++;
+          }
+        }
+      }
+
+      setMessage({
+        type: 'success',
+        text: totalMerged > 0
+          ? `Scalono ${totalMerged} zduplikowanych członków!`
+          : 'Nie znaleziono duplikatów do scalenia.'
+      });
+    } catch (err) {
+      console.error('Błąd scalania duplikatów:', err);
+      setMessage({ type: 'error', text: 'Błąd scalania: ' + err.message });
+    }
+  };
+
   const addDict = async (category, label) => { const { data } = await supabase.from('app_dictionaries').insert([{ category, label, value: label }]).select(); if (data) setDictionaries([...dictionaries, data[0]]); };
   const delDict = async (id) => { if(confirm('Usunąć?')) { await supabase.from('app_dictionaries').delete().eq('id', id); fetchData(); } };
 
@@ -868,7 +978,10 @@ export default function GlobalSettings() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <SectionHeader title="Użytkownicy Systemu" description="Zarządzanie dostępem, rolami i statusem kont." />
-              <button onClick={() => { setUserForm({ id: null, full_name: '', email: '', role: '', is_active: true }); setSelectedTeams([]); setShowUserModal(true); }} className="bg-pink-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:shadow-lg transition"><Plus size={18}/> Dodaj Użytkownika</button>
+              <div className="flex items-center gap-2">
+                <button onClick={mergeDuplicateMembers} className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:shadow-lg transition text-sm" title="Scal zduplikowanych członków w służbach"><Layers size={16}/> Scal duplikaty</button>
+                <button onClick={() => { setUserForm({ id: null, full_name: '', email: '', role: '', is_active: true }); setSelectedTeams([]); setShowUserModal(true); }} className="bg-pink-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:shadow-lg transition"><Plus size={18}/> Dodaj Użytkownika</button>
+              </div>
             </div>
             <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
               <table className="w-full text-sm text-left bg-white dark:bg-gray-700">

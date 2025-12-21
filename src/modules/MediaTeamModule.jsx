@@ -1292,6 +1292,7 @@ export default function MediaTeamModule() {
           teamType="media"
           teamMembers={team}
           memberTable="media_team"
+          onUpdate={fetchMediaRoles}
         />
       )}
 

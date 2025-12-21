@@ -2648,6 +2648,7 @@ export default function WorshipModule() {
           teamType="worship"
           teamMembers={team}
           memberTable="worship_team"
+          onUpdate={fetchWorshipRoles}
         />
       )}
 

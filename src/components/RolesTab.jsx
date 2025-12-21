@@ -133,7 +133,7 @@ const MemberMultiSelect = ({ members, selectedIds, onChange, roleId }) => {
 };
 
 // Główny komponent zakładki Służby
-export default function RolesTab({ teamType, teamMembers, memberTable }) {
+export default function RolesTab({ teamType, teamMembers, memberTable, onUpdate }) {
   const [roles, setRoles] = useState([]);
   const [memberRoles, setMemberRoles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -256,6 +256,8 @@ export default function RolesTab({ teamType, teamMembers, memberTable }) {
       }
 
       fetchData();
+      // Powiadom rodzica o zmianie
+      if (onUpdate) onUpdate();
     } catch (err) {
       console.error('Błąd aktualizacji przypisań:', err);
       alert('Błąd aktualizacji: ' + err.message);
