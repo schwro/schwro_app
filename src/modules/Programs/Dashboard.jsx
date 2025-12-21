@@ -27,40 +27,41 @@ function useDropdownPosition(triggerRef, isOpen) {
 
   useEffect(() => {
     if (isOpen && triggerRef.current) {
+      let rafId;
+      let lastTop = 0;
+      let lastLeft = 0;
+
       const updatePosition = () => {
+        if (!triggerRef.current) return;
         const rect = triggerRef.current.getBoundingClientRect();
         const dropdownMaxHeight = 240;
         const spaceBelow = window.innerHeight - rect.bottom;
         const spaceAbove = rect.top;
         const openUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
 
-        // Używamy position: fixed, więc koordynaty są względem viewport (bez scrollY/scrollX)
-        setCoords({
-          top: openUpward ? rect.top : rect.bottom,
-          left: rect.left,
-          width: Math.max(rect.width, 200), // minimum 200px szerokości
-          openUpward
-        });
+        // Tylko aktualizuj jeśli pozycja się zmieniła (optymalizacja)
+        if (rect.top !== lastTop || rect.left !== lastLeft) {
+          lastTop = rect.top;
+          lastLeft = rect.left;
+          setCoords({
+            top: openUpward ? rect.top : rect.bottom,
+            left: rect.left,
+            width: Math.max(rect.width, 200),
+            openUpward
+          });
+        }
       };
 
-      // Wywołaj natychmiast
-      updatePosition();
-
-      // Używamy requestAnimationFrame dla płynniejszego pozycjonowania
-      let rafId;
-      const rafUpdate = () => {
+      // Ciągłe śledzenie pozycji za pomocą requestAnimationFrame
+      const tick = () => {
         updatePosition();
-        rafId = requestAnimationFrame(rafUpdate);
+        rafId = requestAnimationFrame(tick);
       };
 
-      // Aktualizuj na scroll (dowolnego kontenera) i resize
-      const handleScroll = () => updatePosition();
-      window.addEventListener('scroll', handleScroll, true);
-      window.addEventListener('resize', handleScroll);
+      // Uruchom ciągłe śledzenie
+      rafId = requestAnimationFrame(tick);
 
       return () => {
-        window.removeEventListener('scroll', handleScroll, true);
-        window.removeEventListener('resize', handleScroll);
         if (rafId) cancelAnimationFrame(rafId);
       };
     }
