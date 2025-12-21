@@ -1121,18 +1121,26 @@ export default function MediaTeamModule() {
 
       {/* SEKCJA 2: ZADANIA */}
       {activeTab === 'tasks' && (
-      <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[40] transition-colors duration-300">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zadania ({filteredTasks.length})</h2>
-          <div className="flex items-center gap-3">
-            <div className="flex bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-1 rounded-xl border border-gray-200/50 dark:border-gray-700/50 gap-2 items-center">
+      <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-4 lg:p-6 relative z-[40] transition-colors duration-300">
+        {/* Mobile: 2 rows, Desktop: 1 row */}
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
+          {/* Row 1: Title + Add button (mobile) / Title (desktop) */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zadania ({filteredTasks.length})</h2>
+            {/* Mobile only: Add button */}
+            <button onClick={() => openTaskModal(null)} className="lg:hidden bg-gradient-to-r from-orange-600 to-pink-600 text-white p-2.5 rounded-xl font-medium hover:shadow-lg transition"><Plus size={20}/></button>
+          </div>
+
+          {/* Row 2: Filters (mobile) / Filters + Add button (desktop) */}
+          <div className="flex items-center gap-2 lg:gap-3">
+            <div className="flex bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-1 rounded-xl border border-gray-200/50 dark:border-gray-700/50 gap-1 lg:gap-2 items-center flex-1 lg:flex-none">
               <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-lg transition ${viewMode === 'kanban' ? 'bg-white dark:bg-gray-700 shadow text-pink-600 dark:text-pink-300' : 'text-gray-500 dark:text-gray-400'}`}><LayoutGrid size={18} /></button>
               <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow text-pink-600 dark:text-pink-300' : 'text-gray-500 dark:text-gray-400'}`}><List size={18} /></button>
-              <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-              
+              <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1 hidden lg:block"></div>
+
               {/* CUSTOM DROPDOWN: SCOPE */}
-              <div className="w-32">
-                <CustomSelect 
+              <div className="w-24 lg:w-32">
+                <CustomSelect
                   value={filterScope}
                   onChange={setFilterScope}
                   options={[
@@ -1144,8 +1152,8 @@ export default function MediaTeamModule() {
               </div>
 
               {/* CUSTOM DROPDOWN: STATUS */}
-              <div className="w-32">
-                <CustomSelect 
+              <div className="w-24 lg:w-32">
+                <CustomSelect
                   value={filterStatus}
                   onChange={setFilterStatus}
                   options={[
@@ -1157,7 +1165,8 @@ export default function MediaTeamModule() {
                 />
               </div>
             </div>
-            <button onClick={() => openTaskModal(null)} className="bg-gradient-to-r from-orange-600 to-pink-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2 whitespace-nowrap"><Plus size={18}/> Dodaj zadanie</button>
+            {/* Desktop only: Add button with text */}
+            <button onClick={() => openTaskModal(null)} className="hidden lg:flex bg-gradient-to-r from-orange-600 to-pink-600 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition items-center gap-2 whitespace-nowrap"><Plus size={18}/> Dodaj zadanie</button>
           </div>
         </div>
 
