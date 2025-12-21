@@ -469,19 +469,44 @@ export default function GlobalSettings() {
           setMessage({ type: 'success', text: `Utworzono użytkownika ${userForm.email}. Email z linkiem do ustawienia hasła został wysłany.` });
         }
 
-        // 6. Dodaj użytkownika do wybranych zespołów/służb
+        // 6. Dodaj użytkownika do wybranych zespołów/służb (lub zaktualizuj istniejącego)
         if (selectedTeams.length > 0) {
-          const memberData = {
-            full_name: userForm.full_name || userForm.email,
-            email: userForm.email,
-            phone: ''
-          };
+          const fullName = userForm.full_name || userForm.email;
 
           for (const teamKey of selectedTeams) {
             const teamDef = teamDefinitions.find(t => t.key === teamKey);
             if (teamDef) {
               try {
-                await supabase.from(teamDef.table).insert([memberData]);
+                // Sprawdź czy członek o tym imieniu już istnieje w zespole
+                const { data: existingMember } = await supabase
+                  .from(teamDef.table)
+                  .select('id, email')
+                  .eq('full_name', fullName)
+                  .maybeSingle();
+
+                if (existingMember) {
+                  // Zaktualizuj istniejącego członka - dodaj email jeśli go nie miał
+                  const updateData = {};
+                  if (!existingMember.email && userForm.email) {
+                    updateData.email = userForm.email;
+                  }
+                  // Jeśli są dane do aktualizacji, wykonaj UPDATE
+                  if (Object.keys(updateData).length > 0) {
+                    await supabase
+                      .from(teamDef.table)
+                      .update(updateData)
+                      .eq('id', existingMember.id);
+                  }
+                  console.log(`Członek ${fullName} już istnieje w ${teamDef.table} - zaktualizowano`);
+                } else {
+                  // Dodaj nowego członka
+                  const memberData = {
+                    full_name: fullName,
+                    email: userForm.email,
+                    phone: ''
+                  };
+                  await supabase.from(teamDef.table).insert([memberData]);
+                }
               } catch (teamErr) {
                 console.error(`Błąd dodawania do ${teamDef.table}:`, teamErr);
               }
