@@ -54,8 +54,8 @@ function Tooltip({ children, text, show }) {
   );
 }
 
-// Import stempla
-import stampLogo from '../media/stamp.png';
+// Import logo dla zwiniętego sidebara
+import sidebarLogo from '../media/schw.svg';
 
 // Kontekst dla mobile sidebar
 const SidebarContext = createContext({
@@ -285,7 +285,7 @@ export default function Sidebar() {
         )}
         {isCollapsed && !isMobile ? (
           // Stempel gdy sidebar jest zwinięty
-          <img src={stampLogo} alt="Logo" className="w-12 h-14 object-contain transition-all duration-300" />
+          <img src={sidebarLogo} alt="Logo" className="w-10 h-10 object-contain transition-all duration-300" />
         ) : logoUrl ? (
           <img
             src={logoUrl}
