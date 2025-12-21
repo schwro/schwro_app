@@ -182,7 +182,7 @@ export default function KomunikatorModule() {
   };
 
   return (
-    <div className="h-[calc(100vh-7rem)] -m-6 flex bg-gray-50 dark:bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-200/50 dark:border-gray-700">
+    <div className="h-[calc(100vh-8rem)] lg:h-[calc(100vh-7rem)] -m-4 lg:-m-6 flex bg-gray-50 dark:bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-200/50 dark:border-gray-700">
       {/* Lista konwersacji */}
       <div
         className={`
