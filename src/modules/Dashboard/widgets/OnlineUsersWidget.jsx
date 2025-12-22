@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, Users, Circle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
-import { usePresence, statusColors, statusLabels } from '../../../hooks/usePresence';
 
 // Helper do generowania koloru z emaila
 function stringToColor(str) {
@@ -26,56 +25,125 @@ function getInitials(name) {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
+// Kolory statusów
+const statusColors = {
+  online: 'bg-green-500',
+  away: 'bg-yellow-500',
+  offline: 'bg-gray-400'
+};
+
+// Etykiety statusów
+const statusLabels = {
+  online: 'Online',
+  away: 'Zaraz wracam',
+  offline: 'Offline'
+};
+
+// Sprawdź status na podstawie last_seen
+function calculateStatus(presence) {
+  if (!presence || !presence.last_seen) return 'offline';
+
+  const lastSeenTime = new Date(presence.last_seen).getTime();
+  const now = Date.now();
+  const timeDiff = now - lastSeenTime;
+
+  // Jeśli ostatnia aktywność była ponad 2 minuty temu, użytkownik jest offline
+  if (timeDiff > 120000) {
+    return 'offline';
+  }
+
+  // Jeśli ostatnia aktywność była ponad 45 sekund temu, oznacz jako away
+  if (timeDiff > 45000 && presence.status === 'online') {
+    return 'away';
+  }
+
+  return presence.status || 'offline';
+}
+
 export default function OnlineUsersWidget({ userEmail }) {
   const navigate = useNavigate();
-  const [allUsers, setAllUsers] = useState([]);
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [offlineCount, setOfflineCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Pobierz listę wszystkich użytkowników
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('email, full_name, avatar_url')
-          .neq('email', userEmail)
-          .order('full_name');
+  // Pobierz użytkowników z ich statusami presence
+  const fetchUsersWithPresence = useCallback(async () => {
+    if (!userEmail) return;
 
-        if (error) throw error;
-        setAllUsers(data || []);
-      } catch (err) {
-        console.error('Error fetching users:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    try {
+      // Pobierz wszystkich użytkowników oprócz bieżącego
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('email, full_name, avatar_url')
+        .neq('email', userEmail)
+        .order('full_name');
 
-    if (userEmail) {
-      fetchUsers();
+      if (usersError) throw usersError;
+
+      // Pobierz statusy presence
+      const { data: presenceData, error: presenceError } = await supabase
+        .from('user_presence')
+        .select('user_email, status, last_seen');
+
+      if (presenceError) throw presenceError;
+
+      // Mapuj presence do użytkowników
+      const presenceMap = new Map();
+      (presenceData || []).forEach(p => {
+        presenceMap.set(p.user_email, { status: p.status, last_seen: p.last_seen });
+      });
+
+      // Oblicz rzeczywiste statusy i filtruj
+      const usersWithStatus = (users || []).map(user => ({
+        ...user,
+        presence: presenceMap.get(user.email),
+        calculatedStatus: calculateStatus(presenceMap.get(user.email))
+      }));
+
+      // Filtruj aktywnych (online/away) i sortuj
+      const active = usersWithStatus
+        .filter(u => u.calculatedStatus === 'online' || u.calculatedStatus === 'away')
+        .sort((a, b) => {
+          const statusOrder = { online: 0, away: 1 };
+          return statusOrder[a.calculatedStatus] - statusOrder[b.calculatedStatus];
+        });
+
+      const offline = usersWithStatus.filter(u => u.calculatedStatus === 'offline').length;
+
+      setActiveUsers(active);
+      setOfflineCount(offline);
+    } catch (err) {
+      console.error('Error fetching users with presence:', err);
+    } finally {
+      setLoading(false);
     }
   }, [userEmail]);
 
-  // Pobierz emaile do śledzenia presence
-  const userEmails = useMemo(() => allUsers.map(u => u.email), [allUsers]);
-  const { getStatus } = usePresence(userEmails);
+  // Pobierz dane przy starcie i odświeżaj co 15 sekund
+  useEffect(() => {
+    fetchUsersWithPresence();
 
-  // Posortuj użytkowników: online najpierw, potem away, potem offline
-  const sortedUsers = useMemo(() => {
-    return [...allUsers].sort((a, b) => {
-      const statusOrder = { online: 0, away: 1, offline: 2 };
-      const statusA = getStatus(a.email);
-      const statusB = getStatus(b.email);
-      return statusOrder[statusA] - statusOrder[statusB];
-    });
-  }, [allUsers, getStatus]);
+    // Odświeżaj dane co 15 sekund
+    const interval = setInterval(fetchUsersWithPresence, 15000);
 
-  // Filtruj tylko online i away
-  const activeUsers = useMemo(() => {
-    return sortedUsers.filter(u => {
-      const status = getStatus(u.email);
-      return status === 'online' || status === 'away';
-    });
-  }, [sortedUsers, getStatus]);
+    // Subskrypcja real-time na zmiany presence
+    const subscription = supabase
+      .channel('online-users-widget-presence')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_presence'
+      }, () => {
+        // Przy każdej zmianie presence odśwież dane
+        fetchUsersWithPresence();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(subscription);
+    };
+  }, [fetchUsersWithPresence]);
 
   // Utwórz lub znajdź konwersację i nawiguj do niej
   const handleUserClick = async (targetEmail) => {
@@ -138,8 +206,8 @@ export default function OnlineUsersWidget({ userEmail }) {
     );
   }
 
-  const onlineCount = activeUsers.filter(u => getStatus(u.email) === 'online').length;
-  const awayCount = activeUsers.filter(u => getStatus(u.email) === 'away').length;
+  const onlineCount = activeUsers.filter(u => u.calculatedStatus === 'online').length;
+  const awayCount = activeUsers.filter(u => u.calculatedStatus === 'away').length;
 
   return (
     <div className="space-y-4">
@@ -174,7 +242,7 @@ export default function OnlineUsersWidget({ userEmail }) {
       ) : (
         <div className="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
           {activeUsers.map(user => {
-            const status = getStatus(user.email);
+            const status = user.calculatedStatus;
             const statusColor = statusColors[status];
             const statusLabel = statusLabels[status];
 
@@ -230,10 +298,10 @@ export default function OnlineUsersWidget({ userEmail }) {
       )}
 
       {/* Pokaż więcej jeśli są offline */}
-      {sortedUsers.length > activeUsers.length && (
+      {offlineCount > 0 && (
         <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-            + {sortedUsers.length - activeUsers.length} offline
+            + {offlineCount} offline
           </p>
         </div>
       )}

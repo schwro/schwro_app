@@ -152,15 +152,19 @@ export default function UnreadMessagesWidget({ userEmail }) {
               displayName = ministryNames[conv.ministry_key] || conv.name;
             }
 
-            // Pobierz info o nadawcy ostatniej wiadomości
-            let senderName = null;
-            if (messages?.[0] && conv.type !== 'direct') {
-              const { data: sender } = await supabase
+            // Pobierz info o nadawcy ostatniej wiadomości (dla wszystkich typów)
+            let sender = null;
+            if (messages?.[0]) {
+              const { data: senderData } = await supabase
                 .from('users')
-                .select('full_name')
+                .select('full_name, avatar_url, email')
                 .eq('email', messages[0].sender_email)
                 .single();
-              senderName = sender?.full_name?.split(' ')[0] || messages[0].sender_email?.split('@')[0];
+              sender = {
+                email: messages[0].sender_email,
+                full_name: senderData?.full_name,
+                avatar_url: senderData?.avatar_url
+              };
             }
 
             unreadConvs.push({
@@ -172,7 +176,7 @@ export default function UnreadMessagesWidget({ userEmail }) {
               lastMessage: messages?.[0] ? {
                 content: messages[0].content,
                 senderEmail: messages[0].sender_email,
-                senderName,
+                sender,
                 createdAt: messages[0].created_at
               } : null,
               otherParticipant,
@@ -238,41 +242,26 @@ export default function UnreadMessagesWidget({ userEmail }) {
     );
   }
 
-  const renderConversationIcon = (conv) => {
-    if (conv.type === 'direct') {
-      const participant = conv.otherParticipant;
-      if (participant?.avatar_url) {
-        return (
-          <img
-            src={participant.avatar_url}
-            alt={conv.name}
-            className="w-10 h-10 rounded-full object-cover"
-          />
-        );
-      }
+  // Renderuj awatar nadawcy wiadomości
+  const renderSenderAvatar = (conv) => {
+    const sender = conv.lastMessage?.sender;
+
+    if (sender?.avatar_url) {
       return (
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-          style={{ backgroundColor: stringToColor(participant?.email || conv.name) }}
-        >
-          {getInitials(conv.name)}
-        </div>
+        <img
+          src={sender.avatar_url}
+          alt={sender.full_name || 'Nadawca'}
+          className="w-10 h-10 rounded-full object-cover"
+        />
       );
     }
 
-    if (conv.type === 'ministry') {
-      const IconComponent = ministryIcons[conv.ministryKey] || Users;
-      return (
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white">
-          <IconComponent size={18} />
-        </div>
-      );
-    }
-
-    // Group
     return (
-      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white">
-        <Users size={18} />
+      <div
+        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+        style={{ backgroundColor: stringToColor(sender?.email || conv.name) }}
+      >
+        {getInitials(sender?.full_name || sender?.email || conv.name)}
       </div>
     );
   };
@@ -308,45 +297,53 @@ export default function UnreadMessagesWidget({ userEmail }) {
         </div>
       ) : (
         <div className="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
-          {conversations.slice(0, 5).map(conv => (
-            <button
-              key={conv.id}
-              onClick={() => handleConversationClick(conv.id)}
-              className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all group text-left"
-            >
-              {/* Icon */}
-              <div className="relative flex-shrink-0">
-                {renderConversationIcon(conv)}
-                {/* Unread badge */}
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-gradient-to-r from-pink-500 to-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-md">
-                  {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
-                </span>
-              </div>
+          {conversations.slice(0, 5).map(conv => {
+            const sender = conv.lastMessage?.sender;
+            const senderName = sender?.full_name || sender?.email?.split('@')[0] || 'Nieznany';
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-gray-800 dark:text-white truncate text-sm">
-                    {conv.name}
-                  </p>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
-                    {formatMessageTime(conv.lastMessage?.createdAt)}
+            return (
+              <button
+                key={conv.id}
+                onClick={() => handleConversationClick(conv.id)}
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all group text-left"
+              >
+                {/* Awatar nadawcy */}
+                <div className="relative flex-shrink-0">
+                  {renderSenderAvatar(conv)}
+                  {/* Unread badge */}
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-gradient-to-r from-pink-500 to-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-md">
+                    {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
                   </span>
                 </div>
-                {conv.lastMessage && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                    {conv.type !== 'direct' && conv.lastMessage.senderName && (
-                      <span className="font-medium">{conv.lastMessage.senderName}: </span>
-                    )}
-                    {truncateText(conv.lastMessage.content, 35)}
-                  </p>
-                )}
-              </div>
 
-              {/* Arrow */}
-              <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 group-hover:text-pink-500 transition-colors flex-shrink-0" />
-            </button>
-          ))}
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-gray-800 dark:text-white truncate text-sm">
+                      {senderName}
+                    </p>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+                      {formatMessageTime(conv.lastMessage?.createdAt)}
+                    </span>
+                  </div>
+                  {conv.lastMessage && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                      {truncateText(conv.lastMessage.content, 40)}
+                    </p>
+                  )}
+                  {/* Nazwa konwersacji dla grup/służb */}
+                  {conv.type !== 'direct' && (
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                      w: {conv.name}
+                    </p>
+                  )}
+                </div>
+
+                {/* Arrow */}
+                <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 group-hover:text-pink-500 transition-colors flex-shrink-0" />
+              </button>
+            );
+          })}
         </div>
       )}
 
