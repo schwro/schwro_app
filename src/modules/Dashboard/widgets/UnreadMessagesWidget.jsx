@@ -156,7 +156,7 @@ export default function UnreadMessagesWidget({ userEmail }) {
             let sender = null;
             if (messages?.[0]) {
               const { data: senderData } = await supabase
-                .from('users')
+                .from('app_users')
                 .select('full_name, avatar_url, email')
                 .eq('email', messages[0].sender_email)
                 .single();

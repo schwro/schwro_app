@@ -73,7 +73,7 @@ export default function OnlineUsersWidget({ userEmail }) {
     try {
       // Pobierz wszystkich użytkowników oprócz bieżącego
       const { data: users, error: usersError } = await supabase
-        .from('users')
+        .from('app_users')
         .select('email, full_name, avatar_url')
         .neq('email', userEmail)
         .order('full_name');
