@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, RefreshCw, Calendar, CheckSquare, CalendarX, Heart } from 'lucide-react';
+import { Settings, RefreshCw, Calendar, CheckSquare, CalendarX, Heart, Users, MessageCircle } from 'lucide-react';
 
 import { useDashboardLayout } from './hooks/useDashboardLayout';
 import { useDashboardData } from './hooks/useDashboardData';
@@ -15,12 +15,16 @@ import MyMinistryWidget from './widgets/MyMinistryWidget';
 import MyTasksWidget from './widgets/MyTasksWidget';
 import MyAbsencesWidget from './widgets/MyAbsencesWidget';
 import MyPrayersWidget from './widgets/MyPrayersWidget';
+import OnlineUsersWidget from './widgets/OnlineUsersWidget';
+import UnreadMessagesWidget from './widgets/UnreadMessagesWidget';
 
 const WIDGET_ICONS = {
   ministry: Calendar,
   tasks: CheckSquare,
   absences: CalendarX,
   prayers: Heart,
+  onlineUsers: Users,
+  unreadMessages: MessageCircle,
 };
 
 export default function PersonalDashboard({ user }) {
@@ -78,6 +82,10 @@ export default function PersonalDashboard({ user }) {
         );
       case 'prayers':
         return <MyPrayersWidget prayers={prayers} userEmail={userEmail} onRefresh={refreshPrayers} size={layout.find(l => l.widgetId === 'prayers')?.size || 'medium'} />;
+      case 'onlineUsers':
+        return <OnlineUsersWidget userEmail={userEmail} />;
+      case 'unreadMessages':
+        return <UnreadMessagesWidget userEmail={userEmail} />;
       default:
         return null;
     }

@@ -75,12 +75,29 @@ export function useMyPresence(userEmail) {
     };
 
     // Obsługa zamknięcia strony
-    const handleBeforeUnload = () => {
-      // Synchroniczne wywołanie - nie czekamy na odpowiedź
-      navigator.sendBeacon?.(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_email=eq.${encodeURIComponent(userEmail)}`,
-        JSON.stringify({ status: 'offline', last_seen: new Date().toISOString() })
-      );
+    const handleBeforeUnload = async () => {
+      // Użyj fetch z keepalive zamiast sendBeacon - pozwala na nagłówki auth
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_email=eq.${encodeURIComponent(userEmail)}`,
+            {
+              method: 'PATCH',
+              keepalive: true,
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${session.access_token}`,
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify({ status: 'offline', last_seen: new Date().toISOString() })
+            }
+          );
+        }
+      } catch (e) {
+        // Ignoruj błędy przy zamykaniu strony
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -168,8 +185,34 @@ export function usePresence(userEmails = []) {
   }, [userEmails.join(','), fetchPresence]);
 
   // Pobierz status konkretnego użytkownika
+  // Jeśli last_seen jest starsze niż 2 minuty, traktuj jako offline
   const getStatus = useCallback((email) => {
-    return presenceMap.get(email)?.status || 'offline';
+    const presence = presenceMap.get(email);
+    if (!presence) return 'offline';
+
+    // Sprawdź czy last_seen nie jest zbyt stary
+    if (presence.last_seen) {
+      const lastSeenTime = new Date(presence.last_seen).getTime();
+      const now = Date.now();
+      const timeDiff = now - lastSeenTime;
+
+      // Jeśli ostatnia aktywność była ponad 2 minuty temu, użytkownik jest offline
+      // (heartbeat wysyłany jest co 30 sekund, więc 2 minuty = brak 4 heartbeatów)
+      if (timeDiff > 120000) {
+        return 'offline';
+      }
+
+      // Jeśli ostatnia aktywność była ponad 45 sekund temu, ale mniej niż 2 minuty,
+      // i status był "online", oznacz jako away
+      if (timeDiff > 45000 && presence.status === 'online') {
+        return 'away';
+      }
+    } else {
+      // Brak last_seen = offline
+      return 'offline';
+    }
+
+    return presence.status || 'offline';
   }, [presenceMap]);
 
   // Pobierz last_seen konkretnego użytkownika

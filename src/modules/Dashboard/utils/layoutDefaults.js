@@ -41,6 +41,22 @@ export const WIDGET_DEFINITIONS = {
     defaultSize: 'medium',
     minSize: 'small',
   },
+  onlineUsers: {
+    id: 'onlineUsers',
+    name: 'Kto jest online',
+    description: 'Aktywni użytkownicy - kliknij, aby rozpocząć rozmowę',
+    icon: 'Users',
+    defaultSize: 'small',
+    minSize: 'small',
+  },
+  unreadMessages: {
+    id: 'unreadMessages',
+    name: 'Nieprzeczytane',
+    description: 'Nieprzeczytane wiadomości z komunikatora',
+    icon: 'MessageCircle',
+    defaultSize: 'small',
+    minSize: 'small',
+  },
 };
 
 export const WIDGET_SIZES = {
@@ -67,6 +83,8 @@ export const DEFAULT_LAYOUT = [
   { widgetId: 'tasks', order: 2, size: 'medium', visible: true },
   { widgetId: 'absences', order: 3, size: 'medium', visible: true },
   { widgetId: 'prayers', order: 4, size: 'medium', visible: true },
+  { widgetId: 'onlineUsers', order: 5, size: 'small', visible: true },
+  { widgetId: 'unreadMessages', order: 6, size: 'small', visible: true },
 ];
 
 export const LOCAL_STORAGE_KEY = 'dashboard_layout';

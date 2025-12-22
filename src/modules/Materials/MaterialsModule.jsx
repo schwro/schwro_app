@@ -127,34 +127,34 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
   const currentPreviewIndex = previewFile ? imageFiles.findIndex(f => f.id === previewFile.id) : -1;
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
             <FolderOpen className="text-white" size={20} />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Materiały</h1>
-            <p className="text-xs text-gray-500">Pliki i dokumenty</p>
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Materiały</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Pliki i dokumenty</p>
           </div>
         </div>
 
         {/* Search */}
         <div className="flex-1 max-w-md">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
             <input
               type="text"
               placeholder="Szukaj plików..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              className="w-full pl-10 pr-10 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
             {searchQuery && (
               <button
                 onClick={handleClearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
               >
                 <X size={16} />
               </button>
@@ -165,7 +165,7 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
         {/* Mobile folder toggle */}
         <button
           onClick={() => setShowMobileFolders(!showMobileFolders)}
-          className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+          className="lg:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
         >
           <FolderOpen size={20} />
         </button>
@@ -175,15 +175,15 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Folders */}
         <div className={`
-          ${showMobileFolders ? 'fixed inset-0 z-40 bg-white' : 'hidden'}
-          lg:relative lg:block lg:w-64 xl:w-72 border-r border-gray-200 bg-white flex-shrink-0
+          ${showMobileFolders ? 'fixed inset-0 z-40 bg-white dark:bg-gray-800' : 'hidden'}
+          lg:relative lg:block lg:w-64 xl:w-72 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0
         `}>
           {/* Mobile close button */}
-          <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200">
-            <span className="font-medium text-gray-900">Foldery</span>
+          <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <span className="font-medium text-gray-900 dark:text-white">Foldery</span>
             <button
               onClick={() => setShowMobileFolders(false)}
-              className="p-2 text-gray-500 hover:text-gray-700"
+              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <X size={20} />
             </button>
@@ -205,10 +205,10 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
         </div>
 
         {/* Main area - Files */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
           {/* Uploader */}
           {canEdit && !isSearching && (
-            <div className="p-4 border-b border-gray-200 bg-white">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <FileUploader
                 onUpload={handleUpload}
                 uploading={uploading}
@@ -219,12 +219,12 @@ export default function MaterialsModule({ ministryKey = null, canEdit = false })
 
           {/* Search results indicator */}
           {isSearching && (
-            <div className="px-4 py-2 bg-amber-50 border-b border-amber-200">
-              <p className="text-sm text-amber-800">
+            <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+              <p className="text-sm text-amber-800 dark:text-amber-300">
                 Wyniki wyszukiwania dla: <strong>"{searchQuery}"</strong>
                 <button
                   onClick={handleClearSearch}
-                  className="ml-2 text-amber-600 hover:text-amber-800 underline"
+                  className="ml-2 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 underline"
                 >
                   Wyczyść
                 </button>

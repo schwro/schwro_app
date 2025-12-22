@@ -8,7 +8,9 @@ export const TAB_PERMISSIONS = {
     ministry: null, // Moja służba - wszyscy
     tasks: null, // Moje zadania - wszyscy
     absences: null, // Nieobecności - wszyscy
-    prayers: null // Moje modlitwy - wszyscy
+    prayers: null, // Moje modlitwy - wszyscy
+    onlineUsers: null, // Kto jest online - wszyscy
+    unreadMessages: null // Nieprzeczytane wiadomości - wszyscy
   },
 
   // Moduł Grupy Domowe
