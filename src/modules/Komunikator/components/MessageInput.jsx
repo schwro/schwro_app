@@ -1,15 +1,63 @@
 import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
-import { Send, Paperclip, X, Image, FileText, Loader, Reply } from 'lucide-react';
+import { Send, Paperclip, X, Image, FileText, Loader, Reply, Mic } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { formatFileSize, isImageFile } from '../utils/messageHelpers';
+import AudioRecorder from './AudioRecorder';
 
 const MessageInput = forwardRef(function MessageInput({ onSend, onTyping, disabled = false, placeholder = 'Napisz wiadomość...', replyingTo = null, onCancelReply }, ref) {
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Wysłanie wiadomości głosowej
+  const handleSendVoiceMessage = async (audioBlob, duration) => {
+    try {
+      setUploading(true);
+
+      // Określ rozszerzenie na podstawie MIME type
+      const mimeType = audioBlob.type || 'audio/webm';
+      const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const fileName = `voice-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${extension}`;
+      const filePath = `voice-messages/${fileName}`;
+
+      // Upload do storage
+      const { error: uploadError } = await supabase.storage
+        .from('messenger-attachments')
+        .upload(filePath, audioBlob, {
+          contentType: mimeType
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('messenger-attachments')
+        .getPublicUrl(filePath);
+
+      // Wyślij jako wiadomość z załącznikiem audio
+      const voiceAttachment = {
+        url: urlData.publicUrl,
+        name: 'Wiadomość głosowa',
+        type: mimeType,
+        size: audioBlob.size,
+        duration: duration,
+        isVoiceMessage: true
+      };
+
+      await onSend('', [voiceAttachment], replyingTo?.id || null);
+      setIsRecordingVoice(false);
+    } catch (err) {
+      console.error('Error sending voice message:', err);
+      throw err;
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Funkcja do uploadu plików (używana przez handleFileSelect i addFilesFromDrop)
   const uploadFiles = async (files) => {
@@ -205,49 +253,69 @@ const MessageInput = forwardRef(function MessageInput({ onSend, onTyping, disabl
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        {/* Przycisk załącznika */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-          onChange={handleFileSelect}
-          className="hidden"
+      {/* Tryb nagrywania głosowego */}
+      {isRecordingVoice ? (
+        <AudioRecorder
+          onSend={handleSendVoiceMessage}
+          onCancel={() => setIsRecordingVoice(false)}
+          disabled={disabled || uploading}
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading || disabled}
-          className="w-11 h-11 flex items-center justify-center text-gray-500 hover:text-pink-600 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-all duration-200 disabled:opacity-50 flex-shrink-0"
-        >
-          <Paperclip size={20} />
-        </button>
-
-        {/* Pole tekstowe */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={handleTextareaChange}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={disabled || uploading}
-            rows={1}
-            className="w-full px-4 py-2 h-11 bg-gray-100 dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-500 disabled:opacity-50 transition-all duration-200 leading-6"
-            style={{ maxHeight: '150px' }}
+      ) : (
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Przycisk załącznika */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            onChange={handleFileSelect}
+            className="hidden"
           />
-        </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || disabled}
+            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center text-gray-500 hover:text-pink-600 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-all duration-200 disabled:opacity-50 flex-shrink-0"
+          >
+            <Paperclip size={18} className="sm:w-5 sm:h-5" />
+          </button>
 
-        {/* Przycisk wyślij */}
-        <button
-          type="submit"
-          disabled={(!content.trim() && attachments.length === 0) || disabled || uploading}
-          className="w-11 h-11 flex items-center justify-center bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-pink-500/30 hover:shadow-pink-500/40 flex-shrink-0"
-        >
-          <Send size={18} />
-        </button>
-      </div>
+          {/* Przycisk mikrofonu */}
+          <button
+            type="button"
+            onClick={() => setIsRecordingVoice(true)}
+            disabled={uploading || disabled}
+            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center text-gray-500 hover:text-pink-600 bg-gray-100 dark:bg-gray-800 hover:bg-pink-50 dark:hover:bg-pink-900/20 rounded-xl transition-all duration-200 disabled:opacity-50 flex-shrink-0"
+            title="Nagraj wiadomość głosową"
+          >
+            <Mic size={18} className="sm:w-5 sm:h-5" />
+          </button>
+
+          {/* Pole tekstowe */}
+          <div className="flex-1 relative min-w-0">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={handleTextareaChange}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={disabled || uploading}
+              rows={1}
+              className="w-full px-3 sm:px-4 py-2 h-9 sm:h-11 bg-gray-100 dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-500 disabled:opacity-50 transition-all duration-200 leading-5 sm:leading-6 text-sm sm:text-base"
+              style={{ maxHeight: '150px' }}
+            />
+          </div>
+
+          {/* Przycisk wyślij */}
+          <button
+            type="submit"
+            disabled={(!content.trim() && attachments.length === 0) || disabled || uploading}
+            className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-pink-500/30 hover:shadow-pink-500/40 flex-shrink-0"
+          >
+            <Send size={16} className="sm:w-[18px] sm:h-[18px]" />
+          </button>
+        </div>
+      )}
     </form>
   );
 });

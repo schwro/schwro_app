@@ -3,6 +3,7 @@ import { MoreVertical, Edit2, Trash2, Check, X, FileText, Image, Table, File, Do
 import UserAvatar from './UserAvatar';
 import { formatMessageTime, formatFileSize, isImageFile, getFileIcon } from '../utils/messageHelpers';
 import { REACTION_EMOJIS } from '../hooks/useReactions';
+import AudioPlayer from './AudioPlayer';
 
 export default function MessageBubble({
   message,
@@ -92,6 +93,11 @@ export default function MessageBubble({
     ? allMessages.find(m => m.id === message.reply_to_id)
     : null;
 
+  // Sprawdź czy załącznik to audio
+  const isAudioFile = (type) => {
+    return type?.startsWith('audio/') || false;
+  };
+
   const renderAttachment = (attachment, idx) => {
     const iconMap = {
       'image': Image,
@@ -100,6 +106,18 @@ export default function MessageBubble({
       'file': File
     };
     const IconComponent = iconMap[getFileIcon(attachment.type)] || File;
+
+    // Wiadomość głosowa lub plik audio
+    if (isAudioFile(attachment.type) || attachment.isVoiceMessage) {
+      return (
+        <AudioPlayer
+          key={idx}
+          url={attachment.url}
+          duration={attachment.duration}
+          isOwn={isOwn}
+        />
+      );
+    }
 
     if (isImageFile(attachment.type)) {
       return (
