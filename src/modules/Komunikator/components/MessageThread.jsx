@@ -185,7 +185,7 @@ export default function MessageThread({
   // Wysyłanie wiadomości
   const handleSendMessage = async (content, attachments, replyToId = null) => {
     stopTyping(); // Zatrzymaj wskaźnik pisania
-    await sendMessage(content, attachments, conversation, replyToId);
+    await sendMessage(content, attachments, replyToId);
     setReplyingTo(null); // Wyczyść stan reply po wysłaniu
     scrollToBottom();
   };

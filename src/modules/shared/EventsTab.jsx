@@ -334,7 +334,7 @@ const EventModal = ({ event, onClose, onSave, onDelete, config }) => {
 };
 
 // Główny komponent EventsTab
-export default function EventsTab({ ministry, currentUserEmail }) {
+export default function EventsTab({ ministry, currentUserEmail: propUserEmail }) {
   const config = getModuleConfig(ministry);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -342,6 +342,22 @@ export default function EventsTab({ ministry, currentUserEmail }) {
   const [searchFilter, setSearchFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [tableExists, setTableExists] = useState(true);
+  const [userEmail, setUserEmail] = useState(propUserEmail || null);
+
+  // Pobierz email użytkownika jeśli nie został przekazany
+  useEffect(() => {
+    if (!propUserEmail) {
+      const fetchUserEmail = async () => {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user?.email) {
+          setUserEmail(data.user.email);
+        }
+      };
+      fetchUserEmail();
+    } else {
+      setUserEmail(propUserEmail);
+    }
+  }, [propUserEmail]);
 
   useEffect(() => {
     fetchEvents();
@@ -396,7 +412,7 @@ export default function EventsTab({ ministry, currentUserEmail }) {
     } else {
       const { error: e } = await supabase.from(config.tableName).insert([{
         ...eventData,
-        created_by: currentUserEmail
+        created_by: userEmail
       }]);
       error = e;
     }
