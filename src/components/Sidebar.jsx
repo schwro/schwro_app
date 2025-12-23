@@ -220,6 +220,7 @@ export default function Sidebar() {
     prayer: 'module:prayer',
     komunikator: 'module:komunikator',
     mlodziezowka: 'module:mlodziezowka',
+    mailing: 'module:mailing',
     settings: 'module:settings'
   };
 
@@ -248,6 +249,7 @@ export default function Sidebar() {
     { path: '/prayer', icon: Heart, label: 'Centrum Modlitwy', show: isModuleVisible('prayer') },
     { path: '/komunikator', icon: MessageCircle, label: 'Komunikator', show: hasModuleAccess('module:komunikator') },
     { path: '/mlodziezowka', icon: Sparkles, label: 'Młodzieżówka', show: hasModuleAccess('module:mlodziezowka') },
+    { path: '/mailing', icon: LucideIcons.Mail, label: 'Mailing', show: hasModuleAccess('module:mailing') },
   ];
 
   // Wygeneruj linki modułów z bazy danych

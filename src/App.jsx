@@ -28,13 +28,14 @@ import TeachingModule from './modules/Teaching/TeachingModule';
 import PrayerWallModule from './modules/PrayerWall/PrayerWallModule';
 import KomunikatorModule from './modules/Komunikator/KomunikatorModule';
 import MlodziezowkaModule from './modules/MlodziezowkaModule';
+import MailingModule from './modules/Mailing/MailingModule';
 import CustomModule from './modules/CustomModule/CustomModule';
 
 // Lista kluczy systemowych modułów (mają dedykowane komponenty)
 const SYSTEM_MODULE_KEYS = [
   'dashboard', 'programs', 'calendar', 'members', 'worship', 'media',
   'atmosfera', 'kids', 'homegroups', 'finance', 'teaching', 'prayer',
-  'komunikator', 'mlodziezowka', 'settings'
+  'komunikator', 'mlodziezowka', 'mailing', 'settings'
 ];
 
 // Komponent do wyświetlania toast notifications
@@ -216,6 +217,9 @@ export default function App() {
                 } />
                 <Route path="/mlodziezowka" element={
                   <ProtectedRoute resource="module:mlodziezowka"><MlodziezowkaModule /></ProtectedRoute>
+                } />
+                <Route path="/mailing" element={
+                  <ProtectedRoute resource="module:mailing"><MailingModule /></ProtectedRoute>
                 } />
                 <Route path="/settings" element={
                   <ProtectedRoute resource="module:settings"><GlobalSettings /></ProtectedRoute>
