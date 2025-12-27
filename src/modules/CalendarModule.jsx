@@ -4,15 +4,13 @@ import { supabase } from '../lib/supabase';
 import {
   Calendar as CalIcon, ChevronLeft, ChevronRight,
   Plus, CheckCircle, Clock, Video, Music, X, Save,
-  Users, HeartHandshake, Home, Baby, GripVertical, Trash2,
-  ChevronDown, MapPin, AlignLeft, Search, Check, UserX,
+  Users, HeartHandshake, Home, Baby, Trash2,
+  ChevronDown, MapPin, AlignLeft, Search, Check,
   FileText, LayoutGrid, List, LayoutList, Columns, CalendarPlus, ListTodo,
   Filter, PanelLeftClose, PanelLeft
 } from 'lucide-react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import CustomSelect from '../components/CustomSelect';
+import ProgramEditorModal from './Programs/ProgramEditorModal';
 
 // --- KONFIGURACJA ZESPOŁÓW I DANYCH ---
 
@@ -25,9 +23,6 @@ const TEAMS = {
   groups: { label: 'Grupy Domowe', color: 'blue', icon: Home },
   mlodziezowka: { label: 'Młodzieżówka', color: 'rose', icon: Users },
 };
-
-const PROGRAM_ELEMENTS = ['Wstęp', 'Uwielbienie', 'Modlitwa', 'Czytanie', 'Kazanie', 'Wieczerza', 'Uwielbienie / Kolekta', 'Ogłoszenia', 'Zakończenie'];
-const MUSICAL_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
 
 // --- HELPERY UI ---
 
@@ -188,56 +183,6 @@ const CustomTimePicker = ({ value, onChange, placeholder = 'Wybierz godzinę' })
   );
 };
 
-const MultiSelect = ({ label, options, value, onChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef(null);
-  const coords = useDropdownPosition(triggerRef, isOpen);
-  const selectedItems = value ? value.split(',').map(s => s.trim()).filter(Boolean) : [];
-
-  const toggleSelection = (name) => {
-    let newSelection;
-    if (selectedItems.includes(name)) newSelection = selectedItems.filter(i => i !== name);
-    else newSelection = [...selectedItems, name];
-    onChange(newSelection.join(', '));
-  };
-
-  return (
-    <div className="relative group">
-      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{label}</label>
-      <div ref={triggerRef} className="w-full min-h-[42px] px-3 py-2 bg-white/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus-within:ring-2 focus-within:ring-pink-500/20 cursor-pointer flex flex-wrap gap-2 items-center" onClick={() => setIsOpen(!isOpen)}>
-        {selectedItems.length === 0 ? (
-          <span className="text-gray-400 dark:text-gray-500 text-sm">Wybierz osoby...</span>
-        ) : (
-          selectedItems.map((item, idx) => (
-            <span key={idx} className="bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 px-2 py-0.5 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 flex items-center gap-1">
-              {item} <span onClick={(e) => { e.stopPropagation(); toggleSelection(item); }} className="hover:bg-pink-200 rounded-full cursor-pointer"><X size={10} /></span>
-            </span>
-          ))
-        )}
-        <div className="ml-auto"><ChevronDown size={16} className="text-gray-400" /></div>
-      </div>
-      {isOpen && coords.width > 0 && document.body && createPortal(
-        <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar" style={{ ...(coords.openUpward ? { bottom: `calc(100vh - ${coords.top}px)` } : { top: coords.top }), left: coords.left, width: coords.width }}>
-          {(!options || options.length === 0) ? (
-             <div className="p-3 text-center text-gray-400 text-xs">Brak osób w bazie</div>
-          ) : (
-             options.map(person => {
-                const displayName = person.fullname || person.name || 'Brak danych';
-                const isSelected = selectedItems.includes(displayName);
-                return (
-                  <div key={person.id} className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between hover:bg-pink-50 dark:hover:bg-pink-900/20 ${isSelected ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-700' : 'text-gray-700 dark:text-gray-300'}`} onClick={() => toggleSelection(displayName)}>
-                    <span>{displayName}</span>
-                    {isSelected && <Check size={16} />}
-                  </div>
-                );
-             })
-          )}
-        </div>, document.body
-      )}
-    </div>
-  );
-};
-
 const getDaysInMonth = (date) => {
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -245,333 +190,6 @@ const getDaysInMonth = (date) => {
   const firstDay = new Date(year, month, 1).getDay();
   return { days, firstDay: firstDay === 0 ? 6 : firstDay - 1 };
 };
-
-// --- KOMPONENTY PIEŚNI ---
-
-const SongSelector = ({ songs, onSelect }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const triggerRef = useRef(null);
-  const coords = useDropdownPosition(triggerRef, isOpen);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target) && !e.target.closest('.portal-song-selector')) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
-
-  const filteredSongs = songs.filter(s => s.title.toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div className="relative w-full">
-      <div ref={triggerRef} className="w-full px-3 py-2 bg-pink-50 dark:bg-pink-900/20 border border-pink-100 dark:border-pink-800 rounded-lg text-sm text-pink-800 dark:text-pink-300 font-medium flex items-center justify-between cursor-pointer hover:bg-pink-100 dark:hover:bg-pink-900/30 transition" onClick={() => setIsOpen(!isOpen)}>
-        <span>Wybierz pieśń...</span>
-        <ChevronDown size={16} className="text-pink-400" />
-      </div>
-      {isOpen && document.body && createPortal(
-        <div className="portal-song-selector fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 flex flex-col overflow-hidden" style={{ ...(coords.openUpward ? { bottom: `calc(100vh - ${coords.top}px)` } : { top: coords.top }), left: coords.left, width: coords.width }}>
-           <div className="p-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-             <div className="flex items-center gap-2 bg-white dark:bg-gray-900 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
-                <Search size={14} className="text-gray-400"/>
-                <input autoFocus className="bg-transparent outline-none text-sm w-full text-gray-700 dark:text-gray-200 placeholder-gray-400" placeholder="Szukaj..." value={search} onChange={e => setSearch(e.target.value)} />
-             </div>
-           </div>
-           <div className="overflow-y-auto flex-1 max-h-48 custom-scrollbar">
-             {filteredSongs.length === 0 ? (
-                <div className="p-3 text-xs text-gray-400 text-center">Brak wyników</div>
-             ) : (
-                filteredSongs.map(s => (
-                   <div key={s.id} className="px-4 py-2 hover:bg-pink-50 dark:hover:bg-pink-900/20 cursor-pointer text-sm text-gray-700 dark:text-gray-300 flex justify-between items-center border-b border-gray-50 dark:border-gray-800 last:border-0" onClick={() => { onSelect(s); setIsOpen(false); setSearch(""); }}>
-                      <span className="font-medium">{s.title}</span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">{s.key}</span>
-                   </div>
-                ))
-             )}
-           </div>
-        </div>, document.body
-      )}
-    </div>
-  );
-};
-
-const SortableSongItem = ({ item, idx, songDef, onRemove, onChangeKey }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.internalId });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: transform ? 999 : 'auto', position: 'relative' };
-
-  return (
-    <div ref={setNodeRef} style={style} className="flex items-center justify-between gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-pink-100 dark:border-pink-900/30 rounded-lg shadow-sm group">
-       <div {...attributes} {...listeners} className="cursor-grab text-gray-300 dark:text-gray-600 hover:text-pink-600 dark:hover:text-pink-400 active:cursor-grabbing"><GripVertical size={14}/></div>
-       <div className="flex items-center gap-2 flex-1">
-          <span className="text-pink-700 dark:text-pink-400 font-medium text-xs">{idx + 1}.</span>
-          <span className="text-gray-700 dark:text-gray-200 text-sm truncate">{songDef?.title || "Nieznana pieśń"}</span>
-       </div>
-       <div className="flex items-center gap-1">
-          <div className="w-[60px]"><CustomSelect compact options={MUSICAL_KEYS.map(k=>({value:k, label:k}))} value={item.key} onChange={(val) => onChangeKey(item.internalId, val)} /></div>
-          <button onClick={() => onRemove(item.internalId)} className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition"><X size={14}/></button>
-       </div>
-    </div>
-  );
-};
-
-// --- PROGRAM EDITOR COMPONENTS ---
-
-const SectionCard = ({ title, dataKey, fields, program, setProgram }) => (
-  <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-6 h-full hover:shadow-xl transition relative z-0">
-    <div className="flex justify-between items-center mb-4">
-        <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">{title}</h3>
-    </div>
-    <div className="space-y-4">
-      {fields.map(field => (
-        <div key={field.key}>
-          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">{field.label}</label>
-          <input 
-            className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20 outline-none text-sm transition text-gray-700 dark:text-gray-200"
-            value={program[dataKey]?.[field.key] || ''}
-            onChange={e => setProgram(prev => ({ ...prev, [dataKey]: { ...prev[dataKey], [field.key]: e.target.value } }))}
-          />
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const SortableRow = ({ row, index, program, setProgram, onRemove, songs }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: row.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: transform ? 999 : 'auto', position: 'relative' };
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-  const isWorship = (row.element || "").toLowerCase().includes('uwielbienie');
-
-  const currentSongs = (row.selectedSongs || row.songIds || []).map(id => {
-      if (typeof id === 'object') return id; 
-      const s = songs.find(x => x.id === id);
-      return { internalId: Math.random(), songId: id, key: s?.key || 'C' };
-  });
-
-  const updateRow = (field, value) => {
-    const newSchedule = [...program.schedule];
-    newSchedule[index][field] = value;
-    setProgram(prev => ({ ...prev, schedule: newSchedule }));
-  };
-
-  const updateSongs = (newSongs) => {
-      const newSchedule = [...program.schedule];
-      newSchedule[index].selectedSongs = newSongs;
-      newSchedule[index].songIds = newSongs.map(s => s.songId);
-      setProgram(prev => ({...prev, schedule: newSchedule}));
-  };
-
-  const handleSongDragEnd = (event) => {
-      const { active, over } = event;
-      if (active.id !== over.id) {
-          const oldIndex = currentSongs.findIndex(item => item.internalId === active.id);
-          const newIndex = currentSongs.findIndex(item => item.internalId === over.id);
-          updateSongs(arrayMove(currentSongs, oldIndex, newIndex));
-      }
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="grid grid-cols-12 gap-4 p-3 items-start hover:bg-pink-50/30 dark:hover:bg-pink-900/10 transition duration-150 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 last:border-0">
-      <div className="col-span-1 flex items-center justify-center pt-2 cursor-grab text-gray-300 dark:text-gray-600 hover:text-pink-500 dark:hover:text-pink-400 active:cursor-grabbing" {...attributes} {...listeners}><GripVertical size={20} /></div>
-      
-      <div className="col-span-3">
-          <CustomSelect value={row.element} onChange={v => updateRow('element', v)} options={PROGRAM_ELEMENTS.map(e => ({value: e, label: e}))} />
-      </div>
-
-      <div className="col-span-3"><input className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200" placeholder="Osoba" value={row.person || ''} onChange={e => updateRow('person', e.target.value)} /></div>
-      
-      <div className="col-span-4 space-y-2">
-          <input className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-pink-500/20 outline-none text-gray-700 dark:text-gray-200" placeholder="Szczegóły / Notatka" value={row.details || ''} onChange={e => updateRow('details', e.target.value)} />
-          
-          {isWorship && (
-              <div className="mt-2">
-                  <SongSelector songs={songs} onSelect={(song) => {
-                      const newSong = { internalId: Date.now() + Math.random(), songId: song.id, key: song.key || 'C' };
-                      updateSongs([...currentSongs, newSong]);
-                  }} />
-                  
-                  <div className="mt-2 flex flex-col gap-1">
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSongDragEnd}>
-                        <SortableContext items={currentSongs.map(s => s.internalId)} strategy={verticalListSortingStrategy}>
-                            {currentSongs.map((item, idx) => {
-                                const songDef = songs.find(x => x.id === item.songId);
-                                if (!songDef) return null;
-                                return (
-                                    <SortableSongItem 
-                                        key={item.internalId} 
-                                        item={item} 
-                                        idx={idx} 
-                                        songDef={songDef} 
-                                        onRemove={(id) => updateSongs(currentSongs.filter(s => s.internalId !== id))}
-                                        onChangeKey={(id, k) => updateSongs(currentSongs.map(s => s.internalId === id ? {...s, key: k} : s))}
-                                    />
-                                );
-                            })}
-                        </SortableContext>
-                    </DndContext>
-                  </div>
-              </div>
-          )}
-      </div>
-      
-      <div className="col-span-1 flex justify-center pt-2"><button onClick={() => onRemove(row.id)} className="text-gray-400 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-lg transition"><Trash2 size={18}/></button></div>
-    </div>
-  );
-};
-
-const ModalFullProgramEditor = ({ eventId, onClose, onSave, songs }) => {
-  const [program, setProgram] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [worshipTeam, setWorshipTeam] = useState([]);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-  useEffect(() => {
-    const fetch = async () => {
-      const { data: pData } = await supabase.from('programs').select('*').eq('id', eventId).single();
-      const { data: wData } = await supabase.from('worshipteam').select('*');
-      
-      if (pData) {
-        if (!pData.schedule) pData.schedule = [];
-        ['atmosferateam', 'produkcja', 'scena', 'szkolka', 'zespol'].forEach(key => {
-             if (!pData[key]) pData[key] = {};
-        });
-        setProgram(pData);
-      }
-      if (wData) setWorshipTeam(wData);
-      setLoading(false);
-    };
-    fetch();
-  }, [eventId]);
-
-  const handleSave = async () => {
-    await supabase.from('programs').update(program).eq('id', program.id);
-    onSave();
-    onClose();
-  };
-
-  const handleDragEnd = (e) => {
-    const { active, over } = e;
-    if (active.id !== over.id) {
-      setProgram(prev => {
-        const oldIdx = prev.schedule.findIndex(i => i.id === active.id);
-        const newIdx = prev.schedule.findIndex(i => i.id === over.id);
-        return { ...prev, schedule: arrayMove(prev.schedule, oldIdx, newIdx) };
-      });
-    }
-  };
-
-  if (loading) return null;
-  if (!program) return null;
-  if (!document.body) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
-      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700 overflow-hidden">
-        
-        {/* HEADER */}
-        <div className="p-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center shrink-0 z-10">
-          <div className="flex items-center gap-4">
-             <div className="p-3 bg-gradient-to-br from-pink-500 to-orange-500 rounded-xl text-white shadow-lg shadow-pink-500/30"><Music size={24} /></div>
-             <div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Edycja Nabożeństwa</h2>
-                <div className="mt-1 w-48">
-                    <CustomDatePicker value={program.date} onChange={v => setProgram({...program, date: v})} />
-                </div>
-             </div>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 rounded-xl transition font-medium">Anuluj</button>
-            <button onClick={handleSave} className="px-6 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-pink-500/30 flex items-center gap-2 transition transform hover:-translate-y-0.5"><Save size={18} /> Zapisz</button>
-          </div>
-        </div>
-
-        {/* CONTENT */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar bg-gradient-to-br from-pink-50/50 via-white to-orange-50/50 dark:from-gray-900 dark:to-gray-800">
-          
-          <div className="bg-white/70 dark:bg-gray-800/40 backdrop-blur-xl rounded-2xl shadow-lg border border-white/60 dark:border-gray-700/50 p-6 min-h-[500px]">
-            <div className="flex justify-between items-center mb-6">
-               <h3 className="font-bold text-xl text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                 <div className="w-1.5 h-6 bg-pink-600 dark:bg-pink-500 rounded-full"></div>
-                 Plan szczegółowy
-               </h3>
-               <button 
-                  onClick={() => setProgram(p => ({ ...p, schedule: [...p.schedule, { id: Date.now(), element: '', person: '', details: '' }] }))} 
-                  className="bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-4 py-2 rounded-xl font-bold hover:shadow-lg transition"
-               >
-                  Dodaj Element
-               </button>
-            </div>
-            <div className="bg-white/50 dark:bg-gray-900/50 rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner overflow-hidden">
-                <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <div className="col-span-1"></div>
-                    <div className="col-span-3">Element</div>
-                    <div className="col-span-3">Osoba</div>
-                    <div className="col-span-4">Szczegóły / Notatki</div>
-                    <div className="col-span-1"></div>
-                </div>
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={program.schedule.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                    <div>
-                    {program.schedule.map((row, idx) => (
-                        <SortableRow 
-                            key={row.id} 
-                            row={row} 
-                            index={idx} 
-                            program={program} 
-                            setProgram={setProgram} 
-                            songs={songs} 
-                            onRemove={id => setProgram(p => ({...p, schedule: p.schedule.filter(i => i.id !== id)}))} 
-                        />
-                    ))}
-                    </div>
-                </SortableContext>
-                </DndContext>
-            </div>
-          </div>
-
-          <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 dark:border-gray-700/50 p-6 relative z-50">
-             <div className="flex justify-between items-center mb-6">
-                 <h3 className="font-bold text-lg bg-gradient-to-r from-pink-700 to-orange-700 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Zespół Uwielbienia</h3>
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {[
-                    { key: 'lider', label: 'Lider Uwielbienia' },
-                    { key: 'piano', label: 'Piano' },
-                    { key: 'gitaraakustyczna', label: 'Gitara Akustyczna' },
-                    { key: 'gitaraelektryczna', label: 'Gitara Elektryczna' },
-                    { key: 'bas', label: 'Gitara Basowa' },
-                    { key: 'wokale', label: 'Wokale' },
-                    { key: 'cajon', label: 'Cajon / Perkusja' }
-                 ].map(field => (
-                    <MultiSelect 
-                        key={field.key} 
-                        label={field.label} 
-                        options={worshipTeam} 
-                        value={program.zespol?.[field.key]} 
-                        onChange={(newValue) => setProgram(prev => ({ ...prev, zespol: { ...prev.zespol, [field.key]: newValue } }))} 
-                    />
-                 ))}
-             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-0">
-            <SectionCard title="Atmosfera Team" dataKey="atmosferateam" program={program} setProgram={setProgram} fields={[{ key: 'przygotowanie', label: 'Przygotowanie' }, { key: 'witanie', label: 'Witanie' }]} />
-            <SectionCard title="Produkcja" dataKey="produkcja" program={program} setProgram={setProgram} fields={[{ key: 'naglosnienie', label: 'Nagłośnienie' }, { key: 'propresenter', label: 'ProPresenter' }, { key: 'social', label: 'Social Media' }, { key: 'host', label: 'Host wydarzenia' }]} />
-            <SectionCard title="Scena" dataKey="scena" program={program} setProgram={setProgram} fields={[{ key: 'prowadzenie', label: 'Prowadzenie' }, { key: 'modlitwa', label: 'Modlitwa' }, { key: 'kazanie', label: 'Kazanie' }, { key: 'wieczerza', label: 'Wieczerza' }, { key: 'ogloszenia', label: 'Ogłoszenia' }]} />
-            <SectionCard title="Szkółka Niedzielna" dataKey="szkolka" program={program} setProgram={setProgram} fields={[{ key: 'mlodsza', label: 'Grupa Młodsza' }, { key: 'srednia', label: 'Grupa Średnia' }, { key: 'starsza', label: 'Grupa Starsza' }]} />
-          </div>
-
-        </div>
-      </div>
-    </div>, document.body
-  );
-};
-
 
 // --- MODAL WYBORU TYPU (WYDARZENIE VS ZADANIE) ---
 
@@ -3033,7 +2651,7 @@ export default function CalendarModule() {
       )}
 
       {modals.addTask && <ModalAddTask initialTask={modals.addTask} onClose={() => setModals({...modals, addTask: null})} onSave={handleSaveTask} onDelete={handleDeleteTask} />}
-      {modals.editProgram && <ModalFullProgramEditor eventId={modals.editProgram} onClose={() => setModals({...modals, editProgram: null})} onSave={handleSaveProgram} songs={songs} />}
+      {modals.editProgram && <ProgramEditorModal programId={modals.editProgram} onClose={() => setModals({...modals, editProgram: null})} onSave={handleSaveProgram} />}
 
       {modals.mlodziezowkaEvent && (
         <ModalMinistryEvent
