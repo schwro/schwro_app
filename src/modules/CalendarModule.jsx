@@ -838,6 +838,7 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
     team: 'media',
     due_date: new Date().toISOString().split('T')[0],
     due_time: '10:00',
+    end_time: '11:00',
     location: '',
     status: 'Do zrobienia'
   });
@@ -847,7 +848,8 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
           setTask({
               ...initialTask,
               location: initialTask.location || '',
-              description: initialTask.description || ''
+              description: initialTask.description || '',
+              end_time: initialTask.end_time || ''
           });
       }
   }, [initialTask]);
@@ -858,22 +860,24 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
 
   const handleSubmit = () => {
     if (!task.title) return alert('Podaj tytuł');
-    
+
     const dateStr = task.due_date;
     const timeStr = task.due_time || '00:00';
-    
+
     // Tworzymy datę w formacie ISO z offsetem, aby baza zapisała to poprawnie
     const localDate = new Date(`${dateStr}T${timeStr}:00`);
-    
+
     const payload = {
         title: task.title,
         description: task.description || '',
         team: task.team || 'media',
         due_date: localDate.toISOString(), // Pełny timestamp ISO
+        due_time: task.due_time || null,
+        end_time: task.end_time || null,
         location: task.location || '',
         status: task.status || 'Do zrobienia'
     };
-    
+
     if (task.id) payload.id = task.id;
 
     onSave(payload);
@@ -900,9 +904,13 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Kategoria</label><CustomSelect value={task.team} onChange={v => setTask({...task, team: v})} options={Object.entries(TEAMS).filter(([k]) => k !== 'program').map(([k, v]) => ({ value: k, label: v.label }))} /></div>
              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Miejsce</label><div className="relative"><MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm" value={task.location || ''} onChange={e => setTask({...task, location: e.target.value})} placeholder="np. Biuro" /></div></div>
           </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data</label>
+            <CustomDatePicker value={task.due_date} onChange={handleDateChange} />
+          </div>
           <div className="grid grid-cols-2 gap-4">
-             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data</label><CustomDatePicker value={task.due_date} onChange={handleDateChange} /></div>
-             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina</label><CustomTimePicker value={task.due_time} onChange={v => setTask({...task, due_time: v})} placeholder="Wybierz" /></div>
+             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina rozpoczęcia</label><CustomTimePicker value={task.due_time} onChange={v => setTask({...task, due_time: v})} placeholder="Od" /></div>
+             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina zakończenia</label><CustomTimePicker value={task.end_time} onChange={v => setTask({...task, end_time: v})} placeholder="Do" /></div>
           </div>
           <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Opis</label><textarea className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm h-24 resize-none" value={task.description || ''} onChange={e => setTask({...task, description: e.target.value})} placeholder="Szczegóły zadania..." /></div>
         </div>
@@ -1641,7 +1649,7 @@ export default function CalendarModule() {
     setModals({
       ...modals,
       selectType: null,
-      addTask: { due_date: date, due_time: '10:00', team: 'media' }
+      addTask: { due_date: date, due_time: '10:00', end_time: '11:00', team: 'media' }
     });
   };
 
@@ -1698,6 +1706,7 @@ export default function CalendarModule() {
           description: '',
           start_date: date,
           due_time: '10:00',
+          end_time: '11:00',
           location: '',
           max_participants: null,
           event_type: MINISTRY_EVENT_CONFIG[ministryKey]?.defaultType || 'spotkanie'
@@ -2159,128 +2168,134 @@ export default function CalendarModule() {
             ))}
           </div>
 
-          {/* Mini kalendarz tygodniowy - na pełną szerokość */}
-          <div className="grid grid-cols-7 gap-1.5 mb-2">
-            {weekDays.map((d, i) => {
-              const isSelected = d.getDate() === selectedDate.getDate() &&
-                                 d.getMonth() === selectedDate.getMonth();
-              const isToday = d.getDate() === new Date().getDate() &&
-                              d.getMonth() === new Date().getMonth() &&
-                              d.getFullYear() === new Date().getFullYear();
-              const hasEvents = filteredEvents.some(e =>
-                e.date.getDate() === d.getDate() &&
-                e.date.getMonth() === d.getMonth()
-              );
+          {/* Mini kalendarz tygodniowy z nawigacją */}
+          <div className="flex items-center gap-2 mb-2">
+            {/* Strzałka wstecz */}
+            <button
+              onClick={() => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() - 7);
+                setSelectedDateLocal(newDate);
+                setCurrentDate(newDate);
+              }}
+              className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex-shrink-0"
+            >
+              <ChevronLeft size={18} />
+            </button>
 
-              return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setSelectedDateLocal(d);
-                    setCurrentDate(d);
-                  }}
-                  className={`flex flex-col items-center py-2 rounded-xl transition ${
-                    isSelected
-                      ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
-                      : isToday
-                        ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  <span className={`text-[10px] font-medium uppercase ${isSelected ? 'text-pink-200' : 'text-gray-400 dark:text-gray-500'}`}>
-                    {d.toLocaleDateString('pl-PL', { weekday: 'short' }).slice(0, 2)}
-                  </span>
-                  <span className="text-lg font-bold">
-                    {d.getDate()}
-                  </span>
-                  {hasEvents && !isSelected && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-pink-500 mt-0.5" />
-                  )}
-                </button>
-              );
-            })}
+            {/* Dni tygodnia */}
+            <div className="flex-1 grid grid-cols-7 gap-1">
+              {weekDays.map((d, i) => {
+                const isSelected = d.getDate() === selectedDate.getDate() &&
+                                   d.getMonth() === selectedDate.getMonth();
+                const isToday = d.getDate() === new Date().getDate() &&
+                                d.getMonth() === new Date().getMonth() &&
+                                d.getFullYear() === new Date().getFullYear();
+                const hasEvents = filteredEvents.some(e =>
+                  e.date.getDate() === d.getDate() &&
+                  e.date.getMonth() === d.getMonth()
+                );
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setSelectedDateLocal(d);
+                      setCurrentDate(d);
+                    }}
+                    className={`flex flex-col items-center py-1.5 rounded-xl transition ${
+                      isSelected
+                        ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
+                        : isToday
+                          ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    <span className={`text-[9px] font-medium uppercase ${isSelected ? 'text-pink-200' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {d.toLocaleDateString('pl-PL', { weekday: 'short' }).slice(0, 2)}
+                    </span>
+                    <span className="text-base font-bold">
+                      {d.getDate()}
+                    </span>
+                    {hasEvents && !isSelected && (
+                      <div className="w-1 h-1 rounded-full bg-pink-500 mt-0.5" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Strzałka w przód */}
+            <button
+              onClick={() => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() + 7);
+                setSelectedDateLocal(newDate);
+                setCurrentDate(newDate);
+              }}
+              className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex-shrink-0"
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
         </div>
 
         {/* Zawartość w zależności od trybu */}
         <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-          {/* WIDOK DNIA - Timeline */}
+          {/* WIDOK DNIA - Lista wydarzeń */}
           {mobileViewMode === 'day' && (
-            <>
-              {hours.map((h) => {
-                const hourEvents = dayEvents.filter(ev => {
-                  const pos = getEventPosition(ev);
-                  return pos.hour === h;
-                });
+            <div className="p-3">
+              {/* Nagłówek dnia */}
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
+                {selectedDate.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </h3>
 
-                return (
-                  <div key={h} className="flex min-h-[56px] border-b border-gray-100 dark:border-gray-800/50">
-                    <div className="w-14 flex-shrink-0 py-2 pr-2 text-right">
-                      <span className={`text-[11px] font-medium ${
-                        h === 12 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
-                      }`}>
-                        {h === 12 ? 'Poł.' : `${String(h).padStart(2, '0')}:00`}
-                      </span>
-                    </div>
+              {dayEvents.length > 0 ? (
+                <div className="space-y-2">
+                  {dayEvents.map(ev => {
+                    const teamColor = TEAMS[ev.team]?.color || 'gray';
+                    const colorClasses = {
+                      pink: 'bg-gradient-to-r from-pink-50 to-pink-100/50 dark:from-pink-900/30 dark:to-pink-900/10 border-l-pink-500',
+                      orange: 'bg-gradient-to-r from-orange-50 to-orange-100/50 dark:from-orange-900/30 dark:to-orange-900/10 border-l-orange-500',
+                      purple: 'bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/30 dark:to-purple-900/10 border-l-purple-500',
+                      teal: 'bg-gradient-to-r from-teal-50 to-teal-100/50 dark:from-teal-900/30 dark:to-teal-900/10 border-l-teal-500',
+                      blue: 'bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-900/10 border-l-blue-500',
+                      yellow: 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-900/10 border-l-amber-500',
+                      rose: 'bg-gradient-to-r from-rose-50 to-rose-100/50 dark:from-rose-900/30 dark:to-rose-900/10 border-l-rose-500',
+                      gray: 'bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-l-gray-400',
+                    };
 
-                    <div className="flex-1 py-1 pr-3 space-y-1">
-                      {hourEvents.map(ev => {
-                        const pos = getEventPosition(ev);
-                        const teamColor = TEAMS[ev.team]?.color || 'gray';
-                        const colorClasses = {
-                          pink: 'bg-gradient-to-r from-pink-50 to-pink-100/50 dark:from-pink-900/30 dark:to-pink-900/10 border-l-pink-500',
-                          orange: 'bg-gradient-to-r from-orange-50 to-orange-100/50 dark:from-orange-900/30 dark:to-orange-900/10 border-l-orange-500',
-                          purple: 'bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/30 dark:to-purple-900/10 border-l-purple-500',
-                          teal: 'bg-gradient-to-r from-teal-50 to-teal-100/50 dark:from-teal-900/30 dark:to-teal-900/10 border-l-teal-500',
-                          blue: 'bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-900/10 border-l-blue-500',
-                          yellow: 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-900/10 border-l-amber-500',
-                          rose: 'bg-gradient-to-r from-rose-50 to-rose-100/50 dark:from-rose-900/30 dark:to-rose-900/10 border-l-rose-500',
-                          gray: 'bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-l-gray-400',
-                        };
-
-                        return (
-                          <div
-                            key={ev.id}
-                            onClick={() => handleEventClick(ev)}
-                            className={`p-2.5 rounded-xl border-l-4 cursor-pointer active:scale-[0.98] transition ${colorClasses[teamColor]}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{ev.title}</h4>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                  {String(pos.hour).padStart(2, '0')}:{String(pos.minute).padStart(2, '0')} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
-                                </p>
-                              </div>
-                              <div className="w-6 h-6 rounded-lg bg-white/70 dark:bg-gray-700/70 flex items-center justify-center flex-shrink-0">
-                                <CheckCircle size={14} className="text-gray-400" />
-                              </div>
-                            </div>
+                    return (
+                      <div
+                        key={ev.id}
+                        onClick={() => handleEventClick(ev)}
+                        className={`p-3 rounded-xl border-l-4 cursor-pointer active:scale-[0.98] transition ${colorClasses[teamColor]}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{ev.title}</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              {ev.raw?.due_time
+                                ? (ev.raw?.end_time ? `${ev.raw.due_time} - ${ev.raw.end_time}` : ev.raw.due_time)
+                                : 'Cały dzień'} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
+                            </p>
+                            {ev.raw?.location && (
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                                📍 {ev.raw.location}
+                              </p>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Linia aktualnej godziny */}
-              {selectedDate.getDate() === new Date().getDate() &&
-               selectedDate.getMonth() === new Date().getMonth() &&
-               selectedDate.getFullYear() === new Date().getFullYear() && (
-                <div
-                  className="absolute left-12 right-3 border-t-2 border-red-400 z-10 pointer-events-none"
-                  style={{
-                    top: `${((new Date().getHours() - 6) * 56 + (new Date().getMinutes() / 60) * 56)}px`
-                  }}
-                >
-                  <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-400 rounded-full shadow-sm" />
+                          <div className="w-7 h-7 rounded-lg bg-white/70 dark:bg-gray-700/70 flex items-center justify-center flex-shrink-0">
+                            <CheckCircle size={16} className="text-gray-400" />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-
-              {/* Pusty stan dnia */}
-              {dayEvents.length === 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                  <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-3 pointer-events-auto">
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-3">
                     <CalIcon size={24} className="text-gray-400" />
                   </div>
                   <p className="text-gray-400 dark:text-gray-500 text-sm mb-2">Brak wydarzeń</p>
@@ -2295,7 +2310,7 @@ export default function CalendarModule() {
                   </button>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* WIDOK TYGODNIA */}
@@ -2374,7 +2389,7 @@ export default function CalendarModule() {
                               }`} />
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{ev.title}</p>
-                                <p className="text-[10px] text-gray-500">{ev.raw?.due_time || ''}</p>
+                                <p className="text-[10px] text-gray-500">{ev.raw?.due_time ? (ev.raw?.end_time ? `${ev.raw.due_time} - ${ev.raw.end_time}` : ev.raw.due_time) : ''}</p>
                               </div>
                             </div>
                           );
@@ -2415,7 +2430,7 @@ export default function CalendarModule() {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 dark:text-white truncate">{ev.title}</p>
                             <p className="text-xs text-gray-500">
-                              {ev.raw?.due_time || ''} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
+                              {ev.raw?.due_time ? (ev.raw?.end_time ? `${ev.raw.due_time} - ${ev.raw.end_time}` : ev.raw.due_time) : ''} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
                             </p>
                           </div>
                         </div>
@@ -2462,8 +2477,7 @@ export default function CalendarModule() {
                       onClick={() => {
                         const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
                         setSelectedDateLocal(newDate);
-                        setCurrentDate(newDate);
-                        // Nie przełączaj na widok dzienny - pokaż wydarzenia pod kalendarzem
+                        // NIE zmieniaj currentDate - to by przełączyło tydzień w mini kalendarzu
                       }}
                       className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition ${
                         isSelected
@@ -2498,13 +2512,21 @@ export default function CalendarModule() {
               </div>
 
               {/* Lista wydarzeń w wybranym dniu poniżej kalendarza */}
+              {(() => {
+                // Użyj selectedDate dla wydarzeń, ale tylko jeśli jest w aktualnym miesiącu
+                const monthDayEvents = filteredEvents.filter(e =>
+                  e.date.getDate() === selectedDate.getDate() &&
+                  e.date.getMonth() === selectedDate.getMonth() &&
+                  e.date.getFullYear() === selectedDate.getFullYear()
+                );
+                return (
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
                   {selectedDate.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </h3>
-                {dayEvents.length > 0 ? (
+                {monthDayEvents.length > 0 ? (
                   <div className="space-y-2">
-                    {dayEvents.map(ev => {
+                    {monthDayEvents.map(ev => {
                       const teamColor = TEAMS[ev.team]?.color || 'gray';
                       return (
                         <div
@@ -2524,7 +2546,7 @@ export default function CalendarModule() {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 dark:text-white truncate">{ev.title}</p>
                             <p className="text-xs text-gray-500">
-                              {ev.raw?.due_time || ''} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
+                              {ev.raw?.due_time ? (ev.raw?.end_time ? `${ev.raw.due_time} - ${ev.raw.end_time}` : ev.raw.due_time) : ''} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
                             </p>
                           </div>
                         </div>
@@ -2535,6 +2557,8 @@ export default function CalendarModule() {
                   <p className="text-center text-gray-400 text-sm py-4">Brak wydarzeń</p>
                 )}
               </div>
+                );
+              })()}
             </div>
           )}
         </div>
