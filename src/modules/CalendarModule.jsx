@@ -110,6 +110,84 @@ const CustomDatePicker = ({ value, onChange }) => {
   );
 };
 
+const CustomTimePicker = ({ value, onChange, placeholder = 'Wybierz godzinę' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef(null);
+  const coords = useDropdownPosition(triggerRef, isOpen);
+
+  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+  const minutes = ['00', '15', '30', '45'];
+
+  const [selectedHour, selectedMinute] = value ? value.split(':') : ['10', '00'];
+
+  const handleTimeSelect = (hour, minute) => {
+    onChange(`${hour}:${minute}`);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative w-full">
+      <div
+        ref={triggerRef}
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-2 cursor-pointer hover:border-pink-400 transition"
+      >
+        <Clock size={16} className="text-pink-600 dark:text-pink-400" />
+        <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">
+          {value || placeholder}
+        </span>
+      </div>
+      {isOpen && coords.width > 0 && document.body && createPortal(
+        <div
+          className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 animate-in fade-in zoom-in-95 duration-100 w-[200px]"
+          style={{ ...(coords.openUpward ? { bottom: `calc(100vh - ${coords.top}px)` } : { top: coords.top }), left: coords.left }}
+        >
+          <div className="flex gap-2">
+            {/* Godziny */}
+            <div className="flex-1">
+              <div className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Godzina</div>
+              <div className="h-48 overflow-y-auto custom-scrollbar space-y-1">
+                {hours.map(h => (
+                  <button
+                    key={h}
+                    onClick={(e) => { e.stopPropagation(); handleTimeSelect(h, selectedMinute); }}
+                    className={`w-full py-1.5 text-sm font-medium rounded-lg transition ${
+                      h === selectedHour
+                        ? 'bg-pink-600 text-white'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {h}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Minuty */}
+            <div className="flex-1">
+              <div className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Minuty</div>
+              <div className="space-y-1">
+                {minutes.map(m => (
+                  <button
+                    key={m}
+                    onClick={(e) => { e.stopPropagation(); handleTimeSelect(selectedHour, m); }}
+                    className={`w-full py-1.5 text-sm font-medium rounded-lg transition ${
+                      m === selectedMinute
+                        ? 'bg-pink-600 text-white'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    :{m}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>, document.body
+      )}
+    </div>
+  );
+};
+
 const MultiSelect = ({ label, options, value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef(null);
@@ -692,27 +770,19 @@ const ModalAddEvent = ({ initialEvent, category, onClose, onSave, onDelete }) =>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina rozpoczęcia</label>
-              <div className="relative">
-                <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="time"
-                  className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm"
-                  value={event.time}
-                  onChange={e => setEvent({...event, time: e.target.value})}
-                />
-              </div>
+              <CustomTimePicker
+                value={event.time}
+                onChange={v => setEvent({...event, time: v})}
+                placeholder="Wybierz"
+              />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina zakończenia</label>
-              <div className="relative">
-                <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="time"
-                  className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm"
-                  value={event.end_time || ''}
-                  onChange={e => setEvent({...event, end_time: e.target.value})}
-                />
-              </div>
+              <CustomTimePicker
+                value={event.end_time || ''}
+                onChange={v => setEvent({...event, end_time: v})}
+                placeholder="Opcjonalnie"
+              />
             </div>
           </div>
 
@@ -832,7 +902,7 @@ const ModalAddTask = ({ initialTask, onClose, onSave, onDelete }) => {
           </div>
           <div className="grid grid-cols-2 gap-4">
              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data</label><CustomDatePicker value={task.due_date} onChange={handleDateChange} /></div>
-             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina</label><div className="relative"><Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="time" className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm" value={task.due_time} onChange={e => setTask({...task, due_time: e.target.value})} /></div></div>
+             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Godzina</label><CustomTimePicker value={task.due_time} onChange={v => setTask({...task, due_time: v})} placeholder="Wybierz" /></div>
           </div>
           <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Opis</label><textarea className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 dark:text-white text-sm h-24 resize-none" value={task.description || ''} onChange={e => setTask({...task, description: e.target.value})} placeholder="Szczegóły zadania..." /></div>
         </div>
@@ -1020,7 +1090,7 @@ const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Godzina</label>
-              <input type="time" className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white" value={eventForm.event_time || ''} onChange={e => setEventForm({...eventForm, event_time: e.target.value})} />
+              <CustomTimePicker value={eventForm.event_time || ''} onChange={v => setEventForm({...eventForm, event_time: v})} placeholder="Wybierz" />
             </div>
           </div>
 
@@ -1103,6 +1173,9 @@ export default function CalendarModule() {
   const [eventCategories, setEventCategories] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const searchInputRef = useRef(null);
 
   // Śledzenie rozmiaru okna dla responsywności
   useEffect(() => {
@@ -1682,7 +1755,22 @@ export default function CalendarModule() {
   const { days, firstDay } = getDaysInMonth(currentDate);
   const daysArray = Array.from({ length: days }, (_, i) => i + 1);
   const emptyDays = Array.from({ length: firstDay });
-  const filteredEvents = events.filter(e => visibleTeams.includes(e.team));
+  const filteredEvents = events.filter(e => {
+    // Filtruj po widocznych zespołach
+    if (!visibleTeams.includes(e.team)) return false;
+
+    // Filtruj po wyszukiwaniu
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      const titleMatch = e.title?.toLowerCase().includes(query);
+      const descMatch = e.raw?.description?.toLowerCase().includes(query);
+      const locationMatch = e.raw?.location?.toLowerCase().includes(query);
+      const teamLabel = TEAMS[e.team]?.label?.toLowerCase().includes(query);
+      return titleMatch || descMatch || locationMatch || teamLabel;
+    }
+
+    return true;
+  });
 
   // --- RENDER LOGIC FOR VIEWS ---
 
@@ -2013,6 +2101,31 @@ export default function CalendarModule() {
             </div>
           </div>
 
+          {/* Pasek wyszukiwania */}
+          <div className="relative mb-3">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Szukaj wydarzeń..."
+              className="w-full pl-9 pr-9 py-2.5 bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-pink-400 dark:focus:border-pink-500 rounded-xl text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              Znaleziono {filteredEvents.length} wydarzeń
+            </p>
+          )}
+
           {/* Przełącznik widoku */}
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-4">
             {[
@@ -2035,21 +2148,9 @@ export default function CalendarModule() {
             ))}
           </div>
 
-          {/* Mini kalendarz tygodniowy */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => {
-                const newDate = new Date(selectedDate);
-                newDate.setDate(newDate.getDate() - 7);
-                setSelectedDateLocal(newDate);
-                setCurrentDate(newDate);
-              }}
-              className="p-1 text-gray-400 hover:text-gray-600"
-            >
-              <ChevronLeft size={20} />
-            </button>
-
-            <div className="flex gap-0.5 flex-1 justify-center">
+          {/* Mini kalendarz tygodniowy - scroll poziomy */}
+          <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
+            <div className="flex gap-2 pb-2" style={{ minWidth: 'max-content' }}>
               {weekDays.map((d, i) => {
                 const isSelected = d.getDate() === selectedDate.getDate() &&
                                    d.getMonth() === selectedDate.getMonth();
@@ -2068,39 +2169,27 @@ export default function CalendarModule() {
                       setSelectedDateLocal(d);
                       setCurrentDate(d);
                     }}
-                    className={`flex flex-col items-center py-1.5 px-2 rounded-xl transition min-w-[38px] ${
+                    className={`flex flex-col items-center py-2 px-3 rounded-xl transition flex-1 min-w-[46px] ${
                       isSelected
                         ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
                         : isToday
                           ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                     }`}
                   >
-                    <span className={`text-[9px] font-medium uppercase ${isSelected ? 'text-pink-200' : 'text-gray-400 dark:text-gray-500'}`}>
+                    <span className={`text-[10px] font-medium uppercase ${isSelected ? 'text-pink-200' : 'text-gray-400 dark:text-gray-500'}`}>
                       {d.toLocaleDateString('pl-PL', { weekday: 'short' }).slice(0, 2)}
                     </span>
-                    <span className="text-base font-bold">
+                    <span className="text-lg font-bold">
                       {d.getDate()}
                     </span>
                     {hasEvents && !isSelected && (
-                      <div className="w-1 h-1 rounded-full bg-pink-500 mt-0.5" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-pink-500 mt-0.5" />
                     )}
                   </button>
                 );
               })}
             </div>
-
-            <button
-              onClick={() => {
-                const newDate = new Date(selectedDate);
-                newDate.setDate(newDate.getDate() + 7);
-                setSelectedDateLocal(newDate);
-                setCurrentDate(newDate);
-              }}
-              className="p-1 text-gray-400 hover:text-gray-600"
-            >
-              <ChevronRight size={20} />
-            </button>
           </div>
         </div>
 
@@ -2713,6 +2802,45 @@ export default function CalendarModule() {
               </div>
            </div>
 
+           {/* Search button + expandable input */}
+           <div className="flex items-center gap-2">
+             <div className={`flex items-center transition-all duration-300 ${searchExpanded ? 'w-64' : 'w-10'}`}>
+               {searchExpanded ? (
+                 <div className="relative w-full">
+                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                   <input
+                     ref={searchInputRef}
+                     type="text"
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     onBlur={() => { if (!searchQuery) setSearchExpanded(false); }}
+                     placeholder="Szukaj wydarzeń..."
+                     className="w-full pl-9 pr-9 py-2 bg-gray-100 dark:bg-gray-700 border border-transparent focus:border-pink-400 dark:focus:border-pink-500 rounded-xl text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
+                   />
+                   <button
+                     onClick={() => { setSearchQuery(''); setSearchExpanded(false); }}
+                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                   >
+                     <X size={16} />
+                   </button>
+                 </div>
+               ) : (
+                 <button
+                   onClick={() => { setSearchExpanded(true); setTimeout(() => searchInputRef.current?.focus(), 100); }}
+                   className="p-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                   title="Szukaj"
+                 >
+                   <Search size={18} />
+                 </button>
+               )}
+             </div>
+             {searchQuery && (
+               <span className="text-xs text-pink-600 dark:text-pink-400 font-medium whitespace-nowrap">
+                 {filteredEvents.length} wyników
+               </span>
+             )}
+           </div>
+
            {/* View switcher */}
            <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
               {[
@@ -2786,57 +2914,72 @@ export default function CalendarModule() {
         </div>
       </div>
 
-      {/* Mobile Sidebar Overlay - dla filtrów */}
+      {/* Mobile Filter Modal */}
       {sidebarOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Mobile Sidebar */}
-      <div className={`
-        lg:hidden fixed inset-y-0 left-0 z-50
-        w-72 flex flex-col gap-4
-        bg-white dark:bg-gray-900
-        p-4 shadow-2xl
-        transform transition-transform duration-300 ease-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Filtry</h2>
-          <button
+        <div className="lg:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className="absolute inset-0"
             onClick={() => setSidebarOpen(false)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
-          >
-            <X size={20} />
-          </button>
-        </div>
+          />
+          <div className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl p-6 pb-8 animate-in slide-in-from-bottom duration-300">
+            {/* Handle bar */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
 
-        <div className="flex-1 overflow-y-auto">
-          <h3 className="font-bold text-gray-500 uppercase text-xs mb-3 tracking-wider">Twoje Kalendarze</h3>
-          <div className="space-y-1">
-            {Object.entries(TEAMS).map(([key, cfg]) => (
-              <label key={key} className="flex items-center gap-3 cursor-pointer p-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition select-none">
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 rounded border-gray-300 text-pink-600 focus:ring-pink-500 cursor-pointer accent-pink-600"
-                  checked={visibleTeams.includes(key)}
-                  onChange={() => setVisibleTeams(p => p.includes(key) ? p.filter(k => k !== key) : [...p, key])}
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cfg.label}</span>
-              </label>
-            ))}
+            <div className="flex items-center justify-between mb-6 mt-2">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Filter size={20} className="text-pink-600" />
+                Filtry kalendarza
+              </h2>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="font-bold text-gray-500 uppercase text-xs mb-3 tracking-wider">Twoje Kalendarze</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(TEAMS).map(([key, cfg]) => {
+                  const isActive = visibleTeams.includes(key);
+                  const TeamIcon = cfg.icon;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setVisibleTeams(p => p.includes(key) ? p.filter(k => k !== key) : [...p, key])}
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition ${
+                        isActive
+                          ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <TeamIcon size={18} />
+                      <span className="text-sm font-medium truncate">{cfg.label}</span>
+                      {isActive && <Check size={16} className="ml-auto text-pink-600" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setVisibleTeams(Object.keys(TEAMS))}
+                className="flex-1 py-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              >
+                Wybierz wszystkie
+              </button>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-pink-500/30"
+              >
+                Gotowe
+              </button>
+            </div>
           </div>
         </div>
-
-        <button
-          onClick={() => { handleAddClick(new Date().toISOString().split('T')[0]); setSidebarOpen(false); }}
-          className="w-full py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2"
-        >
-          <Plus size={18} /> Dodaj wydarzenie
-        </button>
-      </div>
+      )}
 
       {/* Modale */}
       {modals.selectType && (
