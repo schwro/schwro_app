@@ -1686,6 +1686,524 @@ export default function CalendarModule() {
 
   // --- RENDER LOGIC FOR VIEWS ---
 
+  // Nowy mobilny widok kalendarza (inspirowany Smart Calendar)
+  const renderMobileScheduleView = () => {
+    const [selectedDate, setSelectedDate] = useState(currentDate);
+    const [mobileViewMode, setMobileViewMode] = useState('day'); // 'day' | 'week' | 'month'
+
+    // Pobierz dni tygodnia dla wybranej daty
+    const getWeekDays = () => {
+      const curr = new Date(selectedDate);
+      const first = curr.getDate() - curr.getDay() + 1; // Poniedziałek
+      return Array.from({length: 7}, (_, i) => {
+        const d = new Date(curr);
+        d.setDate(first + i);
+        return d;
+      });
+    };
+
+    const weekDays = getWeekDays();
+    const dayEvents = filteredEvents.filter(e =>
+      e.date.getDate() === selectedDate.getDate() &&
+      e.date.getMonth() === selectedDate.getMonth() &&
+      e.date.getFullYear() === selectedDate.getFullYear()
+    );
+
+    // Godziny timeline (6:00 - 22:00)
+    const hours = Array.from({length: 17}, (_, i) => i + 6);
+
+    // Grupuj wydarzenia po godzinie rozpoczęcia
+    const getEventPosition = (ev) => {
+      let h, m;
+      if (ev.raw?.due_time) {
+        [h, m] = ev.raw.due_time.split(':').map(Number);
+      } else {
+        h = ev.date.getHours() || 10;
+        m = ev.date.getMinutes() || 0;
+      }
+      return { hour: h, minute: m };
+    };
+
+    return (
+      <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+        {/* Header z miesiącem i rokiem */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {selectedDate.toLocaleDateString('pl-PL', { month: 'long' })}
+                <span className="text-pink-500 ml-2">{selectedDate.getFullYear()}</span>
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 bg-gray-100 dark:bg-gray-800 rounded-xl text-gray-600 dark:text-gray-400"
+              >
+                <Filter size={18} />
+              </button>
+              <button
+                onClick={() => {
+                  const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
+                  handleAddClick(dateStr);
+                }}
+                className="p-2 bg-pink-500 rounded-xl text-white shadow-lg shadow-pink-500/30"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Przełącznik widoku: Schedule / Day / Week / Month */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-4">
+            {[
+              { id: 'day', label: 'Dzień' },
+              { id: 'week', label: 'Tydzień' },
+              { id: 'month', label: 'Miesiąc' },
+            ].map(v => (
+              <button
+                key={v.id}
+                onClick={() => setMobileViewMode(v.id)}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
+                  mobileViewMode === v.id
+                    ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-pink-400 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Mini kalendarz tygodniowy */}
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={() => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() - 7);
+                setSelectedDate(newDate);
+                setCurrentDate(newDate);
+              }}
+              className="p-1 text-gray-400"
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            <div className="flex gap-1 flex-1 justify-center">
+              {weekDays.map((d, i) => {
+                const isSelected = d.getDate() === selectedDate.getDate() &&
+                                   d.getMonth() === selectedDate.getMonth();
+                const isToday = d.getDate() === new Date().getDate() &&
+                                d.getMonth() === new Date().getMonth() &&
+                                d.getFullYear() === new Date().getFullYear();
+                const hasEvents = filteredEvents.some(e =>
+                  e.date.getDate() === d.getDate() &&
+                  e.date.getMonth() === d.getMonth()
+                );
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setSelectedDate(d);
+                      setCurrentDate(d);
+                    }}
+                    className={`flex flex-col items-center py-2 px-2.5 rounded-2xl transition min-w-[40px] ${
+                      isSelected
+                        ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
+                        : isToday
+                          ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
+                          : 'text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    <span className={`text-[10px] font-medium uppercase ${isSelected ? 'text-pink-100' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {d.toLocaleDateString('pl-PL', { weekday: 'short' }).slice(0, 2)}
+                    </span>
+                    <span className={`text-lg font-bold ${isSelected ? '' : ''}`}>
+                      {d.getDate()}
+                    </span>
+                    {hasEvents && !isSelected && (
+                      <div className="w-1 h-1 rounded-full bg-pink-500 mt-0.5" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() + 7);
+                setSelectedDate(newDate);
+                setCurrentDate(newDate);
+              }}
+              className="p-1 text-gray-400"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Timeline widok dnia */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="relative">
+            {hours.map((h, idx) => {
+              const hourEvents = dayEvents.filter(ev => {
+                const pos = getEventPosition(ev);
+                return pos.hour === h;
+              });
+
+              return (
+                <div key={h} className="flex min-h-[60px] border-b border-gray-100 dark:border-gray-800">
+                  {/* Godzina */}
+                  <div className="w-16 flex-shrink-0 py-2 pr-3 text-right">
+                    <span className={`text-xs font-medium ${
+                      h === 12 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
+                    }`}>
+                      {h === 12 ? 'Noon' : `${String(h).padStart(2, '0')}:00`}
+                    </span>
+                  </div>
+
+                  {/* Wydarzenia */}
+                  <div className="flex-1 py-1 pr-4 space-y-1">
+                    {hourEvents.map(ev => {
+                      const pos = getEventPosition(ev);
+                      const teamColor = TEAMS[ev.team]?.color || 'gray';
+                      const colorClasses = {
+                        pink: 'bg-pink-50 dark:bg-pink-900/20 border-l-pink-500 text-pink-900 dark:text-pink-100',
+                        orange: 'bg-orange-50 dark:bg-orange-900/20 border-l-orange-500 text-orange-900 dark:text-orange-100',
+                        purple: 'bg-purple-50 dark:bg-purple-900/20 border-l-purple-500 text-purple-900 dark:text-purple-100',
+                        teal: 'bg-teal-50 dark:bg-teal-900/20 border-l-teal-500 text-teal-900 dark:text-teal-100',
+                        blue: 'bg-blue-50 dark:bg-blue-900/20 border-l-blue-500 text-blue-900 dark:text-blue-100',
+                        yellow: 'bg-amber-50 dark:bg-amber-900/20 border-l-amber-500 text-amber-900 dark:text-amber-100',
+                        rose: 'bg-rose-50 dark:bg-rose-900/20 border-l-rose-500 text-rose-900 dark:text-rose-100',
+                        gray: 'bg-gray-50 dark:bg-gray-800 border-l-gray-400 text-gray-900 dark:text-gray-100',
+                      };
+
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={() => handleEventClick(ev)}
+                          className={`p-3 rounded-xl border-l-4 cursor-pointer hover:shadow-md transition ${colorClasses[teamColor]}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold text-sm truncate">{ev.title}</h4>
+                            <div className="w-5 h-5 rounded-md bg-white/50 dark:bg-gray-700/50 flex items-center justify-center flex-shrink-0 ml-2">
+                              <CheckCircle size={12} className="text-gray-400" />
+                            </div>
+                          </div>
+                          <p className="text-xs opacity-70 mt-0.5">
+                            {String(pos.hour).padStart(2, '0')}:{String(pos.minute).padStart(2, '0')} - {TEAMS[ev.team]?.label || 'Wydarzenie'}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Linia aktualnej godziny */}
+            {selectedDate.getDate() === new Date().getDate() &&
+             selectedDate.getMonth() === new Date().getMonth() && (
+              <div
+                className="absolute left-14 right-4 border-t-2 border-red-400 z-10 pointer-events-none"
+                style={{
+                  top: `${((new Date().getHours() - 6) * 60 + new Date().getMinutes()) / 60 * 60}px`
+                }}
+              >
+                <div className="absolute -left-2 -top-1.5 w-3 h-3 bg-red-400 rounded-full" />
+              </div>
+            )}
+          </div>
+
+          {/* Pusty stan */}
+          {dayEvents.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
+                <CalIcon size={28} className="text-gray-400" />
+              </div>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Brak wydarzeń w tym dniu</p>
+              <button
+                onClick={() => {
+                  const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
+                  handleAddClick(dateStr);
+                }}
+                className="mt-3 text-pink-500 text-sm font-medium flex items-center gap-1"
+              >
+                <Plus size={16} /> Dodaj wydarzenie
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* FAB - Floating Action Button */}
+        <button
+          onClick={() => {
+            const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
+            handleAddClick(dateStr);
+          }}
+          className="absolute bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-pink-500 to-orange-500 rounded-2xl shadow-lg shadow-pink-500/40 flex items-center justify-center text-white hover:shadow-xl transition transform hover:scale-105"
+        >
+          <Plus size={24} />
+        </button>
+      </div>
+    );
+  };
+
+  // Wrapper dla mobilnego widoku schedule z własnym stanem
+  const MobileScheduleWrapper = () => {
+    const [selectedDate, setSelectedDateLocal] = useState(currentDate);
+    const [mobileViewMode, setMobileViewMode] = useState('day');
+
+    const getWeekDays = () => {
+      const curr = new Date(selectedDate);
+      const first = curr.getDate() - curr.getDay() + 1;
+      return Array.from({length: 7}, (_, i) => {
+        const d = new Date(curr);
+        d.setDate(first + i);
+        return d;
+      });
+    };
+
+    const weekDays = getWeekDays();
+    const dayEvents = filteredEvents.filter(e =>
+      e.date.getDate() === selectedDate.getDate() &&
+      e.date.getMonth() === selectedDate.getMonth() &&
+      e.date.getFullYear() === selectedDate.getFullYear()
+    );
+
+    const hours = Array.from({length: 17}, (_, i) => i + 6);
+
+    const getEventPosition = (ev) => {
+      let h, m;
+      if (ev.raw?.due_time) {
+        [h, m] = ev.raw.due_time.split(':').map(Number);
+      } else {
+        h = ev.date.getHours() || 10;
+        m = ev.date.getMinutes() || 0;
+      }
+      return { hour: h, minute: m };
+    };
+
+    return (
+      <div className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-xl overflow-hidden">
+        {/* Header z miesiącem */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {selectedDate.toLocaleDateString('pl-PL', { month: 'long' })}
+                <span className="text-pink-500 ml-2">{selectedDate.getFullYear()}</span>
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 bg-gray-100 dark:bg-gray-800 rounded-xl text-gray-600 dark:text-gray-400"
+              >
+                <Filter size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Przełącznik widoku */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-4">
+            {[
+              { id: 'day', label: 'Dzień', icon: LayoutList },
+              { id: 'week', label: 'Tydzień', icon: Columns },
+              { id: 'month', label: 'Miesiąc', icon: LayoutGrid },
+            ].map(v => (
+              <button
+                key={v.id}
+                onClick={() => setMobileViewMode(v.id)}
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+                  mobileViewMode === v.id
+                    ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-pink-400 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <v.icon size={14} />
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Mini kalendarz tygodniowy */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() - 7);
+                setSelectedDateLocal(newDate);
+                setCurrentDate(newDate);
+              }}
+              className="p-1 text-gray-400 hover:text-gray-600"
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            <div className="flex gap-0.5 flex-1 justify-center">
+              {weekDays.map((d, i) => {
+                const isSelected = d.getDate() === selectedDate.getDate() &&
+                                   d.getMonth() === selectedDate.getMonth();
+                const isToday = d.getDate() === new Date().getDate() &&
+                                d.getMonth() === new Date().getMonth() &&
+                                d.getFullYear() === new Date().getFullYear();
+                const hasEvents = filteredEvents.some(e =>
+                  e.date.getDate() === d.getDate() &&
+                  e.date.getMonth() === d.getMonth()
+                );
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setSelectedDateLocal(d);
+                      setCurrentDate(d);
+                    }}
+                    className={`flex flex-col items-center py-1.5 px-2 rounded-xl transition min-w-[38px] ${
+                      isSelected
+                        ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
+                        : isToday
+                          ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <span className={`text-[9px] font-medium uppercase ${isSelected ? 'text-pink-200' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {d.toLocaleDateString('pl-PL', { weekday: 'short' }).slice(0, 2)}
+                    </span>
+                    <span className="text-base font-bold">
+                      {d.getDate()}
+                    </span>
+                    {hasEvents && !isSelected && (
+                      <div className="w-1 h-1 rounded-full bg-pink-500 mt-0.5" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() + 7);
+                setSelectedDateLocal(newDate);
+                setCurrentDate(newDate);
+              }}
+              className="p-1 text-gray-400 hover:text-gray-600"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Timeline widok dnia */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+          {hours.map((h) => {
+            const hourEvents = dayEvents.filter(ev => {
+              const pos = getEventPosition(ev);
+              return pos.hour === h;
+            });
+
+            return (
+              <div key={h} className="flex min-h-[56px] border-b border-gray-100 dark:border-gray-800/50">
+                <div className="w-14 flex-shrink-0 py-2 pr-2 text-right">
+                  <span className={`text-[11px] font-medium ${
+                    h === 12 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
+                  }`}>
+                    {h === 12 ? 'Poł.' : `${String(h).padStart(2, '0')}:00`}
+                  </span>
+                </div>
+
+                <div className="flex-1 py-1 pr-3 space-y-1">
+                  {hourEvents.map(ev => {
+                    const pos = getEventPosition(ev);
+                    const teamColor = TEAMS[ev.team]?.color || 'gray';
+                    const colorClasses = {
+                      pink: 'bg-gradient-to-r from-pink-50 to-pink-100/50 dark:from-pink-900/30 dark:to-pink-900/10 border-l-pink-500',
+                      orange: 'bg-gradient-to-r from-orange-50 to-orange-100/50 dark:from-orange-900/30 dark:to-orange-900/10 border-l-orange-500',
+                      purple: 'bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/30 dark:to-purple-900/10 border-l-purple-500',
+                      teal: 'bg-gradient-to-r from-teal-50 to-teal-100/50 dark:from-teal-900/30 dark:to-teal-900/10 border-l-teal-500',
+                      blue: 'bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-900/10 border-l-blue-500',
+                      yellow: 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-900/10 border-l-amber-500',
+                      rose: 'bg-gradient-to-r from-rose-50 to-rose-100/50 dark:from-rose-900/30 dark:to-rose-900/10 border-l-rose-500',
+                      gray: 'bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-l-gray-400',
+                    };
+
+                    return (
+                      <div
+                        key={ev.id}
+                        onClick={() => handleEventClick(ev)}
+                        className={`p-2.5 rounded-xl border-l-4 cursor-pointer active:scale-[0.98] transition ${colorClasses[teamColor]}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{ev.title}</h4>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                              {String(pos.hour).padStart(2, '0')}:{String(pos.minute).padStart(2, '0')} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
+                            </p>
+                          </div>
+                          <div className="w-6 h-6 rounded-lg bg-white/70 dark:bg-gray-700/70 flex items-center justify-center flex-shrink-0">
+                            <CheckCircle size={14} className="text-gray-400" />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Linia aktualnej godziny */}
+          {selectedDate.getDate() === new Date().getDate() &&
+           selectedDate.getMonth() === new Date().getMonth() &&
+           selectedDate.getFullYear() === new Date().getFullYear() && (
+            <div
+              className="absolute left-12 right-3 border-t-2 border-red-400 z-10 pointer-events-none"
+              style={{
+                top: `${((new Date().getHours() - 6) * 56 + (new Date().getMinutes() / 60) * 56)}px`
+              }}
+            >
+              <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-400 rounded-full shadow-sm" />
+            </div>
+          )}
+
+          {/* Pusty stan */}
+          {dayEvents.length === 0 && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+              <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-3 pointer-events-auto">
+                <CalIcon size={24} className="text-gray-400" />
+              </div>
+              <p className="text-gray-400 dark:text-gray-500 text-sm mb-2">Brak wydarzeń</p>
+              <button
+                onClick={() => {
+                  const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
+                  handleAddClick(dateStr);
+                }}
+                className="text-pink-500 text-sm font-medium flex items-center gap-1 pointer-events-auto"
+              >
+                <Plus size={16} /> Dodaj wydarzenie
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* FAB */}
+        <button
+          onClick={() => {
+            const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
+            handleAddClick(dateStr);
+          }}
+          className="absolute bottom-4 right-4 w-12 h-12 bg-gradient-to-br from-pink-500 to-orange-500 rounded-xl shadow-lg shadow-pink-500/40 flex items-center justify-center text-white active:scale-95 transition"
+        >
+          <Plus size={22} />
+        </button>
+      </div>
+    );
+  };
+
   const renderMonthView = () => {
     const dayNames = [
       { short: 'Pn', full: 'Poniedziałek' },
@@ -1927,69 +2445,46 @@ export default function CalendarModule() {
 
   return (
     <div className="h-[calc(100vh-3rem)] flex flex-col gap-2 lg:gap-4">
-      {/* HEADER */}
-      <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-3 lg:p-4 rounded-xl lg:rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-         <div className="flex items-center gap-2 lg:gap-3">
-            {/* Przycisk filtrów/sidebar na mobile */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300"
-            >
-              <Filter size={20} />
-            </button>
-            <div className="hidden sm:block p-2 bg-pink-50 dark:bg-pink-900/30 rounded-lg text-pink-600 dark:text-pink-400"><CalIcon size={24} /></div>
-            <div>
-               <h1 className="text-base lg:text-xl font-bold text-gray-800 dark:text-white">Kalendarz</h1>
-               <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400">Zarządzanie wydarzeniami i zadaniami</p>
-            </div>
-         </div>
-
-         {/* View switcher - ikony na mobile, ikony+tekst na desktop */}
-         <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
-            {[
-              { id: 'month', icon: LayoutGrid, label: 'Miesiąc' },
-              { id: 'week', icon: Columns, label: 'Tydzień' },
-              { id: 'day', icon: LayoutList, label: 'Dzień' },
-              { id: 'list', icon: List, label: 'Lista' },
-            ].map(v => (
-              <button
-                key={v.id}
-                onClick={() => setView(v.id)}
-                className={`p-2 lg:px-3 lg:py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition ${view === v.id ? 'bg-white dark:bg-gray-800 text-pink-600 dark:text-pink-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
-                title={v.label}
-              >
-                 <v.icon size={16} /> <span className="hidden lg:inline">{v.label}</span>
-              </button>
-            ))}
-         </div>
+      {/* MOBILE VIEW - Nowy widok kalendarza */}
+      <div className="lg:hidden h-full">
+        <MobileScheduleWrapper />
       </div>
 
-      <div className="flex-1 flex gap-2 lg:gap-6 overflow-hidden relative">
-        {/* Mobile Sidebar Overlay */}
-        {sidebarOpen && (
-          <div
-            className="lg:hidden fixed inset-0 bg-black/50 z-40"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+      {/* DESKTOP VIEW - Stary layout */}
+      <div className="hidden lg:flex lg:flex-col lg:gap-4 h-full">
+        {/* HEADER */}
+        <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+           <div className="flex items-center gap-3">
+              <div className="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-lg text-pink-600 dark:text-pink-400"><CalIcon size={24} /></div>
+              <div>
+                 <h1 className="text-xl font-bold text-gray-800 dark:text-white">Kalendarz</h1>
+                 <p className="text-xs text-gray-500 dark:text-gray-400">Zarządzanie wydarzeniami i zadaniami</p>
+              </div>
+           </div>
 
-        {/* SIDEBAR - stały na desktop, slide-in na mobile */}
-        <div className={`
-          fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
-          w-72 lg:w-64 flex-shrink-0 flex flex-col gap-4 lg:gap-6
-          bg-gray-50 dark:bg-gray-900 lg:bg-transparent
-          p-4 lg:p-0
-          transform transition-transform duration-300 ease-out
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}>
-          {/* Przycisk zamknięcia na mobile */}
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden absolute top-4 right-4 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
-          >
-            <X size={20} />
-          </button>
+           {/* View switcher */}
+           <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
+              {[
+                { id: 'month', icon: LayoutGrid, label: 'Miesiąc' },
+                { id: 'week', icon: Columns, label: 'Tydzień' },
+                { id: 'day', icon: LayoutList, label: 'Dzień' },
+                { id: 'list', icon: List, label: 'Lista' },
+              ].map(v => (
+                <button
+                  key={v.id}
+                  onClick={() => setView(v.id)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition ${view === v.id ? 'bg-white dark:bg-gray-800 text-pink-600 dark:text-pink-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                  title={v.label}
+                >
+                   <v.icon size={16} /> <span>{v.label}</span>
+                </button>
+              ))}
+           </div>
+        </div>
 
+        <div className="flex-1 flex gap-6 overflow-hidden relative">
+        {/* SIDEBAR - tylko desktop */}
+        <div className="w-64 flex-shrink-0 flex flex-col gap-6">
           <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <span className="font-bold text-lg text-gray-800 dark:text-white capitalize">{currentDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })}</span>
@@ -2031,12 +2526,65 @@ export default function CalendarModule() {
         </div>
 
         {/* MAIN CALENDAR CONTENT */}
-        <div className="flex-1 bg-white dark:bg-gray-900/50 backdrop-blur-sm rounded-xl lg:rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
           {view === 'month' && renderMonthView()}
           {view === 'week' && renderWeekView()}
           {view === 'day' && renderDayView()}
           {view === 'list' && renderListView()}
         </div>
+        </div>
+      </div>
+
+      {/* Mobile Sidebar Overlay - dla filtrów */}
+      {sidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <div className={`
+        lg:hidden fixed inset-y-0 left-0 z-50
+        w-72 flex flex-col gap-4
+        bg-white dark:bg-gray-900
+        p-4 shadow-2xl
+        transform transition-transform duration-300 ease-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Filtry</h2>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <h3 className="font-bold text-gray-500 uppercase text-xs mb-3 tracking-wider">Twoje Kalendarze</h3>
+          <div className="space-y-1">
+            {Object.entries(TEAMS).map(([key, cfg]) => (
+              <label key={key} className="flex items-center gap-3 cursor-pointer p-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition select-none">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 rounded border-gray-300 text-pink-600 focus:ring-pink-500 cursor-pointer accent-pink-600"
+                  checked={visibleTeams.includes(key)}
+                  onChange={() => setVisibleTeams(p => p.includes(key) ? p.filter(k => k !== key) : [...p, key])}
+                />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cfg.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={() => { handleAddClick(new Date().toISOString().split('T')[0]); setSidebarOpen(false); }}
+          className="w-full py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2"
+        >
+          <Plus size={18} /> Dodaj wydarzenie
+        </button>
       </div>
 
       {/* Modale */}

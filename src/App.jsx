@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { PermissionsProvider } from './contexts/PermissionsContext';
+import { NotificationProvider, useNotificationContext } from './contexts/NotificationContext';
+import ToastContainer from './components/ToastNotification';
 
 import Sidebar, { SidebarProvider } from './components/Sidebar';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
-import ToastContainer from './components/ToastNotification';
 import InstallPrompt from './components/InstallPrompt';
-import { useNotifications } from './hooks/useNotifications';
 import useOffline from './hooks/useOffline';
 import Login from './modules/Login';
 import ResetPassword from './modules/ResetPassword';
@@ -38,9 +38,9 @@ const SYSTEM_MODULE_KEYS = [
   'komunikator', 'mlodziezowka', 'mailing', 'settings'
 ];
 
-// Komponent do wyświetlania toast notifications
-function ToastNotifications({ userEmail }) {
-  const { toasts, closeToast, handleToastClick } = useNotifications(userEmail);
+// Komponent do wyświetlania toast notifications (używa context)
+function ToastNotifications() {
+  const { toasts, closeToast, handleToastClick } = useNotificationContext();
   return <ToastContainer toasts={toasts} onClose={closeToast} onClick={handleToastClick} />;
 }
 
@@ -169,13 +169,14 @@ export default function App() {
   return (
     <BrowserRouter>
       <PermissionsProvider>
-        <SidebarProvider>
-          <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-            <Sidebar />
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
-              {/* Toast Notifications - fixed positioned */}
-              <ToastNotifications userEmail={session.user?.email} />
+        <NotificationProvider userEmail={session.user?.email}>
+          <SidebarProvider>
+            <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+              <Sidebar />
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <Navbar user={session.user} darkMode={darkMode} toggleTheme={toggleTheme} />
+                {/* Toast Notifications - fixed positioned */}
+                <ToastNotifications />
               {/* PWA Install Prompt */}
               <InstallPrompt />
               {/* Offline Banner */}
@@ -247,7 +248,8 @@ export default function App() {
               </main>
             </div>
           </div>
-        </SidebarProvider>
+          </SidebarProvider>
+        </NotificationProvider>
       </PermissionsProvider>
     </BrowserRouter>
   );

@@ -82,7 +82,7 @@ export default function Navbar({ user, darkMode, toggleTheme }) {
         </button>
 
         {/* Powiadomienia */}
-        <NotificationCenter userEmail={user?.email} />
+        <NotificationCenter />
 
         <div className="hidden sm:block h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1"></div>
 

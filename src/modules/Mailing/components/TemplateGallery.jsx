@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   FileText, Calendar, Megaphone, Newspaper, Plus, Edit, Copy, Trash2,
   MoreVertical, Loader, X, Eye, Search, Monitor, Smartphone, Star,
@@ -33,6 +33,8 @@ export default function TemplateGallery({ onSelectTemplate, onEditTemplate, onCr
   const { templates, templatesByCategory, loading, deleteTemplate, duplicateTemplate } = useTemplates();
   const [activeCategory, setActiveCategory] = useState('all');
   const [menuOpen, setMenuOpen] = useState(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const menuButtonRefs = useRef({});
   const [searchQuery, setSearchQuery] = useState('');
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [previewDevice, setPreviewDevice] = useState('desktop');
@@ -44,6 +46,24 @@ export default function TemplateGallery({ onSelectTemplate, onEditTemplate, onCr
       return [];
     }
   });
+
+  const handleOpenMenu = (templateId, e) => {
+    if (menuOpen === templateId) {
+      setMenuOpen(null);
+      return;
+    }
+
+    const button = menuButtonRefs.current[templateId];
+    if (button) {
+      const rect = button.getBoundingClientRect();
+      // Pozycjonuj menu pod przyciskiem, wyrównane do prawej
+      setMenuPosition({
+        top: rect.bottom + 4,
+        left: rect.right - 192 // 192px = szerokość menu (w-48)
+      });
+    }
+    setMenuOpen(templateId);
+  };
 
   const toggleFavorite = (templateId) => {
     const newFavorites = favorites.includes(templateId)
@@ -187,18 +207,6 @@ export default function TemplateGallery({ onSelectTemplate, onEditTemplate, onCr
 
       {/* Siatka szablonów */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {/* Nowy mail (od zera) */}
-        <button
-          onClick={() => onSelectTemplate(null)}
-          className="group relative bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-pink-500 dark:hover:border-pink-500 p-6 transition-all duration-200 flex flex-col items-center justify-center min-h-[200px]"
-        >
-          <div className="w-14 h-14 bg-gradient-to-br from-pink-100 to-orange-100 dark:from-pink-900/30 dark:to-orange-900/30 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <Plus className="w-7 h-7 text-pink-500" />
-          </div>
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Nowy mail</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Zacznij od zera</p>
-        </button>
-
         {/* Nowy szablon */}
         {onCreateTemplate && (
           <button
@@ -221,7 +229,7 @@ export default function TemplateGallery({ onSelectTemplate, onEditTemplate, onCr
           return (
             <div
               key={template.id}
-              className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-pink-300 dark:hover:border-pink-700 transition-all duration-200"
+              className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-pink-300 dark:hover:border-pink-700 transition-all duration-200"
             >
               {/* Podgląd HTML */}
               <div
@@ -298,7 +306,8 @@ export default function TemplateGallery({ onSelectTemplate, onEditTemplate, onCr
                   {/* Menu */}
                   <div className="relative">
                     <button
-                      onClick={() => setMenuOpen(menuOpen === template.id ? null : template.id)}
+                      ref={el => menuButtonRefs.current[template.id] = el}
+                      onClick={(e) => handleOpenMenu(template.id, e)}
                       className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     >
                       <MoreVertical size={16} className="text-gray-500" />
@@ -307,10 +316,13 @@ export default function TemplateGallery({ onSelectTemplate, onEditTemplate, onCr
                     {menuOpen === template.id && (
                       <>
                         <div
-                          className="fixed inset-0 z-10"
+                          className="fixed inset-0 z-[100]"
                           onClick={() => setMenuOpen(null)}
                         />
-                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
+                        <div
+                          className="fixed w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-[101]"
+                          style={{ top: menuPosition.top, left: Math.max(8, menuPosition.left) }}
+                        >
                           <button
                             onClick={() => { setPreviewTemplate(template); setMenuOpen(null); }}
                             className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"

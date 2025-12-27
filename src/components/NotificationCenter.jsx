@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, X, MessageSquare, AtSign, CheckSquare, Calendar, Trash2, CheckCheck } from 'lucide-react';
-import { useNotifications, notificationColors } from '../hooks/useNotifications';
+import { useNotificationContext } from '../contexts/NotificationContext';
+import { notificationColors } from '../hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -14,11 +15,12 @@ const typeIcons = {
   system: Bell
 };
 
-export default function NotificationCenter({ userEmail }) {
+export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
+  // Użyj wspólnego kontekstu zamiast osobnego hooka
   const {
     notifications,
     unreadCount,
@@ -26,7 +28,7 @@ export default function NotificationCenter({ userEmail }) {
     markAllAsRead,
     deleteNotification,
     clearAll
-  } = useNotifications(userEmail);
+  } = useNotificationContext();
 
   // Filtruj tylko nieprzeczytane powiadomienia
   const unreadNotifications = notifications.filter(n => !n.read);

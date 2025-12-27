@@ -7,7 +7,7 @@ import NewConversationModal from './components/NewConversationModal';
 import GroupSettingsModal from './components/GroupSettingsModal';
 import useConversations from './hooks/useConversations';
 import useMinistryChannels from './hooks/useMinistryChannels';
-import { useNotifications } from '../../hooks/useNotifications';
+import { useNotificationContext } from '../../contexts/NotificationContext';
 
 // Cache userEmail - współdzielony
 const USER_EMAIL_CACHE_KEY = 'user_email_cache';
@@ -44,8 +44,8 @@ export default function KomunikatorModule() {
     toggleArchive
   } = useConversations(userEmail);
 
-  // Hook powiadomień - do oznaczania jako przeczytane
-  const { notifications, markAsRead: markNotificationAsRead } = useNotifications(userEmail);
+  // Hook powiadomień - używamy wspólnego kontekstu
+  const { notifications, markAsRead: markNotificationAsRead } = useNotificationContext();
 
   // Inicjalizacja kanałów służb - uruchomi się automatycznie po załadowaniu userEmail
   useMinistryChannels(userEmail);
@@ -89,19 +89,27 @@ export default function KomunikatorModule() {
 
   // Oznacz powiadomienia jako przeczytane dla danej konwersacji
   const markConversationNotificationsAsRead = useCallback((conversationId) => {
-    if (!conversationId || !notifications) return;
+    if (!conversationId || !notifications || notifications.length === 0) return;
 
     // Znajdź nieprzeczytane powiadomienia dla tej konwersacji
-    const unreadNotifications = notifications.filter(n =>
-      !n.read &&
-      n.type === 'message' &&
-      n.data?.conversation_id === conversationId
-    );
+    // Porównuj jako stringi - conversation_id może być UUID lub string
+    const convIdStr = String(conversationId);
+
+    const unreadNotifications = notifications.filter(n => {
+      const notifConvId = n.data?.conversation_id;
+      const matches = !n.read &&
+        n.type === 'message' &&
+        notifConvId &&
+        String(notifConvId) === convIdStr;
+      return matches;
+    });
 
     // Oznacz każde jako przeczytane
-    unreadNotifications.forEach(n => {
-      markNotificationAsRead(n.id);
-    });
+    if (unreadNotifications.length > 0) {
+      unreadNotifications.forEach(n => {
+        markNotificationAsRead(n.id);
+      });
+    }
   }, [notifications, markNotificationAsRead]);
 
   // Obsłuż parametr conversation z URL (np. z powiadomienia)
@@ -132,6 +140,10 @@ export default function KomunikatorModule() {
     setSelectedConversation(conv);
     if (isMobileView) {
       setShowList(false);
+    }
+    // Oznacz powiadomienia dla tej konwersacji jako przeczytane
+    if (conv?.id) {
+      markConversationNotificationsAsRead(conv.id);
     }
   };
 
