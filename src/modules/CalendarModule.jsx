@@ -2289,6 +2289,45 @@ export default function CalendarModule() {
                   </div>
                 );
               })}
+
+              {/* Lista wydarzeń w wybranym dniu pod tygodniem */}
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
+                  {selectedDate.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </h3>
+                {dayEvents.length > 0 ? (
+                  <div className="space-y-2">
+                    {dayEvents.map(ev => {
+                      const teamColor = TEAMS[ev.team]?.color || 'gray';
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={() => handleEventClick(ev)}
+                          className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl cursor-pointer active:scale-[0.98] transition"
+                        >
+                          <div className={`w-1 h-10 rounded-full flex-shrink-0 ${
+                            teamColor === 'pink' ? 'bg-pink-500' :
+                            teamColor === 'orange' ? 'bg-orange-500' :
+                            teamColor === 'purple' ? 'bg-purple-500' :
+                            teamColor === 'teal' ? 'bg-teal-500' :
+                            teamColor === 'blue' ? 'bg-blue-500' :
+                            teamColor === 'yellow' ? 'bg-amber-500' :
+                            teamColor === 'rose' ? 'bg-rose-500' : 'bg-gray-400'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">{ev.title}</p>
+                            <p className="text-xs text-gray-500">
+                              {ev.raw?.due_time || ''} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400 text-sm py-4">Brak wydarzeń w tym dniu</p>
+                )}
+              </div>
             </div>
           )}
 
@@ -2326,7 +2365,7 @@ export default function CalendarModule() {
                         const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
                         setSelectedDateLocal(newDate);
                         setCurrentDate(newDate);
-                        setMobileViewMode('day');
+                        // Nie przełączaj na widok dzienny - pokaż wydarzenia pod kalendarzem
                       }}
                       className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition ${
                         isSelected
