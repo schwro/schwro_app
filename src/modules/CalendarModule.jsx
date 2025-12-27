@@ -74,7 +74,7 @@ const CustomDatePicker = ({ value, onChange }) => {
 
   return (
     <div className="relative w-full">
-      <div ref={triggerRef} onClick={() => setIsOpen(!isOpen)} className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-2 cursor-pointer hover:border-pink-400 transition">
+      <div ref={triggerRef} onClick={() => setIsOpen(!isOpen)} className="w-full h-[42px] px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-2 cursor-pointer hover:border-pink-400 transition">
         <CalIcon size={16} className="text-pink-600 dark:text-pink-400" />
         <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">
           {value ? new Date(value).toLocaleDateString('pl-PL') : 'Wybierz datę'}
@@ -83,17 +83,17 @@ const CustomDatePicker = ({ value, onChange }) => {
       {isOpen && coords.width > 0 && document.body && createPortal(
         <div className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 animate-in fade-in zoom-in-95 duration-100 w-[280px]" style={{ ...(coords.openUpward ? { bottom: `calc(100vh - ${coords.top}px)` } : { top: coords.top }), left: coords.left }}>
            <div className="flex justify-between items-center mb-4">
-             <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() - 1))); }} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft size={18} /></button>
-             <span className="text-sm font-bold capitalize">{viewDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })}</span>
-             <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() + 1))); }} className="p-1 hover:bg-gray-100 rounded-full"><ChevronRight size={18} /></button>
+             <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() - 1))); }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-400"><ChevronLeft size={18} /></button>
+             <span className="text-sm font-bold capitalize text-gray-800 dark:text-white">{viewDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })}</span>
+             <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() + 1))); }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-400"><ChevronRight size={18} /></button>
            </div>
-           <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[10px] font-bold text-gray-400 uppercase">{['Pn','Wt','Śr','Cz','Pt','So','Nd'].map(d => <div key={d}>{d}</div>)}</div>
+           <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">{['Pn','Wt','Śr','Cz','Pt','So','Nd'].map(d => <div key={d}>{d}</div>)}</div>
            <div className="grid grid-cols-7 gap-1">
              {emptyDays.map((_, i) => <div key={`e-${i}`} />)}
              {daysArray.map(d => {
                const dateStr = `${viewDate.getFullYear()}-${String(viewDate.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                return (
-                 <button key={d} onClick={(e) => { e.stopPropagation(); handleDayClick(d); }} className={`h-8 w-8 rounded-lg text-xs font-medium transition ${value === dateStr ? 'bg-pink-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+                 <button key={d} onClick={(e) => { e.stopPropagation(); handleDayClick(d); }} className={`h-8 w-8 rounded-lg text-xs font-medium transition ${value === dateStr ? 'bg-pink-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
                    {d}
                  </button>
                )
@@ -105,80 +105,16 @@ const CustomDatePicker = ({ value, onChange }) => {
   );
 };
 
-const CustomTimePicker = ({ value, onChange, placeholder = 'Wybierz godzinę' }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef(null);
-  const coords = useDropdownPosition(triggerRef, isOpen);
-
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-  const minutes = ['00', '15', '30', '45'];
-
-  const [selectedHour, selectedMinute] = value ? value.split(':') : ['10', '00'];
-
-  const handleTimeSelect = (hour, minute) => {
-    onChange(`${hour}:${minute}`);
-    setIsOpen(false);
-  };
-
+const CustomTimePicker = ({ value, onChange, placeholder = 'Wybierz' }) => {
   return (
     <div className="relative w-full">
-      <div
-        ref={triggerRef}
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-2 cursor-pointer hover:border-pink-400 transition"
-      >
-        <Clock size={16} className="text-pink-600 dark:text-pink-400" />
-        <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">
-          {value || placeholder}
-        </span>
-      </div>
-      {isOpen && coords.width > 0 && document.body && createPortal(
-        <div
-          className="fixed z-[9999] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 animate-in fade-in zoom-in-95 duration-100 w-[200px]"
-          style={{ ...(coords.openUpward ? { bottom: `calc(100vh - ${coords.top}px)` } : { top: coords.top }), left: coords.left }}
-        >
-          <div className="flex gap-2">
-            {/* Godziny */}
-            <div className="flex-1">
-              <div className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Godzina</div>
-              <div className="h-48 overflow-y-auto custom-scrollbar space-y-1">
-                {hours.map(h => (
-                  <button
-                    key={h}
-                    onClick={(e) => { e.stopPropagation(); handleTimeSelect(h, selectedMinute); }}
-                    className={`w-full py-1.5 text-sm font-medium rounded-lg transition ${
-                      h === selectedHour
-                        ? 'bg-pink-600 text-white'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    {h}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* Minuty */}
-            <div className="flex-1">
-              <div className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Minuty</div>
-              <div className="space-y-1">
-                {minutes.map(m => (
-                  <button
-                    key={m}
-                    onClick={(e) => { e.stopPropagation(); handleTimeSelect(selectedHour, m); }}
-                    className={`w-full py-1.5 text-sm font-medium rounded-lg transition ${
-                      m === selectedMinute
-                        ? 'bg-pink-600 text-white'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    :{m}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>, document.body
-      )}
+      <input
+        type="time"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full h-[42px] px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-700 dark:text-gray-200 font-medium hover:border-pink-400 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 outline-none transition cursor-pointer"
+      />
     </div>
   );
 };
@@ -565,7 +501,7 @@ const EventBadge = ({ event, onClick }) => {
   if (event.raw) {
       // Próbujemy wziąć wprost due_time jeśli istnieje, a jak nie to parsować datę
       if (event.raw.due_time && event.raw.due_time.length === 5) {
-         timeDisplay = event.raw.due_time;
+         timeDisplay = event.raw.end_time ? `${event.raw.due_time} - ${event.raw.end_time}` : event.raw.due_time;
       } else if (event.raw.due_date && event.raw.due_date.includes('T')) {
           const parts = event.raw.due_date.split('T')[1].split(':');
           timeDisplay = `${parts[0]}:${parts[1]}`;
@@ -663,6 +599,7 @@ const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
     description: event?.description || '',
     start_date: event?.start_date ? event.start_date.split('T')[0] : '',
     event_time: event?.due_time || '',
+    end_time: event?.end_time || '',
     location: event?.location || '',
     max_participants: event?.max_participants || '',
     event_type: event?.event_type || config?.defaultType || 'spotkanie'
@@ -678,6 +615,7 @@ const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
       title: eventForm.title.trim(),
       description: eventForm.description.trim(),
       start_date: eventForm.start_date ? new Date(eventForm.start_date + (eventForm.event_time ? 'T' + eventForm.event_time : 'T00:00:00')).toISOString() : null,
+      end_time: eventForm.end_time || null,
       location: eventForm.location,
       max_participants: eventForm.max_participants ? parseInt(eventForm.max_participants) : null,
       event_type: eventForm.event_type || config?.defaultType
@@ -700,38 +638,42 @@ const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
         </div>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tytuł wydarzenia</label>
+            <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Tytuł</label>
             <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Nazwa wydarzenia" value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Opis</label>
+            <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Opis</label>
             <textarea className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none" rows={3} placeholder="Szczegóły wydarzenia..." value={eventForm.description || ''} onChange={e => setEventForm({...eventForm, description: e.target.value})} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Data</label>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Data</label>
               <CustomDatePicker value={eventForm.start_date} onChange={val => setEventForm({...eventForm, start_date: val})} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Godzina</label>
-              <CustomTimePicker value={eventForm.event_time || ''} onChange={v => setEventForm({...eventForm, event_time: v})} placeholder="Wybierz" />
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Początek</label>
+              <CustomTimePicker value={eventForm.event_time || ''} onChange={v => setEventForm({...eventForm, event_time: v})} placeholder="Od" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Koniec</label>
+              <CustomTimePicker value={eventForm.end_time || ''} onChange={v => setEventForm({...eventForm, end_time: v})} placeholder="Do" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Lokalizacja</label>
+            <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Lokalizacja</label>
             <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Sala główna, Kościół..." value={eventForm.location || ''} onChange={e => setEventForm({...eventForm, location: e.target.value})} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Max. uczestników</label>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Maks. osób</label>
               <input type="number" className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="30" value={eventForm.max_participants || ''} onChange={e => setEventForm({...eventForm, max_participants: e.target.value})} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Typ wydarzenia</label>
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Typ</label>
               <CustomSelect
                 value={eventForm.event_type}
                 onChange={val => setEventForm({...eventForm, event_type: val})}
@@ -2376,7 +2318,7 @@ export default function CalendarModule() {
                         >
                             <div className="flex items-center gap-1 lg:gap-2 text-[10px] lg:text-xs font-bold opacity-70 mb-0.5 lg:mb-1">
                                 <Clock size={10} className="lg:w-3 lg:h-3"/>
-                                {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}
+                                {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}{ev.raw?.end_time ? ` - ${ev.raw.end_time}` : ''}
                             </div>
                             <div className="font-bold truncate text-xs lg:text-base">{ev.title}</div>
                             <div className="text-[10px] lg:text-xs opacity-60 truncate hidden lg:block">{TEAMS[ev.team]?.label}</div>
@@ -2423,7 +2365,7 @@ export default function CalendarModule() {
                              <h4 className="font-bold text-sm lg:text-base text-gray-800 dark:text-gray-200 truncate">{ev.title}</h4>
                              <div className="text-[10px] lg:text-xs text-gray-500 flex gap-2 lg:gap-3 mt-0.5 flex-wrap">
                                  <span className="truncate">{TEAMS[ev.team]?.label || ev.raw?.category}</span>
-                                 {ev.raw?.due_time && <span>• {ev.raw.due_time}</span>}
+                                 {ev.raw?.due_time && <span>• {ev.raw.due_time}{ev.raw?.end_time ? ` - ${ev.raw.end_time}` : ''}</span>}
                              </div>
                          </div>
                      </div>

@@ -235,7 +235,8 @@ const EventModal = ({ event, onClose, onSave, onDelete, config }) => {
     title: event?.title || '',
     description: event?.description || '',
     start_date: event?.start_date ? event.start_date.split('T')[0] : '',
-    event_time: event?.start_date?.includes('T') ? event.start_date.split('T')[1].substring(0,5) : '',
+    start_time: event?.start_date?.includes('T') ? event.start_date.split('T')[1].substring(0,5) : '',
+    end_time: event?.end_time || '',
     location: event?.location || '',
     max_participants: event?.max_participants || '',
     event_type: event?.event_type || config.defaultType
@@ -250,7 +251,8 @@ const EventModal = ({ event, onClose, onSave, onDelete, config }) => {
     const eventData = {
       title: form.title.trim(),
       description: form.description.trim(),
-      start_date: form.start_date ? new Date(form.start_date + (form.event_time ? 'T' + form.event_time : 'T00:00:00')).toISOString() : null,
+      start_date: form.start_date ? new Date(form.start_date + (form.start_time ? 'T' + form.start_time : 'T00:00:00')).toISOString() : null,
+      end_time: form.end_time || null,
       location: form.location,
       max_participants: form.max_participants ? parseInt(form.max_participants) : null,
       event_type: form.event_type || config.defaultType
@@ -282,14 +284,18 @@ const EventModal = ({ event, onClose, onSave, onDelete, config }) => {
             <textarea className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none" rows={3} placeholder="Szczegóły wydarzenia..." value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Data</label>
               <CustomDatePicker value={form.start_date} onChange={val => setForm({...form, start_date: val})} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Godzina</label>
-              <input type="time" className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white" value={form.event_time || ''} onChange={e => setForm({...form, event_time: e.target.value})} />
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Godzina rozpoczęcia</label>
+              <input type="time" className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white" value={form.start_time || ''} onChange={e => setForm({...form, start_time: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Godzina zakończenia</label>
+              <input type="time" className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white" value={form.end_time || ''} onChange={e => setForm({...form, end_time: e.target.value})} />
             </div>
           </div>
 
@@ -636,7 +642,7 @@ GRANT ALL ON ${config.tableName} TO anon;`;
                             <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-500 dark:text-gray-400">
                               {timeStr && (
                                 <span className="flex items-center gap-1">
-                                  <Clock size={14} /> {timeStr}
+                                  <Clock size={14} /> {timeStr}{ev.end_time ? ` - ${ev.end_time}` : ''}
                                 </span>
                               )}
                               {ev.location && (
