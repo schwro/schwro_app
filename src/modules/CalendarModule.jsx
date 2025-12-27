@@ -2043,6 +2043,8 @@ export default function CalendarModule() {
   const MobileScheduleWrapper = () => {
     const [selectedDate, setSelectedDateLocal] = useState(currentDate);
     const [mobileViewMode, setMobileViewMode] = useState('day');
+    const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false);
+    const mobileSearchRef = useRef(null);
 
     const getWeekDays = () => {
       const curr = new Date(selectedDate);
@@ -2092,6 +2094,13 @@ export default function CalendarModule() {
               </h2>
             </div>
             <div className="flex items-center gap-2">
+              {/* Search button - rozwijalna lupka */}
+              <button
+                onClick={() => { setMobileSearchExpanded(true); setTimeout(() => mobileSearchRef.current?.focus(), 100); }}
+                className={`p-2 rounded-xl transition ${searchQuery ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+              >
+                <Search size={18} />
+              </button>
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="p-2 bg-gray-100 dark:bg-gray-800 rounded-xl text-gray-600 dark:text-gray-400"
@@ -2101,27 +2110,29 @@ export default function CalendarModule() {
             </div>
           </div>
 
-          {/* Pasek wyszukiwania */}
-          <div className="relative mb-3">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Szukaj wydarzeń..."
-              className="w-full pl-9 pr-9 py-2.5 bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-pink-400 dark:focus:border-pink-500 rounded-xl text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
-            />
-            {searchQuery && (
+          {/* Rozwinięty pasek wyszukiwania */}
+          {mobileSearchExpanded && (
+            <div className="relative mb-3 animate-in slide-in-from-top duration-200">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                ref={mobileSearchRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onBlur={() => { if (!searchQuery) setMobileSearchExpanded(false); }}
+                placeholder="Szukaj wydarzeń..."
+                className="w-full pl-9 pr-9 py-2.5 bg-gray-100 dark:bg-gray-800 border border-pink-400 dark:border-pink-500 rounded-xl text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
+              />
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => { setSearchQuery(''); setMobileSearchExpanded(false); }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X size={16} />
               </button>
-            )}
-          </div>
-          {searchQuery && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            </div>
+          )}
+          {searchQuery && !mobileSearchExpanded && (
+            <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mb-2">
               Znaleziono {filteredEvents.length} wydarzeń
             </p>
           )}
@@ -2148,48 +2159,46 @@ export default function CalendarModule() {
             ))}
           </div>
 
-          {/* Mini kalendarz tygodniowy - scroll poziomy */}
-          <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
-            <div className="flex gap-2 pb-2" style={{ minWidth: 'max-content' }}>
-              {weekDays.map((d, i) => {
-                const isSelected = d.getDate() === selectedDate.getDate() &&
-                                   d.getMonth() === selectedDate.getMonth();
-                const isToday = d.getDate() === new Date().getDate() &&
-                                d.getMonth() === new Date().getMonth() &&
-                                d.getFullYear() === new Date().getFullYear();
-                const hasEvents = filteredEvents.some(e =>
-                  e.date.getDate() === d.getDate() &&
-                  e.date.getMonth() === d.getMonth()
-                );
+          {/* Mini kalendarz tygodniowy - na pełną szerokość */}
+          <div className="grid grid-cols-7 gap-1.5 mb-2">
+            {weekDays.map((d, i) => {
+              const isSelected = d.getDate() === selectedDate.getDate() &&
+                                 d.getMonth() === selectedDate.getMonth();
+              const isToday = d.getDate() === new Date().getDate() &&
+                              d.getMonth() === new Date().getMonth() &&
+                              d.getFullYear() === new Date().getFullYear();
+              const hasEvents = filteredEvents.some(e =>
+                e.date.getDate() === d.getDate() &&
+                e.date.getMonth() === d.getMonth()
+              );
 
-                return (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      setSelectedDateLocal(d);
-                      setCurrentDate(d);
-                    }}
-                    className={`flex flex-col items-center py-2 px-3 rounded-xl transition flex-1 min-w-[46px] ${
-                      isSelected
-                        ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
-                        : isToday
-                          ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    <span className={`text-[10px] font-medium uppercase ${isSelected ? 'text-pink-200' : 'text-gray-400 dark:text-gray-500'}`}>
-                      {d.toLocaleDateString('pl-PL', { weekday: 'short' }).slice(0, 2)}
-                    </span>
-                    <span className="text-lg font-bold">
-                      {d.getDate()}
-                    </span>
-                    {hasEvents && !isSelected && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-pink-500 mt-0.5" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setSelectedDateLocal(d);
+                    setCurrentDate(d);
+                  }}
+                  className={`flex flex-col items-center py-2 rounded-xl transition ${
+                    isSelected
+                      ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30'
+                      : isToday
+                        ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <span className={`text-[10px] font-medium uppercase ${isSelected ? 'text-pink-200' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {d.toLocaleDateString('pl-PL', { weekday: 'short' }).slice(0, 2)}
+                  </span>
+                  <span className="text-lg font-bold">
+                    {d.getDate()}
+                  </span>
+                  {hasEvents && !isSelected && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-pink-500 mt-0.5" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -2802,42 +2811,30 @@ export default function CalendarModule() {
               </div>
            </div>
 
-           {/* Search button + expandable input */}
-           <div className="flex items-center gap-2">
-             <div className={`flex items-center transition-all duration-300 ${searchExpanded ? 'w-64' : 'w-10'}`}>
-               {searchExpanded ? (
-                 <div className="relative w-full">
-                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                   <input
-                     ref={searchInputRef}
-                     type="text"
-                     value={searchQuery}
-                     onChange={(e) => setSearchQuery(e.target.value)}
-                     onBlur={() => { if (!searchQuery) setSearchExpanded(false); }}
-                     placeholder="Szukaj wydarzeń..."
-                     className="w-full pl-9 pr-9 py-2 bg-gray-100 dark:bg-gray-700 border border-transparent focus:border-pink-400 dark:focus:border-pink-500 rounded-xl text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
-                   />
-                   <button
-                     onClick={() => { setSearchQuery(''); setSearchExpanded(false); }}
-                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                   >
-                     <X size={16} />
-                   </button>
-                 </div>
-               ) : (
+           {/* Search bar - pełne pole */}
+           <div className="flex-1 max-w-md mx-4">
+             <div className="relative">
+               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+               <input
+                 type="text"
+                 value={searchQuery}
+                 onChange={(e) => setSearchQuery(e.target.value)}
+                 placeholder="Szukaj wydarzeń..."
+                 className="w-full pl-10 pr-10 py-2 bg-gray-100 dark:bg-gray-700 border border-transparent focus:border-pink-400 dark:focus:border-pink-500 rounded-xl text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-400/20 transition"
+               />
+               {searchQuery && (
                  <button
-                   onClick={() => { setSearchExpanded(true); setTimeout(() => searchInputRef.current?.focus(), 100); }}
-                   className="p-2 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-                   title="Szukaj"
+                   onClick={() => setSearchQuery('')}
+                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                  >
-                   <Search size={18} />
+                   <X size={16} />
                  </button>
                )}
              </div>
              {searchQuery && (
-               <span className="text-xs text-pink-600 dark:text-pink-400 font-medium whitespace-nowrap">
-                 {filteredEvents.length} wyników
-               </span>
+               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-1">
+                 Znaleziono {filteredEvents.length} wydarzeń
+               </p>
              )}
            </div>
 
