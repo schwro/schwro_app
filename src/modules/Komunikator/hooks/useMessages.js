@@ -7,6 +7,48 @@ const usersCache = new Map();
 // Cache wiadomości per konwersacja
 const messagesCache = new Map();
 
+// Wyślij push notifications do uczestników konwersacji (w tle)
+async function sendPushToParticipants(conversationId, senderEmail, senderData, content) {
+  try {
+    // Pobierz uczestników konwersacji (oprócz nadawcy)
+    const { data: participants } = await supabase
+      .from('conversation_participants')
+      .select('user_email')
+      .eq('conversation_id', conversationId)
+      .neq('user_email', senderEmail);
+
+    if (!participants || participants.length === 0) return;
+
+    // Pobierz nazwę konwersacji
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('name')
+      .eq('id', conversationId)
+      .single();
+
+    const senderName = senderData?.full_name || senderEmail;
+    const convName = conversation?.name || senderName;
+    const messagePreview = content.length > 100 ? content.substring(0, 100) + '...' : content;
+
+    // Wyślij push do każdego uczestnika (w tle, bez czekania)
+    for (const p of participants) {
+      supabase.functions.invoke('send-push', {
+        body: {
+          user_email: p.user_email,
+          title: convName,
+          body: `${senderName}: ${messagePreview}`,
+          link: `/komunikator?conversation=${conversationId}`,
+          tag: `message-${conversationId}`
+        }
+      }).catch(() => {
+        // Ignoruj błędy - push jest opcjonalny
+      });
+    }
+  } catch {
+    // Ignoruj błędy - push jest opcjonalny, nie powinien blokować wysyłania wiadomości
+  }
+}
+
 export default function useMessages(conversationId, userEmail) {
   // Inicjalizuj z cache jeśli dostępny
   const [messages, setMessages] = useState(() => {
@@ -143,8 +185,9 @@ export default function useMessages(conversationId, userEmail) {
         return updated;
       });
 
-      // Powiadomienia są tworzone przez trigger bazodanowy (trigger_message_notification)
-      // Nie tworzymy ich tutaj, żeby uniknąć duplikatów
+      // Powiadomienia w bazie są tworzone przez trigger (trigger_message_notification)
+      // Push notifications wysyłamy z klienta dla niezawodności
+      sendPushToParticipants(conversationId, userEmail, userData, content);
 
       return data;
     } catch (err) {
