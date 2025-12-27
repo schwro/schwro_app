@@ -1958,10 +1958,16 @@ export default function CalendarModule() {
 
     const getWeekDays = () => {
       const curr = new Date(selectedDate);
-      const first = curr.getDate() - curr.getDay() + 1;
+      // Oblicz poniedziałek tego tygodnia
+      // getDay() zwraca 0 dla niedzieli, 1 dla poniedziałku, itd.
+      const dayOfWeek = curr.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Dla niedzieli cofamy się o 6 dni
+      const monday = new Date(curr);
+      monday.setDate(curr.getDate() + mondayOffset);
+
       return Array.from({length: 7}, (_, i) => {
-        const d = new Date(curr);
-        d.setDate(first + i);
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
         return d;
       });
     };
@@ -2098,94 +2104,300 @@ export default function CalendarModule() {
           </div>
         </div>
 
-        {/* Timeline widok dnia */}
+        {/* Zawartość w zależności od trybu */}
         <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-          {hours.map((h) => {
-            const hourEvents = dayEvents.filter(ev => {
-              const pos = getEventPosition(ev);
-              return pos.hour === h;
-            });
+          {/* WIDOK DNIA - Timeline */}
+          {mobileViewMode === 'day' && (
+            <>
+              {hours.map((h) => {
+                const hourEvents = dayEvents.filter(ev => {
+                  const pos = getEventPosition(ev);
+                  return pos.hour === h;
+                });
 
-            return (
-              <div key={h} className="flex min-h-[56px] border-b border-gray-100 dark:border-gray-800/50">
-                <div className="w-14 flex-shrink-0 py-2 pr-2 text-right">
-                  <span className={`text-[11px] font-medium ${
-                    h === 12 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
-                  }`}>
-                    {h === 12 ? 'Poł.' : `${String(h).padStart(2, '0')}:00`}
-                  </span>
+                return (
+                  <div key={h} className="flex min-h-[56px] border-b border-gray-100 dark:border-gray-800/50">
+                    <div className="w-14 flex-shrink-0 py-2 pr-2 text-right">
+                      <span className={`text-[11px] font-medium ${
+                        h === 12 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
+                      }`}>
+                        {h === 12 ? 'Poł.' : `${String(h).padStart(2, '0')}:00`}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 py-1 pr-3 space-y-1">
+                      {hourEvents.map(ev => {
+                        const pos = getEventPosition(ev);
+                        const teamColor = TEAMS[ev.team]?.color || 'gray';
+                        const colorClasses = {
+                          pink: 'bg-gradient-to-r from-pink-50 to-pink-100/50 dark:from-pink-900/30 dark:to-pink-900/10 border-l-pink-500',
+                          orange: 'bg-gradient-to-r from-orange-50 to-orange-100/50 dark:from-orange-900/30 dark:to-orange-900/10 border-l-orange-500',
+                          purple: 'bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/30 dark:to-purple-900/10 border-l-purple-500',
+                          teal: 'bg-gradient-to-r from-teal-50 to-teal-100/50 dark:from-teal-900/30 dark:to-teal-900/10 border-l-teal-500',
+                          blue: 'bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-900/10 border-l-blue-500',
+                          yellow: 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-900/10 border-l-amber-500',
+                          rose: 'bg-gradient-to-r from-rose-50 to-rose-100/50 dark:from-rose-900/30 dark:to-rose-900/10 border-l-rose-500',
+                          gray: 'bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-l-gray-400',
+                        };
+
+                        return (
+                          <div
+                            key={ev.id}
+                            onClick={() => handleEventClick(ev)}
+                            className={`p-2.5 rounded-xl border-l-4 cursor-pointer active:scale-[0.98] transition ${colorClasses[teamColor]}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{ev.title}</h4>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {String(pos.hour).padStart(2, '0')}:{String(pos.minute).padStart(2, '0')} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
+                                </p>
+                              </div>
+                              <div className="w-6 h-6 rounded-lg bg-white/70 dark:bg-gray-700/70 flex items-center justify-center flex-shrink-0">
+                                <CheckCircle size={14} className="text-gray-400" />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Linia aktualnej godziny */}
+              {selectedDate.getDate() === new Date().getDate() &&
+               selectedDate.getMonth() === new Date().getMonth() &&
+               selectedDate.getFullYear() === new Date().getFullYear() && (
+                <div
+                  className="absolute left-12 right-3 border-t-2 border-red-400 z-10 pointer-events-none"
+                  style={{
+                    top: `${((new Date().getHours() - 6) * 56 + (new Date().getMinutes() / 60) * 56)}px`
+                  }}
+                >
+                  <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-400 rounded-full shadow-sm" />
                 </div>
+              )}
 
-                <div className="flex-1 py-1 pr-3 space-y-1">
-                  {hourEvents.map(ev => {
-                    const pos = getEventPosition(ev);
-                    const teamColor = TEAMS[ev.team]?.color || 'gray';
-                    const colorClasses = {
-                      pink: 'bg-gradient-to-r from-pink-50 to-pink-100/50 dark:from-pink-900/30 dark:to-pink-900/10 border-l-pink-500',
-                      orange: 'bg-gradient-to-r from-orange-50 to-orange-100/50 dark:from-orange-900/30 dark:to-orange-900/10 border-l-orange-500',
-                      purple: 'bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/30 dark:to-purple-900/10 border-l-purple-500',
-                      teal: 'bg-gradient-to-r from-teal-50 to-teal-100/50 dark:from-teal-900/30 dark:to-teal-900/10 border-l-teal-500',
-                      blue: 'bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-900/30 dark:to-blue-900/10 border-l-blue-500',
-                      yellow: 'bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-900/10 border-l-amber-500',
-                      rose: 'bg-gradient-to-r from-rose-50 to-rose-100/50 dark:from-rose-900/30 dark:to-rose-900/10 border-l-rose-500',
-                      gray: 'bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-l-gray-400',
-                    };
+              {/* Pusty stan dnia */}
+              {dayEvents.length === 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                  <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-3 pointer-events-auto">
+                    <CalIcon size={24} className="text-gray-400" />
+                  </div>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm mb-2">Brak wydarzeń</p>
+                  <button
+                    onClick={() => {
+                      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
+                      handleAddClick(dateStr);
+                    }}
+                    className="text-pink-500 text-sm font-medium flex items-center gap-1 pointer-events-auto"
+                  >
+                    <Plus size={16} /> Dodaj wydarzenie
+                  </button>
+                </div>
+              )}
+            </>
+          )}
 
-                    return (
-                      <div
-                        key={ev.id}
-                        onClick={() => handleEventClick(ev)}
-                        className={`p-2.5 rounded-xl border-l-4 cursor-pointer active:scale-[0.98] transition ${colorClasses[teamColor]}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{ev.title}</h4>
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                              {String(pos.hour).padStart(2, '0')}:{String(pos.minute).padStart(2, '0')} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
-                            </p>
-                          </div>
-                          <div className="w-6 h-6 rounded-lg bg-white/70 dark:bg-gray-700/70 flex items-center justify-center flex-shrink-0">
-                            <CheckCircle size={14} className="text-gray-400" />
-                          </div>
+          {/* WIDOK TYGODNIA */}
+          {mobileViewMode === 'week' && (
+            <div className="p-3 space-y-3">
+              {weekDays.map(d => {
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                const dayEventsForWeek = filteredEvents.filter(e =>
+                  e.date.getDate() === d.getDate() &&
+                  e.date.getMonth() === d.getMonth() &&
+                  e.date.getFullYear() === d.getFullYear()
+                );
+                const isToday = d.getDate() === new Date().getDate() &&
+                                d.getMonth() === new Date().getMonth() &&
+                                d.getFullYear() === new Date().getFullYear();
+                const isSelected = d.getDate() === selectedDate.getDate() &&
+                                   d.getMonth() === selectedDate.getMonth();
+
+                return (
+                  <div
+                    key={d.toString()}
+                    className={`p-3 rounded-xl border transition ${
+                      isSelected
+                        ? 'border-pink-300 dark:border-pink-700 bg-pink-50/50 dark:bg-pink-900/20'
+                        : isToday
+                          ? 'border-pink-200 dark:border-pink-800 bg-pink-50/30 dark:bg-pink-900/10'
+                          : 'border-gray-200 dark:border-gray-700'
+                    }`}
+                    onClick={() => {
+                      setSelectedDateLocal(d);
+                      setCurrentDate(d);
+                    }}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                        isSelected
+                          ? 'bg-pink-500 text-white'
+                          : isToday
+                            ? 'bg-pink-100 dark:bg-pink-900/50 text-pink-600 dark:text-pink-400'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                      }`}>
+                        {d.getDate()}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm text-gray-800 dark:text-white">
+                          {d.toLocaleDateString('pl-PL', { weekday: 'long' })}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Linia aktualnej godziny */}
-          {selectedDate.getDate() === new Date().getDate() &&
-           selectedDate.getMonth() === new Date().getMonth() &&
-           selectedDate.getFullYear() === new Date().getFullYear() && (
-            <div
-              className="absolute left-12 right-3 border-t-2 border-red-400 z-10 pointer-events-none"
-              style={{
-                top: `${((new Date().getHours() - 6) * 56 + (new Date().getMinutes() / 60) * 56)}px`
-              }}
-            >
-              <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-red-400 rounded-full shadow-sm" />
+                      {dayEventsForWeek.length > 0 && (
+                        <span className="px-2 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 text-xs font-medium rounded-full">
+                          {dayEventsForWeek.length}
+                        </span>
+                      )}
+                    </div>
+                    {dayEventsForWeek.length > 0 && (
+                      <div className="space-y-1.5 ml-13">
+                        {dayEventsForWeek.slice(0, 3).map(ev => {
+                          const teamColor = TEAMS[ev.team]?.color || 'gray';
+                          return (
+                            <div
+                              key={ev.id}
+                              onClick={(e) => { e.stopPropagation(); handleEventClick(ev); }}
+                              className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700"
+                            >
+                              <div className={`w-1 h-8 rounded-full flex-shrink-0 ${
+                                teamColor === 'pink' ? 'bg-pink-500' :
+                                teamColor === 'orange' ? 'bg-orange-500' :
+                                teamColor === 'purple' ? 'bg-purple-500' :
+                                teamColor === 'teal' ? 'bg-teal-500' :
+                                teamColor === 'blue' ? 'bg-blue-500' :
+                                teamColor === 'yellow' ? 'bg-amber-500' :
+                                teamColor === 'rose' ? 'bg-rose-500' : 'bg-gray-400'
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{ev.title}</p>
+                                <p className="text-[10px] text-gray-500">{ev.raw?.due_time || ''}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {dayEventsForWeek.length > 3 && (
+                          <p className="text-xs text-gray-400 text-center">+{dayEventsForWeek.length - 3} więcej</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Pusty stan */}
-          {dayEvents.length === 0 && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-              <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-3 pointer-events-auto">
-                <CalIcon size={24} className="text-gray-400" />
+          {/* WIDOK MIESIĄCA */}
+          {mobileViewMode === 'month' && (
+            <div className="p-3">
+              {/* Nagłówek dni tygodnia */}
+              <div className="grid grid-cols-7 mb-2">
+                {['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'].map(d => (
+                  <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase py-2">
+                    {d}
+                  </div>
+                ))}
               </div>
-              <p className="text-gray-400 dark:text-gray-500 text-sm mb-2">Brak wydarzeń</p>
-              <button
-                onClick={() => {
-                  const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
-                  handleAddClick(dateStr);
-                }}
-                className="text-pink-500 text-sm font-medium flex items-center gap-1 pointer-events-auto"
-              >
-                <Plus size={16} /> Dodaj wydarzenie
-              </button>
+
+              {/* Siatka dni */}
+              <div className="grid grid-cols-7 gap-1">
+                {emptyDays.map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
+                {daysArray.map(d => {
+                  const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
+                  const dayEventsMonth = filteredEvents.filter(e =>
+                    e.date.getDate() === d &&
+                    e.date.getMonth() === currentDate.getMonth()
+                  );
+                  const isToday = d === new Date().getDate() &&
+                                  currentDate.getMonth() === new Date().getMonth() &&
+                                  currentDate.getFullYear() === new Date().getFullYear();
+                  const isSelected = d === selectedDate.getDate() &&
+                                     currentDate.getMonth() === selectedDate.getMonth();
+
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => {
+                        const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
+                        setSelectedDateLocal(newDate);
+                        setCurrentDate(newDate);
+                        setMobileViewMode('day');
+                      }}
+                      className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition ${
+                        isSelected
+                          ? 'bg-pink-500 text-white'
+                          : isToday
+                            ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{d}</span>
+                      {dayEventsMonth.length > 0 && (
+                        <div className="flex gap-0.5 mt-0.5">
+                          {dayEventsMonth.slice(0, 3).map((ev, idx) => {
+                            const color = TEAMS[ev.team]?.color || 'gray';
+                            return (
+                              <div
+                                key={idx}
+                                className={`w-1 h-1 rounded-full ${
+                                  isSelected ? 'bg-white/70' :
+                                  color === 'pink' ? 'bg-pink-500' :
+                                  color === 'orange' ? 'bg-orange-500' :
+                                  color === 'purple' ? 'bg-purple-500' : 'bg-gray-400'
+                                }`}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Lista wydarzeń w wybranym dniu poniżej kalendarza */}
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
+                  {selectedDate.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </h3>
+                {dayEvents.length > 0 ? (
+                  <div className="space-y-2">
+                    {dayEvents.map(ev => {
+                      const teamColor = TEAMS[ev.team]?.color || 'gray';
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={() => handleEventClick(ev)}
+                          className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl cursor-pointer active:scale-[0.98] transition"
+                        >
+                          <div className={`w-1 h-10 rounded-full flex-shrink-0 ${
+                            teamColor === 'pink' ? 'bg-pink-500' :
+                            teamColor === 'orange' ? 'bg-orange-500' :
+                            teamColor === 'purple' ? 'bg-purple-500' :
+                            teamColor === 'teal' ? 'bg-teal-500' :
+                            teamColor === 'blue' ? 'bg-blue-500' :
+                            teamColor === 'yellow' ? 'bg-amber-500' :
+                            teamColor === 'rose' ? 'bg-rose-500' : 'bg-gray-400'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">{ev.title}</p>
+                            <p className="text-xs text-gray-500">
+                              {ev.raw?.due_time || ''} • {TEAMS[ev.team]?.label || 'Wydarzenie'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400 text-sm py-4">Brak wydarzeń</p>
+                )}
+              </div>
             </div>
           )}
         </div>
