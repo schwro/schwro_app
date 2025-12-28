@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key, Bell, BellOff, Smartphone
+  User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key, Bell, BellOff, Smartphone, FileText, Code, Eye
 } from 'lucide-react';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 
@@ -24,6 +24,11 @@ export default function UserSettings() {
     confirmPassword: ''
   });
 
+  // Podpis email
+  const [mailSignature, setMailSignature] = useState('');
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [signatureMode, setSignatureMode] = useState('preview'); // 'html' | 'preview'
+
   // Push notifications
   const {
     isSupported: pushSupported,
@@ -39,6 +44,26 @@ export default function UserSettings() {
   useEffect(() => {
     fetchUserProfile();
   }, []);
+
+  // Pobierz podpis email
+  useEffect(() => {
+    const fetchMailSignature = async () => {
+      if (!formData.email) return;
+
+      const { data } = await supabase
+        .from('mail_accounts')
+        .select('signature')
+        .eq('user_email', formData.email)
+        .eq('default_account', true)
+        .maybeSingle();
+
+      if (data?.signature) {
+        setMailSignature(data.signature);
+      }
+    };
+
+    fetchMailSignature();
+  }, [formData.email]);
 
   const fetchUserProfile = async () => {
     setLoading(true);
@@ -143,6 +168,47 @@ export default function UserSettings() {
       setMessage({ type: 'error', text: 'Nie udało się zapisać danych.' });
     }
     setSaving(false);
+  };
+
+  // --- LOGIKA PODPISU EMAIL ---
+  const handleSaveSignature = async () => {
+    setSavingSignature(true);
+    try {
+      // Sprawdź czy istnieje konto wewnętrzne
+      const { data: existingAccount } = await supabase
+        .from('mail_accounts')
+        .select('id')
+        .eq('user_email', formData.email)
+        .eq('default_account', true)
+        .maybeSingle();
+
+      if (existingAccount) {
+        // Aktualizuj istniejące
+        const { error } = await supabase
+          .from('mail_accounts')
+          .update({ signature: mailSignature })
+          .eq('id', existingAccount.id);
+
+        if (error) throw error;
+      } else {
+        // Utwórz nowe konto wewnętrzne z podpisem
+        const { error } = await supabase
+          .from('mail_accounts')
+          .insert({
+            user_email: formData.email,
+            account_type: 'internal',
+            default_account: true,
+            signature: mailSignature
+          });
+
+        if (error) throw error;
+      }
+
+      setMessage({ type: 'success', text: 'Podpis email zapisany.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Nie udało się zapisać podpisu.' });
+    }
+    setSavingSignature(false);
   };
 
   // --- LOGIKA HASŁA ---
@@ -326,6 +392,94 @@ export default function UserSettings() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* PODPIS EMAIL */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 transition-colors duration-300">
+            <div className="flex items-center justify-between mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400"><FileText size={24} /></div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Podpis Email (HTML)</h3>
+              </div>
+              {/* Toggle HTML/Preview */}
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                <button
+                  onClick={() => setSignatureMode('html')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    signatureMode === 'html'
+                      ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <Code size={14} />
+                  HTML
+                </button>
+                <button
+                  onClick={() => setSignatureMode('preview')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    signatureMode === 'preview'
+                      ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <Eye size={14} />
+                  Podgląd
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Możesz wkleić gotowy podpis HTML z zewnętrznego narzędzia lub edytora. Podpis będzie automatycznie dodawany na końcu wysyłanych wiadomości.
+              </p>
+
+              {signatureMode === 'html' ? (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Kod HTML podpisu</label>
+                  <textarea
+                    value={mailSignature}
+                    onChange={(e) => setMailSignature(e.target.value)}
+                    placeholder={`<div style="font-family: Arial, sans-serif;">
+  <p style="margin: 0; color: #333;">Z pozdrowieniami,</p>
+  <p style="margin: 5px 0 0; font-weight: bold; color: #333;">Jan Kowalski</p>
+  <p style="margin: 5px 0 0; color: #666; font-size: 14px;">Kościół [Nazwa]</p>
+  <p style="margin: 5px 0 0; color: #666; font-size: 12px;">Tel: +48 123 456 789</p>
+</div>`}
+                    rows={10}
+                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-purple-500 dark:focus:border-purple-400 outline-none transition resize-none font-mono text-sm"
+                  />
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                    Wskazówka: Możesz skopiować podpis z Gmail, Outlook lub wygenerować go w narzędziach online.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Podgląd podpisu</label>
+                  <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 min-h-[120px]">
+                    {mailSignature ? (
+                      <div
+                        className="prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: mailSignature }}
+                      />
+                    ) : (
+                      <p className="text-gray-400 dark:text-gray-500 italic text-sm">
+                        Brak podpisu. Przejdź do zakładki HTML, aby dodać podpis.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={handleSaveSignature}
+                disabled={savingSignature}
+                className="bg-purple-600 dark:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-bold hover:shadow-lg hover:bg-purple-700 dark:hover:bg-purple-600 transition flex items-center gap-2"
+              >
+                {savingSignature ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} Zapisz podpis
+              </button>
+            </div>
           </div>
 
           {/* BEZPIECZEŃSTWO */}

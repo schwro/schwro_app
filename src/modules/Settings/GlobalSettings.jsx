@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import {
   List, Plus, Trash2, X, Settings, Grid, Users, Shield, BookOpen,
   CheckCircle, AlertCircle, Upload,
-  Image as ImageIcon, Eye, Edit3, ToggleLeft, ToggleRight, UserX, UserCheck, Check, ChevronDown, ChevronUp, Layers
+  Image as ImageIcon, Edit3, ToggleLeft, ToggleRight, UserX, UserCheck, Check, ChevronDown, ChevronUp, Layers
 } from 'lucide-react';
 import CustomSelect from '../../components/CustomSelect';
 import ModuleManager from './components/ModuleManager';
