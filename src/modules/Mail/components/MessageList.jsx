@@ -138,14 +138,14 @@ export default function MessageList({
 
         {/* Wyszukiwarka */}
         <form onSubmit={handleSearch} className="relative">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Szukaj wiadomości..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none"
+            className="w-full pl-11 pr-4 py-2.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none placeholder:text-gray-400"
           />
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         </form>
       </div>
 

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
 import { Users, Music, Video, Home, Baby, UserCircle, Settings, HeartHandshake, Calendar, DollarSign, BookOpen, Heart, LayoutDashboard, FileText, MessageCircle, Sparkles, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
 import { useUserRole } from '../hooks/useUserRole';
 import { usePermissions } from '../contexts/PermissionsContext';
+import { useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { supabase } from '../lib/supabase';
 
 // Komponent Tooltip zgodny z layoutem aplikacji - używa Portal
@@ -98,10 +99,12 @@ export function MobileMenuButton() {
 
 export default function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const active = location.pathname;
   const { userRole } = useUserRole();
   const { permissions, appSettings: moduleSettings, logoUrl } = usePermissions();
   const { isOpen, close } = useSidebar();
+  const { hasUnsavedChanges, checkBeforeNavigate } = useUnsavedChanges();
 
   // Stan zwinięcia sidebara (z localStorage) - tylko dla desktop
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -275,42 +278,65 @@ export default function Sidebar() {
   // Wspólna zawartość sidebara
   const SidebarContent = ({ isMobile = false }) => (
     <>
-      {/* LOGO */}
-      <div className={`${isCollapsed && !isMobile ? 'p-3' : 'p-4 lg:p-6'} border-b border-gray-200/50 dark:border-gray-700 flex justify-center items-center shrink-0 relative`}>
-        {isMobile && (
+      {/* LOGO - Desktop */}
+      {!isMobile && (
+        <div className={`${isCollapsed ? 'p-3' : 'p-4 lg:p-6'} border-b border-gray-200/50 dark:border-gray-700 flex justify-center items-center shrink-0`}>
+          {isCollapsed ? (
+            <img src={sidebarLogo} alt="Logo" className="w-10 h-10 object-contain transition-all duration-300" />
+          ) : logoUrl ? (
+            <img
+              src={logoUrl}
+              alt="Logo"
+              className="w-full max-h-20 lg:max-h-32 object-contain rounded-md transition-all duration-300"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          ) : (
+            <div className="w-full aspect-video text-3xl lg:text-4xl bg-gradient-to-br from-pink-100 to-orange-100 dark:from-pink-900 dark:to-orange-900 rounded-xl flex items-center justify-center text-pink-600 dark:text-pink-300 font-bold shadow-sm transition-all duration-300">
+              S
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Header mobilny - minimalistyczny design */}
+      {isMobile && (
+        <div className="shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src={sidebarLogo} alt="Logo" className="w-8 h-8 object-contain" />
+            <span className="font-semibold text-gray-800 dark:text-white">Menu</span>
+          </div>
           <button
             onClick={close}
-            className="absolute top-4 right-4 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
-        )}
-        {isCollapsed && !isMobile ? (
-          // Stempel gdy sidebar jest zwinięty
-          <img src={sidebarLogo} alt="Logo" className="w-10 h-10 object-contain transition-all duration-300" />
-        ) : logoUrl ? (
-          <img
-            src={logoUrl}
-            alt="Logo"
-            className="w-full max-h-20 lg:max-h-32 object-contain rounded-md transition-all duration-300"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        ) : (
-          <div className="w-full aspect-video text-3xl lg:text-4xl bg-gradient-to-br from-pink-100 to-orange-100 dark:from-pink-900 dark:to-orange-900 rounded-xl flex items-center justify-center text-pink-600 dark:text-pink-300 font-bold shadow-sm transition-all duration-300">
-            S
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* NAWIGACJA */}
-      <nav className={`flex-1 ${isCollapsed && !isMobile ? 'p-2' : 'p-3 lg:p-4'} space-y-1 overflow-y-auto custom-scrollbar mt-2`}>
+      <nav className={`flex-1 ${isCollapsed && !isMobile ? 'p-2' : 'p-3 lg:p-4'} space-y-1 overflow-y-auto custom-scrollbar ${isMobile ? 'mt-0' : 'mt-2'}`}>
         {allLinks.filter(l => l.show).map(link => {
           const isActive = active === link.path;
+
+          // Obsługa kliknięcia z sprawdzeniem niezapisanych zmian
+          const handleLinkClick = (e) => {
+            if (hasUnsavedChanges) {
+              e.preventDefault();
+              checkBeforeNavigate(() => {
+                navigate(link.path);
+                if (isMobile) close();
+              });
+            } else if (isMobile) {
+              close();
+            }
+          };
+
           return (
             <Tooltip key={link.path} text={link.label} show={isCollapsed && !isMobile}>
               <Link
                 to={link.path}
-                onClick={isMobile ? close : undefined}
+                onClick={handleLinkClick}
                 className={`flex items-center ${isCollapsed && !isMobile ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-xl transition-all group ${isActive ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white shadow-lg shadow-pink-500/30 font-medium' : 'text-gray-600 dark:text-gray-300 hover:bg-pink-50 dark:hover:bg-gray-700 hover:text-pink-600 dark:hover:text-white'}`}
               >
                 <link.icon size={20} className={`shrink-0 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-pink-500 dark:group-hover:text-white transition-colors'}`} />
@@ -327,7 +353,17 @@ export default function Sidebar() {
           <Tooltip text="Ustawienia" show={isCollapsed && !isMobile}>
             <Link
               to="/settings"
-              onClick={isMobile ? close : undefined}
+              onClick={(e) => {
+                if (hasUnsavedChanges) {
+                  e.preventDefault();
+                  checkBeforeNavigate(() => {
+                    navigate('/settings');
+                    if (isMobile) close();
+                  });
+                } else if (isMobile) {
+                  close();
+                }
+              }}
               className={`flex items-center ${isCollapsed && !isMobile ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-xl transition-all w-full ${active === '/settings' ? 'bg-gray-800 dark:bg-gray-900 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'}`}
             >
               <Settings size={20} className="shrink-0" />

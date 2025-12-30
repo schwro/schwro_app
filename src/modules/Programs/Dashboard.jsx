@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { 
-  Plus, Save, FileText, Presentation, Copy, Trash2, Calendar, 
-  ChevronDown, GripVertical, Search, X, Check, ChevronUp, 
-  History, ArrowUpDown, User, UserX, ChevronLeft, ChevronRight,
-  Mail, Loader2
+import { useUnsavedChanges } from '../../contexts/UnsavedChangesContext';
+import {
+  Plus, Save, FileText, Presentation, Copy, Trash2, Calendar,
+  ChevronDown, GripVertical, Search, X, Check, ChevronUp,
+  History, ArrowUpDown, UserX, ChevronLeft, ChevronRight,
+  Mail, Loader2, AlertTriangle
 } from 'lucide-react';
 import { downloadPDF, savePDFToSupabase } from '../../lib/utils';
 import { generatePPT } from '../../lib/ppt';
@@ -1173,19 +1175,66 @@ const DynamicScenaSection = ({
   );
 };
 
+// --- MODAL OSTRZEŻENIA O NIEZAPISANYCH ZMIANACH ---
+
+const UnsavedChangesModal = ({ isOpen, onClose, onSave, onDiscard }) => {
+  if (!isOpen || !document.body) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 dark:border-gray-700">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={24} className="text-orange-600 dark:text-orange-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white">Niezapisane zmiany</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Masz niezapisane zmiany w programie. Co chcesz zrobić?
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onDiscard}
+            className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          >
+            Opuść
+          </button>
+          <button
+            onClick={onSave}
+            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-pink-500/30 transition flex items-center justify-center gap-2"
+          >
+            <Save size={16} /> Zapisz
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 // --- GŁÓWNY KOMPONENT ---
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { setHasUnsavedChanges: setGlobalUnsavedChanges, setOnSaveCallback } = useUnsavedChanges();
+
   const [programs, setPrograms] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [filter, setFilter] = useState('');
   const [program, setProgram] = useState(getEmptyProgram());
+  const [originalProgram, setOriginalProgram] = useState(null); // Do śledzenia zmian
   const [songs, setSongs] = useState([]);
   const [worshipTeam, setWorshipTeam] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [sortOrder, setSortOrder] = useState('asc');
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Stan dla modala niezapisanych zmian
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // { type: 'selectProgram' | 'navigate', payload: any }
 
   // Dane z modułu Małe SchWro
   const [kidsGroups, setKidsGroups] = useState([]);
@@ -1238,11 +1287,41 @@ export default function Dashboard() {
   useEffect(() => {
     if (selectedId) {
       const p = programs.find(p => p.id === selectedId);
-      if (p) setProgram(p);
+      if (p) {
+        setProgram(p);
+        setOriginalProgram(JSON.parse(JSON.stringify(p))); // Kopia do porównywania zmian
+      }
     } else {
-      setProgram(getEmptyProgram());
+      const empty = getEmptyProgram();
+      setProgram(empty);
+      setOriginalProgram(JSON.parse(JSON.stringify(empty)));
     }
   }, [selectedId, programs]);
+
+  // Sprawdź czy są niezapisane zmiany
+  const hasUnsavedChanges = useCallback(() => {
+    if (!program || !originalProgram) return false;
+    return JSON.stringify(program) !== JSON.stringify(originalProgram);
+  }, [program, originalProgram]);
+
+  // Synchronizuj stan niezapisanych zmian z globalnym kontekstem
+  useEffect(() => {
+    const unsaved = hasUnsavedChanges();
+    setGlobalUnsavedChanges(unsaved);
+  }, [hasUnsavedChanges, setGlobalUnsavedChanges]);
+
+  // Ustaw callback do zapisu dla globalnego kontekstu
+  useEffect(() => {
+    setOnSaveCallback(() => handleSave);
+    return () => setOnSaveCallback(null);
+  }, [setOnSaveCallback, program]);
+
+  // Wyczyść stan niezapisanych zmian przy odmontowaniu komponentu
+  useEffect(() => {
+    return () => {
+      setGlobalUnsavedChanges(false);
+    };
+  }, [setGlobalUnsavedChanges]);
 
   function getEmptyProgram() {
     return {
@@ -1349,6 +1428,7 @@ export default function Dashboard() {
       await supabase.from('programs').insert([program]);
     }
     fetchPrograms();
+    setOriginalProgram(JSON.parse(JSON.stringify(program))); // Zaktualizuj oryginał po zapisie
     alert('Zapisano!');
   };
 
@@ -1702,17 +1782,78 @@ export default function Dashboard() {
   // Stan widoku mobile: 'list' lub 'edit'
   const [mobileView, setMobileView] = useState('list');
 
-  // Na mobile, gdy wybierzemy program, przełącz na widok edycji
-  const handleSelectProgram = (id) => {
+  // Faktyczna zmiana programu (bez sprawdzania zmian)
+  const doSelectProgram = (id) => {
     setSelectedId(id);
     if (window.innerWidth < 1024) {
       setMobileView('edit');
     }
   };
 
+  // Na mobile, gdy wybierzemy program, przełącz na widok edycji
+  const handleSelectProgram = (id) => {
+    // Jeśli klikamy na ten sam program, nic nie rób
+    if (id === selectedId) return;
+
+    // Sprawdź czy są niezapisane zmiany
+    if (hasUnsavedChanges()) {
+      setPendingAction({ type: 'selectProgram', payload: id });
+      setShowUnsavedModal(true);
+    } else {
+      doSelectProgram(id);
+    }
+  };
+
+  // Obsługa nowego programu
+  const handleNewProgram = () => {
+    if (hasUnsavedChanges()) {
+      setPendingAction({ type: 'newProgram', payload: null });
+      setShowUnsavedModal(true);
+    } else {
+      setSelectedId(null);
+      if (window.innerWidth < 1024) setMobileView('edit');
+    }
+  };
+
+  // Zapisz i wykonaj oczekującą akcję
+  const handleSaveAndProceed = async () => {
+    await handleSave();
+    setShowUnsavedModal(false);
+    executePendingAction();
+  };
+
+  // Odrzuć zmiany i wykonaj oczekującą akcję
+  const handleDiscardAndProceed = () => {
+    setShowUnsavedModal(false);
+    executePendingAction();
+  };
+
+  // Wykonaj oczekującą akcję
+  const executePendingAction = () => {
+    if (!pendingAction) return;
+
+    if (pendingAction.type === 'selectProgram') {
+      doSelectProgram(pendingAction.payload);
+    } else if (pendingAction.type === 'newProgram') {
+      setSelectedId(null);
+      if (window.innerWidth < 1024) setMobileView('edit');
+    } else if (pendingAction.type === 'navigate') {
+      navigate(pendingAction.payload);
+    } else if (pendingAction.type === 'backToList') {
+      setMobileView('list');
+    }
+
+    setPendingAction(null);
+  };
+
   // Wróć do listy na mobile
   const handleBackToList = () => {
-    setMobileView('list');
+    if (hasUnsavedChanges()) {
+      setPendingAction({ type: 'backToList', payload: null });
+      setShowUnsavedModal(true);
+    } else {
+      setMobileView('list');
+    }
   };
 
   // Zaktualizowany ProgramItem z nowym handlerem
@@ -1767,7 +1908,7 @@ export default function Dashboard() {
               <ArrowUpDown size={18} />
             </button>
           </div>
-          <button onClick={() => { setSelectedId(null); if (window.innerWidth < 1024) setMobileView('edit'); }} className="w-full bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white py-2.5 rounded-xl font-bold shadow-lg hover:shadow-pink-500/30 transition transform hover:-translate-y-0.5 text-sm flex items-center justify-center gap-2"><Plus size={16} /> Nowy Program</button>
+          <button onClick={handleNewProgram} className="w-full bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white py-2.5 rounded-xl font-bold shadow-lg hover:shadow-pink-500/30 transition transform hover:-translate-y-0.5 text-sm flex items-center justify-center gap-2"><Plus size={16} /> Nowy Program</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -1938,6 +2079,13 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        onClose={() => setShowUnsavedModal(false)}
+        onSave={handleSaveAndProceed}
+        onDiscard={handleDiscardAndProceed}
+      />
     </div>
   );
 }

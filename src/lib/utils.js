@@ -347,7 +347,7 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
         .header-top {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: flex-end;
             margin-bottom: 24px;
         }
         .header-content {
@@ -376,11 +376,15 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
             font-family: 'Roboto', sans-serif;
             font-size: 15px;
             font-weight: 700;
-            padding: 10px 24px;
+            padding: 14px 24px;
             border-radius: 8px;
             border: 2px solid ${colors.primaryBorder};
             white-space: nowrap;
-            align-self: flex-end;
+        }
+        .date-badge span {
+            display: inline-block;
+            position: relative;
+            top: -5px;
         }
 
 
@@ -421,7 +425,7 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
                     <div class="subtitle">App SchWro Południe</div>
                     <h1>Program nabożeństwa</h1>
                 </div>
-                <div class="date-badge">${formatDateFull(program.date)}</div>
+                <div class="date-badge"><span>${formatDateFull(program.date)}</span></div>
             </div>
           </div>
           ${renderScheduleTable()}

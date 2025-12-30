@@ -1,17 +1,102 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import {
   Save, FileText, Presentation, X, Calendar,
   ChevronDown, GripVertical, Search, Check, ChevronUp,
   User, UserX, ChevronLeft, ChevronRight,
-  Mail, Loader2, Music, Trash2
+  Mail, Loader2, Music, Trash2, AlertTriangle
 } from 'lucide-react';
 import { downloadPDF, savePDFToSupabase } from '../../lib/utils';
 import { generatePPT } from '../../lib/ppt';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+// --- MODAL OSTRZEŻENIA O NIEZAPISANYCH ZMIANACH ---
+
+const UnsavedChangesModal = ({ isOpen, onClose, onSave, onDiscard }) => {
+  if (!isOpen || !document.body) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 dark:border-gray-700">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={24} className="text-orange-600 dark:text-orange-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white">Niezapisane zmiany</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Masz niezapisane zmiany w programie. Co chcesz zrobić?
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onDiscard}
+            className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          >
+            Opuść
+          </button>
+          <button
+            onClick={onSave}
+            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-pink-600 to-orange-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-pink-500/30 transition flex items-center justify-center gap-2"
+          >
+            <Save size={16} /> Zapisz
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// --- MODAL POTWIERDZENIA USUNIĘCIA NABOŻEŃSTWA ---
+
+const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, date }) => {
+  if (!isOpen || !document.body) return null;
+
+  const formattedDate = date ? new Date(date).toLocaleDateString('pl-PL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }) : '';
+
+  return createPortal(
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 dark:border-gray-700">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={24} className="text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white">Usuń nabożeństwo</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Czy na pewno chcesz usunąć nabożeństwo z dnia <span className="font-medium text-gray-700 dark:text-gray-300">{formattedDate}</span>? Tej operacji nie można cofnąć.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          >
+            Anuluj
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition flex items-center justify-center gap-2"
+          >
+            <Trash2 size={16} /> Usuń
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 const PROGRAM_ELEMENTS = [
   'Wstęp', 'Uwielbienie', 'Modlitwa', 'Czytanie', 'Kazanie',
@@ -1117,13 +1202,16 @@ const DynamicScenaSection = ({
 
 // --- GŁÓWNY KOMPONENT MODALA EDYTORA ---
 
-export default function ProgramEditorModal({ programId, onClose, onSave }) {
+export default function ProgramEditorModal({ programId, onClose, onSave, onDelete }) {
   const [program, setProgram] = useState(null);
+  const [originalProgram, setOriginalProgram] = useState(null); // Do śledzenia zmian
   const [loading, setLoading] = useState(true);
   const [songs, setSongs] = useState([]);
   const [worshipTeam, setWorshipTeam] = useState([]);
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Dane z modułu Małe SchWro
   const [kidsGroups, setKidsGroups] = useState([]);
@@ -1151,6 +1239,48 @@ export default function ProgramEditorModal({ programId, onClose, onSave }) {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
+  // Sprawdź czy są niezapisane zmiany
+  const hasUnsavedChanges = useCallback(() => {
+    if (!program || !originalProgram) return false;
+    return JSON.stringify(program) !== JSON.stringify(originalProgram);
+  }, [program, originalProgram]);
+
+  // Obsługa próby zamknięcia
+  const handleCloseAttempt = () => {
+    if (hasUnsavedChanges()) {
+      setShowUnsavedModal(true);
+    } else {
+      onClose();
+    }
+  };
+
+  // Zapisz i zamknij
+  const handleSaveAndClose = async () => {
+    await supabase.from('programs').update(program).eq('id', program.id);
+    setShowUnsavedModal(false);
+    if (onSave) onSave();
+    onClose();
+  };
+
+  // Odrzuć zmiany i zamknij
+  const handleDiscardAndClose = () => {
+    setShowUnsavedModal(false);
+    onClose();
+  };
+
+  // Usuń nabożeństwo
+  const handleDeleteProgram = async () => {
+    try {
+      await supabase.from('programs').delete().eq('id', program.id);
+      setShowDeleteModal(false);
+      if (onDelete) onDelete(program.id);
+      onClose();
+    } catch (error) {
+      console.error('Błąd usuwania programu:', error);
+      alert('Wystąpił błąd podczas usuwania nabożeństwa.');
+    }
+  };
+
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true);
@@ -1163,6 +1293,7 @@ export default function ProgramEditorModal({ programId, onClose, onSave }) {
           if (!pData[key]) pData[key] = {};
         });
         setProgram(pData);
+        setOriginalProgram(JSON.parse(JSON.stringify(pData))); // Zapisz kopię oryginalnego stanu
       }
 
       // Pobierz pieśni
@@ -1218,6 +1349,7 @@ export default function ProgramEditorModal({ programId, onClose, onSave }) {
 
   const handleSave = async () => {
     await supabase.from('programs').update(program).eq('id', program.id);
+    setOriginalProgram(JSON.parse(JSON.stringify(program))); // Zaktualizuj oryginał po zapisie
     if (onSave) onSave();
     onClose();
   };
@@ -1329,7 +1461,15 @@ export default function ProgramEditorModal({ programId, onClose, onSave }) {
               <span className="hidden sm:inline">PPT</span>
             </button>
             <button
-              onClick={onClose}
+              onClick={() => setShowDeleteModal(true)}
+              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200 font-medium text-sm"
+              title="Usuń nabożeństwo"
+            >
+              <Trash2 size={18} />
+              <span className="hidden sm:inline">Usuń</span>
+            </button>
+            <button
+              onClick={handleCloseAttempt}
               className="flex-1 lg:flex-none px-4 py-2.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 rounded-xl transition font-medium"
             >
               Anuluj
@@ -1484,6 +1624,20 @@ export default function ProgramEditorModal({ programId, onClose, onSave }) {
             />
           </div>
         </div>
+
+        <UnsavedChangesModal
+          isOpen={showUnsavedModal}
+          onClose={() => setShowUnsavedModal(false)}
+          onSave={handleSaveAndClose}
+          onDiscard={handleDiscardAndClose}
+        />
+
+        <ConfirmDeleteModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDeleteProgram}
+          date={program?.date}
+        />
       </div>
     </div>,
     document.body

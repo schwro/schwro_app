@@ -7,10 +7,47 @@ import {
   Users, HeartHandshake, Home, Baby, Trash2,
   ChevronDown, MapPin, AlignLeft, Search, Check,
   FileText, LayoutGrid, List, LayoutList, Columns, CalendarPlus, ListTodo,
-  Filter, PanelLeftClose, PanelLeft
+  Filter, PanelLeftClose, PanelLeft, AlertTriangle
 } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
 import ProgramEditorModal from './Programs/ProgramEditorModal';
+
+// --- MODAL POTWIERDZENIA USUNIĘCIA ---
+
+const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+  if (!isOpen || !document.body) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 dark:border-gray-700">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={24} className="text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white">{title}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{message}</p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          >
+            Anuluj
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition flex items-center justify-center gap-2"
+          >
+            <Trash2 size={16} /> Usuń
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 // --- KONFIGURACJA ZESPOŁÓW I DANYCH ---
 
@@ -254,6 +291,7 @@ const ModalAddEvent = ({ initialEvent, category, onClose, onSave, onDelete }) =>
     end_time: '12:00',
     location: ''
   });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (initialEvent) {
@@ -282,6 +320,16 @@ const ModalAddEvent = ({ initialEvent, category, onClose, onSave, onDelete }) =>
     if (event.id) payload.id = event.id;
 
     onSave(payload);
+    onClose();
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete(event.id);
+    setShowDeleteConfirm(false);
     onClose();
   };
 
@@ -366,7 +414,7 @@ const ModalAddEvent = ({ initialEvent, category, onClose, onSave, onDelete }) =>
 
         <div className="mt-6 flex justify-between items-center">
           {event.id && onDelete ? (
-            <button onClick={() => onDelete(event.id)} className="text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1">
+            <button onClick={handleDeleteClick} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1">
               <Trash2 size={16}/> Usuń
             </button>
           ) : <div></div>}
@@ -378,6 +426,14 @@ const ModalAddEvent = ({ initialEvent, category, onClose, onSave, onDelete }) =>
             </button>
           </div>
         </div>
+
+        <ConfirmDeleteModal
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleConfirmDelete}
+          title="Usuń wydarzenie"
+          message="Czy na pewno chcesz usunąć to wydarzenie? Tej operacji nie można cofnąć."
+        />
       </div>
     </div>, document.body
   );
@@ -604,6 +660,7 @@ const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
     max_participants: event?.max_participants || '',
     event_type: event?.event_type || config?.defaultType || 'spotkanie'
   });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleSubmit = async () => {
     if (!eventForm.title.trim()) {
@@ -622,6 +679,16 @@ const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
     };
 
     onSave(eventForm.id, eventData);
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete(eventForm.id);
+    setShowDeleteConfirm(false);
+    onClose();
   };
 
   if (!document.body || !config) return null;
@@ -684,7 +751,7 @@ const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
 
           <div className="flex justify-between items-center gap-3 mt-6">
             {eventForm.id && onDelete ? (
-              <button onClick={() => onDelete(eventForm.id)} className="px-4 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition font-medium flex items-center gap-2">
+              <button onClick={handleDeleteClick} className="px-4 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition font-medium flex items-center gap-2">
                 <Trash2 size={16} /> Usuń
               </button>
             ) : <div></div>}
@@ -696,6 +763,14 @@ const ModalMinistryEvent = ({ event, onClose, onSave, onDelete, ministry }) => {
             </div>
           </div>
         </div>
+
+        <ConfirmDeleteModal
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleConfirmDelete}
+          title="Usuń wydarzenie"
+          message={`Czy na pewno chcesz usunąć to wydarzenie z ${config.title}? Tej operacji nie można cofnąć.`}
+        />
       </div>
     </div>,
     document.body
@@ -1006,6 +1081,10 @@ export default function CalendarModule() {
   }
 
   const handleSaveProgram = async () => { fetchEvents(); };
+
+  const handleDeleteProgram = async (programId) => {
+    fetchEvents();
+  };
 
   // Obsługa zapisywania ogólnych wydarzeń
   const handleSaveEvent = async (eventData) => {
@@ -2593,7 +2672,7 @@ export default function CalendarModule() {
       )}
 
       {modals.addTask && <ModalAddTask initialTask={modals.addTask} onClose={() => setModals({...modals, addTask: null})} onSave={handleSaveTask} onDelete={handleDeleteTask} />}
-      {modals.editProgram && <ProgramEditorModal programId={modals.editProgram} onClose={() => setModals({...modals, editProgram: null})} onSave={handleSaveProgram} />}
+      {modals.editProgram && <ProgramEditorModal programId={modals.editProgram} onClose={() => setModals({...modals, editProgram: null})} onSave={handleSaveProgram} onDelete={handleDeleteProgram} />}
 
       {modals.mlodziezowkaEvent && (
         <ModalMinistryEvent
