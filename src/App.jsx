@@ -124,11 +124,18 @@ export default function App() {
   const check2FARequirement = async (userEmail) => {
     if (!userEmail) return;
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('app_users')
         .select('totp_required, totp_enabled')
         .eq('email', userEmail)
         .maybeSingle();
+
+      // Ignoruj błędy (np. brak kolumn) - po prostu wyłącz wymóg 2FA
+      if (error) {
+        console.warn('2FA check skipped due to error:', error.message);
+        setRequires2FASetup(false);
+        return;
+      }
 
       // Jeśli 2FA jest wymagane ale nie skonfigurowane
       if (data?.totp_required && !data?.totp_enabled) {
@@ -138,6 +145,7 @@ export default function App() {
       }
     } catch (err) {
       console.error('Error checking 2FA requirement:', err);
+      setRequires2FASetup(false);
     }
   };
 
