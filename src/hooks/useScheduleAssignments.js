@@ -48,7 +48,7 @@ export function useScheduleAssignments() {
       const programIds = [...new Set(assignmentsData.map(a => a.program_id))];
       const { data: programsData } = await supabase
         .from('programs')
-        .select('id, date, title')
+        .select('id, date')
         .in('id', programIds);
 
       // Połącz dane
