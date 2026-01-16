@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import {
   List, Plus, Trash2, X, Settings, Grid, Users, Shield, BookOpen,
-  CheckCircle, AlertCircle, Upload,
+  CheckCircle, AlertCircle, Upload, Eye,
   Image as ImageIcon, Edit3, ToggleLeft, ToggleRight, UserX, UserCheck, Check, ChevronDown, ChevronUp, Layers
 } from 'lucide-react';
 import CustomSelect from '../../components/CustomSelect';
@@ -169,6 +169,7 @@ export default function GlobalSettings() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [isCreatingAuthUser, setIsCreatingAuthUser] = useState(false);
   const [selectedTeams, setSelectedTeams] = useState([]);
+  const [require2FA, setRequire2FA] = useState(false);
 
   // Definicja służb/zespołów z ich tabelami w bazie
   const teamDefinitions = [
@@ -449,7 +450,8 @@ export default function GlobalSettings() {
               full_name: userForm.full_name || '',
               role: userForm.role,
               is_active: userForm.is_active,
-              auth_user_id: authData.user.id
+              auth_user_id: authData.user.id,
+              totp_required: require2FA
             });
 
           if (insertError) {
@@ -546,6 +548,7 @@ export default function GlobalSettings() {
 
       setShowUserModal(false);
       setSelectedTeams([]);
+      setRequire2FA(false);
       fetchData();
     } catch (err) {
       alert('Błąd zapisu: ' + err.message);
@@ -1366,6 +1369,32 @@ export default function GlobalSettings() {
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                       Użytkownik zostanie automatycznie dodany jako członek wybranych służb.
                     </p>
+                  </div>
+                </div>
+              )}
+              {!userForm.id && (
+                <div>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1 mb-2 block">Bezpieczeństwo</label>
+                  <div className="border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 p-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={require2FA}
+                          onChange={(e) => setRequire2FA(e.target.checked)}
+                        />
+                        <div className={`w-11 h-6 rounded-full transition ${require2FA ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${require2FA ? 'translate-x-5' : ''}`}></div>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-800 dark:text-white">Wymagaj weryfikacji dwuetapowej (2FA)</span>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          Użytkownik będzie musiał skonfigurować 2FA przy pierwszym logowaniu
+                        </p>
+                      </div>
+                    </label>
                   </div>
                 </div>
               )}

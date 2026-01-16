@@ -67,7 +67,7 @@ export default function PersonalDashboard({ user }) {
   const renderWidget = (widgetId) => {
     switch (widgetId) {
       case 'ministry':
-        return <MyMinistryWidget upcomingMinistry={upcomingMinistry} pastMinistry={pastMinistry} />;
+        return <MyMinistryWidget upcomingMinistry={upcomingMinistry} pastMinistry={pastMinistry} userEmail={userEmail} />;
       case 'tasks':
         return <MyTasksWidget tasks={tasks} userEmail={userEmail} userName={userProfile?.full_name} onRefresh={refreshTasks} />;
       case 'absences':

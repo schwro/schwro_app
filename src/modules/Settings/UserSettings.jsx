@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key, Bell, BellOff, Smartphone, FileText, Code, Eye
+  User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key, Bell, BellOff, Smartphone, FileText, Code, Eye,
+  Shield, ShieldCheck, ShieldOff, KeyRound, RefreshCw, Copy, Download
 } from 'lucide-react';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
+import { useTwoFactor } from '../../hooks/useTwoFactor';
+import TwoFactorSetup from '../../components/TwoFactorSetup';
 
 export default function UserSettings() {
   const [loading, setLoading] = useState(true);
@@ -29,6 +32,14 @@ export default function UserSettings() {
   const [savingSignature, setSavingSignature] = useState(false);
   const [signatureMode, setSignatureMode] = useState('preview'); // 'html' | 'preview'
 
+  // 2FA
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [twoFactorStatus, setTwoFactorStatus] = useState({ enabled: false, verifiedAt: null });
+  const [disable2FACode, setDisable2FACode] = useState('');
+  const [showBackupCodes, setShowBackupCodes] = useState(false);
+  const [backupCodesData, setBackupCodesData] = useState({ unused: [], used: [] });
+  const [regenerateCode, setRegenerateCode] = useState('');
+
   // Push notifications
   const {
     isSupported: pushSupported,
@@ -41,9 +52,29 @@ export default function UserSettings() {
     sendTestNotification
   } = usePushNotifications(formData.email);
 
+  // 2FA Hook
+  const {
+    loading: twoFactorLoading,
+    error: twoFactorError,
+    checkTwoFactorStatus,
+    disableTwoFactor,
+    regenerateBackupCodes,
+    getBackupCodes
+  } = useTwoFactor(formData.email);
+
   useEffect(() => {
     fetchUserProfile();
   }, []);
+
+  // Sprawdź status 2FA
+  useEffect(() => {
+    const check2FA = async () => {
+      if (!formData.email) return;
+      const status = await checkTwoFactorStatus(formData.email);
+      setTwoFactorStatus(status);
+    };
+    check2FA();
+  }, [formData.email, checkTwoFactorStatus]);
 
   // Pobierz podpis email
   useEffect(() => {
@@ -209,6 +240,69 @@ export default function UserSettings() {
       setMessage({ type: 'error', text: 'Nie udało się zapisać podpisu.' });
     }
     setSavingSignature(false);
+  };
+
+  // --- LOGIKA 2FA ---
+  const handle2FASetupComplete = async () => {
+    setShow2FASetup(false);
+    const status = await checkTwoFactorStatus(formData.email);
+    setTwoFactorStatus(status);
+    setMessage({ type: 'success', text: 'Uwierzytelnianie dwuskładnikowe zostało włączone!' });
+  };
+
+  const handleDisable2FA = async () => {
+    if (!disable2FACode || disable2FACode.length !== 6) {
+      setMessage({ type: 'error', text: 'Wprowadź 6-cyfrowy kod weryfikacyjny.' });
+      return;
+    }
+
+    const result = await disableTwoFactor(disable2FACode);
+    if (result.success) {
+      setTwoFactorStatus({ enabled: false, verifiedAt: null });
+      setDisable2FACode('');
+      setMessage({ type: 'success', text: 'Uwierzytelnianie dwuskładnikowe zostało wyłączone.' });
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Nie udało się wyłączyć 2FA.' });
+    }
+  };
+
+  const handleShowBackupCodes = async () => {
+    const codes = await getBackupCodes();
+    setBackupCodesData(codes);
+    setShowBackupCodes(true);
+  };
+
+  const handleRegenerateBackupCodes = async () => {
+    if (!regenerateCode || regenerateCode.length !== 6) {
+      setMessage({ type: 'error', text: 'Wprowadź 6-cyfrowy kod weryfikacyjny.' });
+      return;
+    }
+
+    const result = await regenerateBackupCodes(regenerateCode);
+    if (result.success) {
+      setBackupCodesData({ unused: result.backupCodes.map(c => ({ code: c })), used: [] });
+      setRegenerateCode('');
+      setMessage({ type: 'success', text: 'Wygenerowano nowe kody zapasowe.' });
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Nie udało się wygenerować kodów.' });
+    }
+  };
+
+  const copyBackupCodes = () => {
+    const codes = backupCodesData.unused.map(c => c.code).join('\n');
+    navigator.clipboard.writeText(codes);
+    setMessage({ type: 'success', text: 'Kody skopiowane do schowka.' });
+  };
+
+  const downloadBackupCodes = () => {
+    const codes = backupCodesData.unused.map(c => c.code).join('\n');
+    const blob = new Blob([`Church Manager - Kody zapasowe 2FA\n\n${codes}\n\nUwaga: Każdy kod może być użyty tylko raz.`], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'church-manager-backup-codes.txt';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // --- LOGIKA HASŁA ---
@@ -393,6 +487,199 @@ export default function UserSettings() {
               </div>
             )}
           </div>
+
+          {/* UWIERZYTELNIANIE DWUSKŁADNIKOWE (2FA) */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 transition-colors duration-300">
+            <div className="flex items-center gap-3 mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+              <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400">
+                <Shield size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Uwierzytelnianie dwuskładnikowe</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Dodatkowa warstwa bezpieczeństwa dla Twojego konta</p>
+              </div>
+            </div>
+
+            {twoFactorStatus.enabled ? (
+              <div className="space-y-4">
+                {/* Status: Włączone */}
+                <div className="flex items-center justify-between p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck size={24} className="text-emerald-600 dark:text-emerald-400" />
+                    <div>
+                      <p className="font-medium text-emerald-800 dark:text-emerald-300">2FA włączone</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                        Aktywowane {twoFactorStatus.verifiedAt
+                          ? new Date(twoFactorStatus.verifiedAt).toLocaleDateString('pl-PL')
+                          : ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kody zapasowe */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <KeyRound size={18} className="text-gray-600 dark:text-gray-400" />
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Kody zapasowe</span>
+                    </div>
+                    <button
+                      onClick={handleShowBackupCodes}
+                      className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline"
+                    >
+                      Pokaż kody
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Kody zapasowe pozwalają zalogować się, gdy nie masz dostępu do aplikacji Google Authenticator.
+                  </p>
+                </div>
+
+                {/* Modal z kodami zapasowymi */}
+                {showBackupCodes && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                      <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Kody zapasowe</h4>
+
+                      <div className="space-y-2 mb-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Pozostało: <span className="font-medium text-emerald-600">{backupCodesData.unused.length}</span> z 10 kodów
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg font-mono text-sm">
+                          {backupCodesData.unused.map((c, i) => (
+                            <div key={i} className="text-gray-800 dark:text-gray-200">{c.code}</div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 mb-4">
+                        <button
+                          onClick={copyBackupCodes}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                        >
+                          <Copy size={16} />
+                          Kopiuj
+                        </button>
+                        <button
+                          onClick={downloadBackupCodes}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                        >
+                          <Download size={16} />
+                          Pobierz
+                        </button>
+                      </div>
+
+                      {/* Regeneracja kodów */}
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          Wygeneruj nowe kody (wymagany kod z aplikacji):
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={regenerateCode}
+                            onChange={(e) => setRegenerateCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="000000"
+                            className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-center font-mono tracking-widest"
+                          />
+                          <button
+                            onClick={handleRegenerateBackupCodes}
+                            disabled={twoFactorLoading}
+                            className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
+                          >
+                            {twoFactorLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setShowBackupCodes(false)}
+                        className="w-full mt-4 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition"
+                      >
+                        Zamknij
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Wyłączanie 2FA */}
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ShieldOff size={18} className="text-red-600 dark:text-red-400" />
+                    <span className="font-medium text-red-800 dark:text-red-300">Wyłącz 2FA</span>
+                  </div>
+                  <p className="text-xs text-red-600 dark:text-red-400 mb-3">
+                    Wprowadź kod z aplikacji Google Authenticator, aby wyłączyć uwierzytelnianie dwuskładnikowe.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={disable2FACode}
+                      onChange={(e) => setDisable2FACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      className="flex-1 px-3 py-2 border border-red-200 dark:border-red-800 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-center font-mono tracking-widest"
+                    />
+                    <button
+                      onClick={handleDisable2FA}
+                      disabled={twoFactorLoading}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2"
+                    >
+                      {twoFactorLoading ? <Loader2 size={16} className="animate-spin" /> : <ShieldOff size={16} />}
+                      Wyłącz
+                    </button>
+                  </div>
+                </div>
+
+                {twoFactorError && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm">
+                    <AlertCircle size={16} />
+                    {twoFactorError}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Status: Wyłączone */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <ShieldOff size={24} className="text-gray-400" />
+                    <div>
+                      <p className="font-medium text-gray-700 dark:text-gray-300">2FA wyłączone</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Włącz, aby zwiększyć bezpieczeństwo konta
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShow2FASetup(true)}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition flex items-center gap-2"
+                  >
+                    <Shield size={16} />
+                    Włącz 2FA
+                  </button>
+                </div>
+
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="mb-2 font-medium">Jak działa 2FA?</p>
+                  <ol className="list-decimal list-inside space-y-1 text-xs">
+                    <li>Zainstaluj aplikację Google Authenticator lub podobną na telefonie</li>
+                    <li>Zeskanuj kod QR lub wprowadź klucz ręcznie</li>
+                    <li>Przy każdym logowaniu wprowadź 6-cyfrowy kod z aplikacji</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Modal konfiguracji 2FA */}
+          {show2FASetup && (
+            <TwoFactorSetup
+              userEmail={formData.email}
+              onEnabled={handle2FASetupComplete}
+              onClose={() => setShow2FASetup(false)}
+            />
+          )}
 
           {/* PODPIS EMAIL */}
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 transition-colors duration-300">

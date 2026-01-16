@@ -17,9 +17,14 @@ export function useMyPresence(userEmail) {
 
   // Aktualizuj status w bazie
   const updatePresence = useCallback(async (status) => {
+    // WAŻNE: Nie rób nic jeśli nie ma userEmail (użytkownik niezalogowany)
     if (!userEmail) return;
 
     try {
+      // Sprawdź czy użytkownik jest zalogowany
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
       const { error } = await supabase
         .from('user_presence')
         .upsert({
@@ -37,7 +42,10 @@ export function useMyPresence(userEmail) {
       presenceCache.set(userEmail, { status, last_seen: new Date().toISOString() });
       notifyListeners();
     } catch (err) {
-      console.error('Error updating presence:', err);
+      // Ignoruj błędy 401 (niezalogowany użytkownik)
+      if (err?.code !== '42501' && err?.message !== 'JWT expired') {
+        console.error('Error updating presence:', err);
+      }
     }
   }, [userEmail]);
 
@@ -123,6 +131,10 @@ export function usePresence(userEmails = []) {
     if (!userEmails || userEmails.length === 0) return;
 
     try {
+      // Sprawdź czy użytkownik jest zalogowany
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
       const { data, error } = await supabase
         .from('user_presence')
         .select('user_email, status, last_seen')
@@ -144,7 +156,10 @@ export function usePresence(userEmails = []) {
 
       notifyListeners();
     } catch (err) {
-      console.error('Error fetching presence:', err);
+      // Ignoruj błędy autoryzacji
+      if (err?.code !== '42501') {
+        console.error('Error fetching presence:', err);
+      }
     }
   }, [userEmails.join(',')]);
 
@@ -152,35 +167,47 @@ export function usePresence(userEmails = []) {
   useEffect(() => {
     if (!userEmails || userEmails.length === 0) return;
 
-    // Pobierz początkowe dane
-    fetchPresence();
+    let subscription = null;
 
-    // Dodaj listener
-    const listener = (newMap) => setPresenceMap(newMap);
-    listeners.add(listener);
+    const setupSubscription = async () => {
+      // Sprawdź czy użytkownik jest zalogowany
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    // Subskrypcja real-time
-    const subscription = supabase
-      .channel('presence-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'user_presence'
-      }, (payload) => {
-        const { new: newRecord } = payload;
-        if (newRecord && userEmails.includes(newRecord.user_email)) {
-          presenceCache.set(newRecord.user_email, {
-            status: newRecord.status,
-            last_seen: newRecord.last_seen
-          });
-          notifyListeners();
-        }
-      })
-      .subscribe();
+      // Pobierz początkowe dane
+      fetchPresence();
+
+      // Dodaj listener
+      const listener = (newMap) => setPresenceMap(newMap);
+      listeners.add(listener);
+
+      // Subskrypcja real-time
+      subscription = supabase
+        .channel('presence-changes')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'user_presence'
+        }, (payload) => {
+          const { new: newRecord } = payload;
+          if (newRecord && userEmails.includes(newRecord.user_email)) {
+            presenceCache.set(newRecord.user_email, {
+              status: newRecord.status,
+              last_seen: newRecord.last_seen
+            });
+            notifyListeners();
+          }
+        })
+        .subscribe();
+    };
+
+    setupSubscription();
 
     return () => {
-      listeners.delete(listener);
-      supabase.removeChannel(subscription);
+      listeners.forEach(l => listeners.delete(l));
+      if (subscription) {
+        supabase.removeChannel(subscription);
+      }
     };
   }, [userEmails.join(','), fetchPresence]);
 

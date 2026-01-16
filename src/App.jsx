@@ -13,6 +13,7 @@ import InstallPrompt from './components/InstallPrompt';
 import useOffline from './hooks/useOffline';
 import Login from './modules/Login';
 import ResetPassword from './modules/ResetPassword';
+import TwoFactorSetup from './components/TwoFactorSetup';
 import PersonalDashboard from './modules/Dashboard/PersonalDashboard';
 import ProgramsDashboard from './modules/Programs/Dashboard';
 import Members from './modules/Members';
@@ -31,13 +32,16 @@ import KomunikatorModule from './modules/Komunikator/KomunikatorModule';
 import MlodziezowkaModule from './modules/MlodziezowkaModule';
 import MailingModule from './modules/Mailing/MailingModule';
 import MailModule from './modules/Mail/MailModule';
+import FormsModule from './modules/Forms/FormsModule';
+import PublicFormPage from './modules/Forms/pages/PublicFormPage';
+import AssignmentResponsePage from './modules/AssignmentResponse/AssignmentResponsePage';
 import CustomModule from './modules/CustomModule/CustomModule';
 
 // Lista kluczy systemowych modułów (mają dedykowane komponenty)
 const SYSTEM_MODULE_KEYS = [
   'dashboard', 'programs', 'calendar', 'members', 'worship', 'media',
   'atmosfera', 'kids', 'homegroups', 'finance', 'teaching', 'prayer',
-  'komunikator', 'mlodziezowka', 'mailing', 'mail', 'settings'
+  'komunikator', 'mlodziezowka', 'mailing', 'mail', 'forms', 'settings'
 ];
 
 // Komponent do wyświetlania toast notifications (używa context)
@@ -63,6 +67,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [customModules, setCustomModules] = useState([]);
+  const [requires2FASetup, setRequires2FASetup] = useState(false);
 
   // Stan dla trybu ciemnego (domyślnie false)
   const [darkMode, setDarkMode] = useState(localStorage.getItem('theme') === 'dark');
@@ -115,11 +120,35 @@ export default function App() {
     };
   }, []);
 
+  // Sprawdź czy użytkownik ma wymagane 2FA
+  const check2FARequirement = async (userEmail) => {
+    if (!userEmail) return;
+    try {
+      const { data } = await supabase
+        .from('app_users')
+        .select('totp_required, totp_enabled')
+        .eq('email', userEmail)
+        .maybeSingle();
+
+      // Jeśli 2FA jest wymagane ale nie skonfigurowane
+      if (data?.totp_required && !data?.totp_enabled) {
+        setRequires2FASetup(true);
+      } else {
+        setRequires2FASetup(false);
+      }
+    } catch (err) {
+      console.error('Error checking 2FA requirement:', err);
+    }
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       try {
         const { data } = await supabase.auth.getSession();
-        if (data?.session) setSession(data.session);
+        if (data?.session) {
+          setSession(data.session);
+          await check2FARequirement(data.session.user?.email);
+        }
       } catch (error) {
         console.error('Auth error:', error);
       } finally {
@@ -128,8 +157,13 @@ export default function App() {
     };
     initAuth();
 
-    const authListener = supabase.auth.onAuthStateChange((_event, session) => {
+    const authListener = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+      if (session) {
+        await check2FARequirement(session.user?.email);
+      } else {
+        setRequires2FASetup(false);
+      }
     });
 
     return () => {
@@ -154,7 +188,61 @@ export default function App() {
   const isResetPasswordPage = window.location.pathname === '/reset-password' ||
                                window.location.hash.includes('type=recovery');
 
+  // Sprawdź czy to jest publiczna strona formularza (dostępna bez logowania)
+  const isPublicFormPage = window.location.pathname.startsWith('/form/');
+
+  // Sprawdź czy to jest strona odpowiedzi na przypisanie (dostępna bez logowania)
+  const isAssignmentResponsePage = window.location.pathname === '/assignment-response';
+
+  // Publiczny formularz - renderuj bez wymogu logowania
+  if (isPublicFormPage) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/form/:formId" element={<PublicFormPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
+
+  // Strona odpowiedzi na przypisanie - renderuj bez wymogu logowania
+  if (isAssignmentResponsePage) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/assignment-response" element={<AssignmentResponsePage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
+
   if (!session && !isResetPasswordPage) return <Login />;
+
+  // Jeśli użytkownik ma wymagane 2FA ale jeszcze go nie skonfigurował
+  if (session && requires2FASetup) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
+        {/* Tło ozdobne */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-emerald-400/20 dark:bg-emerald-600/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-teal-400/20 dark:bg-teal-600/10 rounded-full blur-3xl"></div>
+        </div>
+        <TwoFactorSetup
+          userEmail={session.user?.email}
+          isRequired={true}
+          onEnabled={() => {
+            setRequires2FASetup(false);
+          }}
+          onClose={async () => {
+            // Wyloguj użytkownika jeśli odmówi konfiguracji 2FA
+            await supabase.auth.signOut();
+          }}
+        />
+      </div>
+    );
+  }
 
   // Jeśli użytkownik jest na stronie reset-password (z tokenem w URL)
   if (isResetPasswordPage) {
@@ -227,6 +315,9 @@ export default function App() {
                 } />
                 <Route path="/mail" element={
                   <ProtectedRoute resource="module:mail"><MailModule /></ProtectedRoute>
+                } />
+                <Route path="/forms" element={
+                  <ProtectedRoute resource="module:forms"><FormsModule userEmail={session.user?.email} /></ProtectedRoute>
                 } />
                 <Route path="/settings" element={
                   <ProtectedRoute resource="module:settings"><GlobalSettings /></ProtectedRoute>

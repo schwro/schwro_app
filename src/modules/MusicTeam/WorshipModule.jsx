@@ -13,6 +13,7 @@ import CustomSelect from '../../components/CustomSelect';
 import ResponsiveTabs from '../../components/ResponsiveTabs';
 import { useUserRole } from '../../hooks/useUserRole';
 import { hasTabAccess } from '../../utils/tabPermissions';
+import { useScheduleAssignments } from '../../hooks/useScheduleAssignments';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { PitchShifter } from 'soundtouchjs';
@@ -724,7 +725,7 @@ const formatChordsForPDF = (htmlContent, baseFontSize = 14) => {
 
 // --- KOMPONENTY POMOCNICZE DLA GRAFIKU ---
 
-const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
+const TableMultiSelect = ({ options, value, onChange, absentMembers = [], getAssignmentStatus }) => {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef(null);
   const coords = useDropdownPosition(triggerRef, isOpen);
@@ -752,6 +753,19 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
     onChange(newSelection.join(', '));
   };
 
+  // Funkcja do pobierania koloru tła na podstawie statusu przypisania
+  const getItemStyles = (name) => {
+    const status = getAssignmentStatus ? getAssignmentStatus(name) : null;
+    if (status === 'accepted') {
+      return 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-800';
+    }
+    if (status === 'pending') {
+      return 'bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-800';
+    }
+    // default (self-assigned lub brak statusu)
+    return 'bg-pink-50 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 border-pink-100 dark:border-pink-800';
+  };
+
   return (
     <div ref={triggerRef} className="relative w-full">
       <div
@@ -762,7 +776,7 @@ const TableMultiSelect = ({ options, value, onChange, absentMembers = [] }) => {
           <span className="text-gray-400 dark:text-gray-500 text-[10px] italic">Wybierz...</span>
         ) : (
           selectedItems.map((item, idx) => (
-            <span key={idx} className="bg-pink-50 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 px-1.5 py-0.5 rounded text-[10px] border border-pink-100 dark:border-pink-800 whitespace-nowrap">
+            <span key={idx} className={`px-1.5 py-0.5 rounded text-[10px] border whitespace-nowrap ${getItemStyles(item)}`}>
               {item}
             </span>
           ))
@@ -883,7 +897,7 @@ const AbsenceMultiSelect = ({ options, value, onChange }) => {
   );
 };
 
-const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram, roles, memberRoles = [] }) => {
+const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram, roles, memberRoles = [], currentUser, assignments = [], onCreateAssignment, onRemoveAssignment }) => {
   const [expandedMonths, setExpandedMonths] = useState({});
 
   const groupedPrograms = programs.reduce((acc, prog) => {
@@ -925,6 +939,45 @@ const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram, roles, memberRo
     const programToUpdate = programs.find(p => p.id === programId);
     if (!programToUpdate) return;
     const currentZespol = programToUpdate.zespol || {};
+
+    // Sprawdź co się zmieniło (dodane/usunięte osoby)
+    const oldNames = currentZespol[field] ? currentZespol[field].split(',').map(s => s.trim()).filter(Boolean) : [];
+    const newNames = value ? value.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    const addedNames = newNames.filter(n => !oldNames.includes(n));
+    const removedNames = oldNames.filter(n => !newNames.includes(n));
+
+    // Dla każdej dodanej osoby utwórz przypisanie
+    for (const name of addedNames) {
+      const member = worshipTeam.find(m => m.full_name === name);
+      const isSelfAssignment = currentUser?.name === name;
+
+      console.log('[ScheduleAssignment] Creating:', { programId, name, currentUser, isSelfAssignment });
+
+      if (onCreateAssignment && currentUser?.email) {
+        const result = await onCreateAssignment({
+          programId,
+          teamType: 'worship',
+          roleKey: field,
+          assignedName: name,
+          assignedEmail: member?.email || null,
+          assignedByEmail: currentUser?.email,
+          assignedByName: currentUser?.name,
+          isSelfAssignment
+        });
+        console.log('[ScheduleAssignment] Result:', result);
+      } else {
+        console.warn('[ScheduleAssignment] Skipped - missing callback or currentUser.email', { onCreateAssignment: !!onCreateAssignment, currentUser });
+      }
+    }
+
+    // Dla każdej usuniętej osoby usuń przypisanie
+    for (const name of removedNames) {
+      if (onRemoveAssignment) {
+        await onRemoveAssignment(programId, 'worship', field, name);
+      }
+    }
+
     const updatedZespol = { ...currentZespol, [field]: value };
     await onUpdateProgram(programId, { zespol: updatedZespol });
   };
@@ -957,6 +1010,17 @@ const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram, roles, memberRo
         { key: 'bas', label: 'Bas', roleId: null },
         { key: 'cajon', label: 'Cajon', roleId: null },
       ];
+
+  // Funkcja do pobierania statusu przypisania dla osoby
+  const getAssignmentStatus = (programId, roleKey, assignedName) => {
+    const assignment = assignments.find(
+      a => a.program_id === programId &&
+           a.team_type === 'worship' &&
+           a.role_key === roleKey &&
+           a.assigned_name === assignedName
+    );
+    return assignment?.status || null;
+  };
 
   // Funkcja do filtrowania członków zespołu według przypisania do służby
   const getMembersForRole = (roleId) => {
@@ -1027,6 +1091,7 @@ const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram, roles, memberRo
                                   value={prog.zespol?.[col.key] || ''}
                                   onChange={(val) => updateRole(prog.id, col.key, val)}
                                   absentMembers={absentList}
+                                  getAssignmentStatus={(name) => getAssignmentStatus(prog.id, col.key, name)}
                                 />
                               </td>
                             ))}
@@ -1965,6 +2030,14 @@ export default function WorshipModule() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState({ email: '', name: '' });
 
+  // Hook do zarządzania przypisaniami do służby
+  const {
+    assignments,
+    fetchAssignmentsForPrograms,
+    createAssignment,
+    removeAssignment
+  } = useScheduleAssignments();
+
   const [showSongModal, setShowSongModal] = useState(false);
   const [songModalKey, setSongModalKey] = useState(0); // Key do wymuszenia remount SongForm
   const [showSongDetails, setShowSongDetails] = useState(null);
@@ -2192,6 +2265,12 @@ export default function WorshipModule() {
       setTeam(t || []);
       setSongs(s || []);
       setPrograms(p || []);
+
+      // Pobierz przypisania dla programów
+      if (p && p.length > 0) {
+        const programIds = p.map(prog => prog.id);
+        await fetchAssignmentsForPrograms(programIds);
+      }
 
       // Pobierz unikalne tagi z wszystkich pieśni + z localStorage
       const tagsSet = new Set();
@@ -2467,6 +2546,10 @@ export default function WorshipModule() {
           onUpdateProgram={handleProgramUpdate}
           roles={worshipRoles}
           memberRoles={memberRoles}
+          currentUser={currentUser}
+          assignments={assignments}
+          onCreateAssignment={createAssignment}
+          onRemoveAssignment={removeAssignment}
         />
       </section>
       )}

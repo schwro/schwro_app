@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Music, Video, Users, BookOpen, Mic, History, Clock, X, Save, ChevronDown, GripVertical, Trash2, Search, Check } from 'lucide-react';
+import { Calendar, Music, Video, Users, BookOpen, Mic, History, Clock, X, Save, ChevronDown, GripVertical, Trash2, Search, Check, Inbox, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { useScheduleAssignments } from '../../../hooks/useScheduleAssignments';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -304,9 +305,86 @@ const ProgramModal = ({ isOpen, onClose, programId, onSave }) => {
 // MAIN WIDGET
 // ============================================
 
-export default function MyMinistryWidget({ upcomingMinistry, pastMinistry }) {
+export default function MyMinistryWidget({ upcomingMinistry, pastMinistry, userEmail }) {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [modalState, setModalState] = useState({ isOpen: false, programId: null });
+  const [pendingAssignments, setPendingAssignments] = useState([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [processingId, setProcessingId] = useState(null);
+
+  const { fetchPendingAssignments, acceptAssignment, rejectAssignment } = useScheduleAssignments();
+
+  // Pobierz oczekujące przypisania
+  useEffect(() => {
+    const loadPendingAssignments = async () => {
+      if (!userEmail) return;
+      setLoadingAssignments(true);
+      const data = await fetchPendingAssignments(userEmail);
+      setPendingAssignments(data);
+      setLoadingAssignments(false);
+    };
+
+    loadPendingAssignments();
+
+    // Subskrybuj zmiany
+    const channel = supabase
+      .channel('my-assignments')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'schedule_assignments',
+        filter: `assigned_email=eq.${userEmail}`
+      }, () => {
+        loadPendingAssignments();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userEmail, fetchPendingAssignments]);
+
+  // Obsługa akceptacji przypisania
+  const handleAccept = async (assignmentId) => {
+    setProcessingId(assignmentId);
+    const result = await acceptAssignment(assignmentId);
+    if (result.success) {
+      setPendingAssignments(prev => prev.filter(a => a.id !== assignmentId));
+    }
+    setProcessingId(null);
+  };
+
+  // Obsługa odrzucenia przypisania
+  const handleReject = async (assignment) => {
+    setProcessingId(assignment.id);
+    const result = await rejectAssignment(assignment.id);
+
+    if (result.success) {
+      // Usuń z grafiku programu
+      const { data: programData } = await supabase
+        .from('programs')
+        .select('zespol')
+        .eq('id', assignment.program_id)
+        .single();
+
+      if (programData?.zespol) {
+        const zespol = { ...programData.zespol };
+        const roleKey = assignment.role_key;
+        const currentValue = zespol[roleKey] || '';
+        const names = currentValue.split(',').map(s => s.trim()).filter(Boolean);
+        const newNames = names.filter(n => n !== assignment.assigned_name);
+        zespol[roleKey] = newNames.join(', ');
+
+        await supabase
+          .from('programs')
+          .update({ zespol })
+          .eq('id', assignment.program_id);
+      }
+
+      setPendingAssignments(prev => prev.filter(a => a.id !== assignment.id));
+    }
+    setProcessingId(null);
+  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -427,20 +505,106 @@ export default function MyMinistryWidget({ upcomingMinistry, pastMinistry }) {
     );
   };
 
+  // Renderuj listę oczekujących przypisań
+  const renderPendingAssignments = () => {
+    if (loadingAssignments) {
+      return (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
+        </div>
+      );
+    }
+
+    if (!pendingAssignments || pendingAssignments.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+            <Inbox size={32} className="text-gray-400" />
+          </div>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">
+            Brak oczekujących sugestii
+          </p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            Gdy ktoś Cię przypisze do służby, zobaczysz to tutaj
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {pendingAssignments.map((assignment) => (
+          <div
+            key={assignment.id}
+            className="p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20"
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
+                  <Music size={18} className="text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-gray-800 dark:text-white truncate">
+                    {ROLE_LABELS[assignment.role_key] || assignment.role_key}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {assignment.programs?.date ? formatDate(assignment.programs.date) : 'Nieznana data'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              Przypisał/a: <span className="font-medium">{assignment.assigned_by_name || 'Nieznany'}</span>
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleAccept(assignment.id)}
+                disabled={processingId === assignment.id}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+              >
+                {processingId === assignment.id ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <CheckCircle size={16} />
+                )}
+                Akceptuję
+              </button>
+              <button
+                onClick={() => handleReject(assignment)}
+                disabled={processingId === assignment.id}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+              >
+                {processingId === assignment.id ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <XCircle size={16} />
+                )}
+                Odrzucam
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Tabs */}
-      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
+      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
         <button
           onClick={() => setActiveTab('upcoming')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
             activeTab === 'upcoming'
               ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
-          <Clock size={16} />
-          Nadchodzące
+          <Clock size={14} />
+          <span className="hidden sm:inline">Nadchodzące</span>
+          <span className="sm:hidden">Nowe</span>
           {upcomingMinistry?.length > 0 && (
             <span className="px-1.5 py-0.5 text-xs rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400">
               {upcomingMinistry.length}
@@ -448,20 +612,36 @@ export default function MyMinistryWidget({ upcomingMinistry, pastMinistry }) {
           )}
         </button>
         <button
+          onClick={() => setActiveTab('suggestions')}
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+            activeTab === 'suggestions'
+              ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <Inbox size={14} />
+          Sugestie
+          {pendingAssignments?.length > 0 && (
+            <span className="px-1.5 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+              {pendingAssignments.length}
+            </span>
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab('past')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
             activeTab === 'past'
               ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
-          <History size={16} />
+          <History size={14} />
           Historia
         </button>
       </div>
 
       {/* Content */}
-      {renderMinistryList(currentList, activeTab === 'past')}
+      {activeTab === 'suggestions' ? renderPendingAssignments() : renderMinistryList(currentList, activeTab === 'past')}
 
       {/* Modal */}
       <ProgramModal
