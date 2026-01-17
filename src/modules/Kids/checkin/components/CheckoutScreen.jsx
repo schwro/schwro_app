@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useCheckin } from '../hooks/useCheckin';
 import VirtualKeypad from './VirtualKeypad';
+import { Search, Check, CheckCircle, Loader2 } from 'lucide-react';
 
 export default function CheckoutScreen({ session }) {
-  const [searchMode, setSearchMode] = useState('code'); // 'code' or 'phone'
+  const [searchMode, setSearchMode] = useState('code');
   const [searchValue, setSearchValue] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedCheckins, setSelectedCheckins] = useState({});
@@ -26,11 +27,8 @@ export default function CheckoutScreen({ session }) {
       if (searchMode === 'code') {
         results = await searchBySecurityCode(session.id, searchValue);
       } else {
-        // Phone search - get household, then find active checkins
         const households = await searchByPhone(searchValue);
         if (households.length > 0) {
-          // For simplicity, search by security code for each household's kids
-          // In a real scenario, you'd want a dedicated endpoint
           for (const household of households) {
             const householdResults = await searchBySecurityCode(session.id, '');
             results = [
@@ -43,7 +41,6 @@ export default function CheckoutScreen({ session }) {
 
       setSearchResults(results);
 
-      // Auto-select all if only one result
       if (results.length === 1) {
         setSelectedCheckins({ [results[0].id]: true });
       }
@@ -84,7 +81,6 @@ export default function CheckoutScreen({ session }) {
       setCheckedOutNames(names);
       setCheckoutSuccess(true);
 
-      // Reset after 3 seconds
       setTimeout(() => {
         setCheckoutSuccess(false);
         setSearchValue('');
@@ -106,36 +102,14 @@ export default function CheckoutScreen({ session }) {
   // Success screen
   if (checkoutSuccess) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '60px 20px',
-          textAlign: 'center'
-        }}
-      >
-        <div
-          style={{
-            width: '80px',
-            height: '80px',
-            backgroundColor: '#dcfce7',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '24px'
-          }}
-        >
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3">
-            <path d="M20 6L9 17l-5-5" />
-          </svg>
+      <div className="flex flex-col items-center justify-center px-5 py-16 text-center">
+        <div className="w-20 h-20 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle size={40} className="text-green-500 dark:text-green-400" />
         </div>
-        <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: '#22c55e', marginBottom: '16px' }}>
+        <h2 className="text-2xl font-bold text-green-500 dark:text-green-400 mb-4">
           Odebrano!
         </h2>
-        <p style={{ fontSize: '18px', color: '#374151' }}>
+        <p className="text-lg text-gray-700 dark:text-gray-300">
           {checkedOutNames.join(', ')}
         </p>
       </div>
@@ -144,47 +118,36 @@ export default function CheckoutScreen({ session }) {
 
   if (!session) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+      <div className="p-10 text-center text-gray-500 dark:text-gray-400">
         Brak aktywnej sesji. Przejdź do ustawień, aby utworzyć sesję.
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '40px 20px'
-      }}
-    >
+    <div className="flex flex-col items-center px-5 py-10">
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#1f2937', marginBottom: '8px' }}>
+      <div className="text-center mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Checkout - Odbiór dzieci
         </h1>
-        <p style={{ fontSize: '16px', color: '#6b7280' }}>
+        <p className="text-base text-gray-600 dark:text-gray-400">
           Wpisz kod bezpieczeństwa z biletu
         </p>
       </div>
 
       {/* Search mode toggle */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+      <div className="flex gap-2 mb-6">
         <button
           onClick={() => {
             setSearchMode('code');
             handleClear();
           }}
-          style={{
-            padding: '10px 24px',
-            fontSize: '14px',
-            backgroundColor: searchMode === 'code' ? '#3b82f6' : '#f3f4f6',
-            color: searchMode === 'code' ? '#ffffff' : '#374151',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer'
-          }}
+          className={`px-6 py-2.5 text-sm font-medium rounded-xl transition
+            ${searchMode === 'code'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
         >
           Po kodzie
         </button>
@@ -193,15 +156,11 @@ export default function CheckoutScreen({ session }) {
             setSearchMode('phone');
             handleClear();
           }}
-          style={{
-            padding: '10px 24px',
-            fontSize: '14px',
-            backgroundColor: searchMode === 'phone' ? '#3b82f6' : '#f3f4f6',
-            color: searchMode === 'phone' ? '#ffffff' : '#374151',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer'
-          }}
+          className={`px-6 py-2.5 text-sm font-medium rounded-xl transition
+            ${searchMode === 'phone'
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
         >
           Po telefonie
         </button>
@@ -209,33 +168,15 @@ export default function CheckoutScreen({ session }) {
 
       {/* Search input */}
       {searchMode === 'code' ? (
-        <div style={{ marginBottom: '24px' }}>
-          {/* Code input display */}
-          <div
-            style={{
-              display: 'flex',
-              gap: '8px',
-              justifyContent: 'center',
-              marginBottom: '16px'
-            }}
-          >
+        <div className="mb-6">
+          <div className="flex gap-2 justify-center mb-4">
             <input
               type="text"
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value.toUpperCase())}
               placeholder="np. A34"
               maxLength={4}
-              style={{
-                width: '150px',
-                padding: '16px',
-                fontSize: '32px',
-                fontWeight: 'bold',
-                textAlign: 'center',
-                border: '3px solid #e5e7eb',
-                borderRadius: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '4px'
-              }}
+              className="w-40 px-4 py-4 text-3xl font-bold text-center border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase tracking-widest focus:border-pink-500 dark:focus:border-pink-400 focus:outline-none transition"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSearch();
               }}
@@ -244,23 +185,27 @@ export default function CheckoutScreen({ session }) {
           <button
             onClick={handleSearch}
             disabled={!searchValue || searching}
-            style={{
-              width: '100%',
-              padding: '14px',
-              fontSize: '16px',
-              fontWeight: '600',
-              backgroundColor: searchValue ? '#3b82f6' : '#e5e7eb',
-              color: searchValue ? '#ffffff' : '#9ca3af',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: searchValue ? 'pointer' : 'not-allowed'
-            }}
+            className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold rounded-xl transition
+              ${searchValue
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white hover:shadow-lg cursor-pointer'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
           >
-            {searching ? 'Szukam...' : 'Szukaj'}
+            {searching ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Szukam...
+              </>
+            ) : (
+              <>
+                <Search size={18} />
+                Szukaj
+              </>
+            )}
           </button>
         </div>
       ) : (
-        <div style={{ marginBottom: '24px' }}>
+        <div className="mb-6">
           <VirtualKeypad
             value={searchValue}
             onChange={setSearchValue}
@@ -270,56 +215,38 @@ export default function CheckoutScreen({ session }) {
           <button
             onClick={handleSearch}
             disabled={searchValue.length !== 4 || searching}
-            style={{
-              width: '100%',
-              marginTop: '16px',
-              padding: '14px',
-              fontSize: '16px',
-              fontWeight: '600',
-              backgroundColor: searchValue.length === 4 ? '#3b82f6' : '#e5e7eb',
-              color: searchValue.length === 4 ? '#ffffff' : '#9ca3af',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: searchValue.length === 4 ? 'pointer' : 'not-allowed'
-            }}
+            className={`w-full mt-4 flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold rounded-xl transition
+              ${searchValue.length === 4
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white hover:shadow-lg cursor-pointer'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
           >
-            {searching ? 'Szukam...' : 'Szukaj rodziny'}
+            {searching ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Szukam...
+              </>
+            ) : (
+              <>
+                <Search size={18} />
+                Szukaj rodziny
+              </>
+            )}
           </button>
         </div>
       )}
 
       {/* Results */}
       {searchResults.length > 0 && (
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '500px',
-            marginTop: '16px'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '12px'
-            }}
-          >
-            <span style={{ fontSize: '14px', color: '#6b7280' }}>
+        <div className="w-full max-w-lg mt-4">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
               Znaleziono {searchResults.length} {searchResults.length === 1 ? 'dziecko' : 'dzieci'}
             </span>
             {searchResults.length > 1 && (
               <button
                 onClick={handleSelectAll}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '13px',
-                  backgroundColor: '#f3f4f6',
-                  color: '#374151',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
+                className="px-3 py-1.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition"
               >
                 Zaznacz wszystkie
               </button>
@@ -327,7 +254,7 @@ export default function CheckoutScreen({ session }) {
           </div>
 
           {/* Children list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="flex flex-col gap-3">
             {searchResults.map((checkin) => {
               const name = checkin.is_guest
                 ? checkin.guest_name
@@ -338,60 +265,34 @@ export default function CheckoutScreen({ session }) {
                 <div
                   key={checkin.id}
                   onClick={() => handleToggleSelect(checkin.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    padding: '16px 20px',
-                    backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
-                    border: `2px solid ${isSelected ? '#3b82f6' : '#e5e7eb'}`,
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition
+                    ${isSelected
+                      ? 'bg-pink-50 dark:bg-pink-900/20 border-pink-500 dark:border-pink-400'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-pink-300 dark:hover:border-pink-600'
+                    }`}
                 >
                   {/* Checkbox */}
                   <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      border: `2px solid ${isSelected ? '#3b82f6' : '#d1d5db'}`,
-                      borderRadius: '6px',
-                      backgroundColor: isSelected ? '#3b82f6' : '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}
+                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition
+                      ${isSelected
+                        ? 'bg-pink-600 border-pink-600'
+                        : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600'
+                      }`}
                   >
-                    {isSelected && (
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path d="M13.5 4.5L6 12L2.5 8.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    )}
+                    {isSelected && <Check size={14} className="text-white" />}
                   </div>
 
                   {/* Info */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
+                  <div className="flex-1">
+                    <div className="text-base font-semibold text-gray-900 dark:text-white">
                       {name}
                       {checkin.is_guest && (
-                        <span
-                          style={{
-                            marginLeft: '8px',
-                            backgroundColor: '#fbbf24',
-                            color: '#000',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontSize: '10px',
-                            fontWeight: 'bold'
-                          }}
-                        >
+                        <span className="ml-2 bg-amber-400 dark:bg-amber-500 text-black px-1.5 py-0.5 rounded text-[10px] font-bold">
                           GOŚĆ
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
                       {checkin.checkin_locations?.name}
                       {' • '}
                       Check-in:{' '}
@@ -403,7 +304,7 @@ export default function CheckoutScreen({ session }) {
                   </div>
 
                   {/* Code */}
-                  <div style={{ color: '#ec4899', fontWeight: '600', fontSize: '18px' }}>
+                  <div className="text-pink-600 dark:text-pink-400 font-bold text-lg">
                     {checkin.security_code}
                   </div>
                 </div>
@@ -415,51 +316,36 @@ export default function CheckoutScreen({ session }) {
           <button
             onClick={handleCheckout}
             disabled={selectedCount === 0 || loading}
-            style={{
-              width: '100%',
-              marginTop: '24px',
-              padding: '16px',
-              fontSize: '18px',
-              fontWeight: '600',
-              backgroundColor: selectedCount > 0 ? '#22c55e' : '#e5e7eb',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: selectedCount > 0 ? 'pointer' : 'not-allowed'
-            }}
+            className={`w-full mt-6 flex items-center justify-center gap-2 px-6 py-4 text-lg font-semibold rounded-xl transition
+              ${selectedCount > 0
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg cursor-pointer'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
           >
-            {loading ? 'Przetwarzanie...' : `Odbierz ${selectedCount > 0 ? `(${selectedCount})` : ''}`}
+            {loading ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                Przetwarzanie...
+              </>
+            ) : (
+              <>
+                <Check size={20} />
+                Odbierz {selectedCount > 0 ? `(${selectedCount})` : ''}
+              </>
+            )}
           </button>
         </div>
       )}
 
       {/* No results */}
       {searchResults.length === 0 && searchValue && !searching && (
-        <div
-          style={{
-            marginTop: '24px',
-            textAlign: 'center',
-            padding: '20px',
-            backgroundColor: '#fef3c7',
-            borderRadius: '12px',
-            maxWidth: '400px'
-          }}
-        >
-          <p style={{ fontSize: '16px', color: '#92400e' }}>
+        <div className="mt-6 text-center p-5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl max-w-md">
+          <p className="text-base text-amber-800 dark:text-amber-200 mb-4">
             Nie znaleziono aktywnych check-inów dla tego kodu.
           </p>
           <button
             onClick={handleClear}
-            style={{
-              marginTop: '12px',
-              padding: '10px 20px',
-              fontSize: '14px',
-              backgroundColor: '#ffffff',
-              color: '#374151',
-              border: '1px solid #d1d5db',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
+            className="px-5 py-2.5 text-base font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition"
           >
             Spróbuj ponownie
           </button>

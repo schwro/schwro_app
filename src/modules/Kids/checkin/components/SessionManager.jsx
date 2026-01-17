@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, getCachedUser } from '../../../../lib/supabase';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 
 export default function SessionManager({ onSessionChange }) {
   const [sessions, setSessions] = useState([]);
@@ -106,104 +107,88 @@ export default function SessionManager({ onSessionChange }) {
     }
   };
 
+  const inputClasses = "w-full px-4 py-3 text-base border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-pink-500 dark:focus:border-pink-400 focus:outline-none transition";
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>Sesje Check-in</h3>
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Sesje Check-in</h3>
         <button
           onClick={() => setShowForm(!showForm)}
-          style={{
-            padding: '10px 20px',
-            fontSize: '14px',
-            backgroundColor: '#3b82f6',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer'
-          }}
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition"
         >
-          + Nowa sesja
+          <Plus size={18} />
+          Nowa sesja
         </button>
       </div>
 
       {/* Create form */}
       {showForm && (
-        <div
-          style={{
-            backgroundColor: '#f9fafb',
-            padding: '20px',
-            borderRadius: '12px',
-            marginBottom: '20px'
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Nazwa sesji</label>
+        <div className="bg-gray-50 dark:bg-gray-800 p-5 rounded-2xl mb-5 border border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Nazwa sesji
+              </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="np. Nabożeństwo niedzielne"
-                style={inputStyle}
+                className={inputClasses}
               />
             </div>
             <div>
-              <label style={labelStyle}>Data</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Data
+              </label>
               <input
                 type="date"
                 value={formData.session_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, session_date: e.target.value }))}
-                style={inputStyle}
+                className={inputClasses}
               />
             </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Start</label>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Start
+                </label>
                 <input
                   type="time"
                   value={formData.start_time}
                   onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
-                  style={inputStyle}
+                  className={inputClasses}
                 />
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Koniec</label>
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Koniec
+                </label>
                 <input
                   type="time"
                   value={formData.end_time}
                   onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
-                  style={inputStyle}
+                  className={inputClasses}
                 />
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+          <div className="flex gap-3 mt-4">
             <button
               onClick={() => setShowForm(false)}
-              style={{
-                padding: '10px 20px',
-                fontSize: '14px',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
+              className="px-5 py-2.5 text-base font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition"
             >
               Anuluj
             </button>
             <button
               onClick={handleCreate}
               disabled={!formData.name || !formData.session_date}
-              style={{
-                padding: '10px 20px',
-                fontSize: '14px',
-                backgroundColor: formData.name ? '#22c55e' : '#e5e7eb',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: formData.name ? 'pointer' : 'not-allowed'
-              }}
+              className={`px-5 py-2.5 text-base font-medium rounded-xl transition
+                ${formData.name && formData.session_date
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg cursor-pointer'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                }`}
             >
               Utwórz sesję
             </button>
@@ -213,47 +198,35 @@ export default function SessionManager({ onSessionChange }) {
 
       {/* Sessions list */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+        <div className="flex items-center justify-center gap-3 py-10 text-gray-500 dark:text-gray-400">
+          <Loader2 size={20} className="animate-spin" />
           Ładowanie...
         </div>
       ) : sessions.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+        <div className="text-center py-10 text-gray-500 dark:text-gray-400">
           Brak sesji. Utwórz pierwszą sesję check-in.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="flex flex-col gap-3">
           {sessions.map((session) => (
             <div
               key={session.id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '16px 20px',
-                backgroundColor: '#ffffff',
-                border: `2px solid ${session.is_active ? '#22c55e' : '#e5e7eb'}`,
-                borderRadius: '12px'
-              }}
+              className={`flex justify-between items-center p-4 bg-white dark:bg-gray-800 border-2 rounded-2xl transition
+                ${session.is_active
+                  ? 'border-green-500 dark:border-green-400'
+                  : 'border-gray-200 dark:border-gray-700'
+                }`}
             >
               <div>
-                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
+                <div className="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
                   {session.name}
                   {session.is_active && (
-                    <span
-                      style={{
-                        marginLeft: '8px',
-                        backgroundColor: '#dcfce7',
-                        color: '#166534',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '12px'
-                      }}
-                    >
+                    <span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded text-xs font-semibold">
                       Aktywna
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {new Date(session.session_date).toLocaleDateString('pl-PL', {
                     weekday: 'long',
                     day: 'numeric',
@@ -263,34 +236,22 @@ export default function SessionManager({ onSessionChange }) {
                   {session.start_time && ` • ${session.start_time} - ${session.end_time}`}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="flex gap-2">
                 <button
                   onClick={() => handleToggleActive(session)}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    backgroundColor: session.is_active ? '#fee2e2' : '#dcfce7',
-                    color: session.is_active ? '#991b1b' : '#166534',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition
+                    ${session.is_active
+                      ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60'
+                      : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/60'
+                    }`}
                 >
                   {session.is_active ? 'Dezaktywuj' : 'Aktywuj'}
                 </button>
                 <button
                   onClick={() => handleDelete(session.id)}
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: '13px',
-                    backgroundColor: '#f3f4f6',
-                    color: '#6b7280',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
                 >
-                  🗑️
+                  <Trash2 size={18} />
                 </button>
               </div>
             </div>
@@ -300,20 +261,3 @@ export default function SessionManager({ onSessionChange }) {
     </div>
   );
 }
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '13px',
-  fontWeight: '600',
-  color: '#374151',
-  marginBottom: '6px'
-};
-
-const inputStyle = {
-  width: '100%',
-  padding: '10px 14px',
-  fontSize: '14px',
-  border: '2px solid #e5e7eb',
-  borderRadius: '8px',
-  backgroundColor: '#ffffff'
-};

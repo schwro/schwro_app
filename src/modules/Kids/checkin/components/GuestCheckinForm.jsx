@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getSuggestedLocation, calculateAge, formatAgeRange } from '../utils/ageCalculator';
+import { ArrowLeft, UserPlus, Loader2, Check } from 'lucide-react';
 
 export default function GuestCheckinForm({
   locations,
@@ -21,7 +22,6 @@ export default function GuestCheckinForm({
   const [selectedLocation, setSelectedLocation] = useState('');
   const [errors, setErrors] = useState({});
 
-  // Auto-suggest location when birth year changes
   useEffect(() => {
     if (formData.birthYear && locations.length > 0) {
       const suggested = getSuggestedLocation(parseInt(formData.birthYear), locations);
@@ -33,7 +33,6 @@ export default function GuestCheckinForm({
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: null }));
     }
@@ -78,76 +77,35 @@ export default function GuestCheckinForm({
 
   const age = formData.birthYear ? calculateAge(parseInt(formData.birthYear)) : null;
 
-  // Generate year options (from current year - 15 to current year)
   const yearOptions = [];
   for (let year = currentYear; year >= currentYear - 15; year--) {
     yearOptions.push(year);
   }
 
-  const inputStyle = {
-    width: '100%',
-    padding: '14px 16px',
-    fontSize: '16px',
-    border: '2px solid #e5e7eb',
-    borderRadius: '10px',
-    backgroundColor: '#ffffff',
-    outline: 'none',
-    transition: 'border-color 0.15s ease'
-  };
-
-  const inputErrorStyle = {
-    ...inputStyle,
-    borderColor: '#ef4444'
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: '6px'
-  };
+  const inputClasses = (hasError) => `
+    w-full px-4 py-3.5 text-base border-2 rounded-xl bg-white dark:bg-gray-800
+    text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500
+    focus:outline-none focus:border-pink-500 dark:focus:border-pink-400 transition
+    ${hasError ? 'border-red-500 dark:border-red-400' : 'border-gray-200 dark:border-gray-700'}
+  `;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '40px 20px',
-        minHeight: '100%'
-      }}
-    >
+    <div className="flex flex-col items-center px-5 py-10 min-h-full">
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <h1
-          style={{
-            fontSize: '28px',
-            fontWeight: 'bold',
-            color: '#1f2937',
-            marginBottom: '8px'
-          }}
-        >
+      <div className="text-center mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Check-in Gościa
         </h1>
-        <p style={{ fontSize: '16px', color: '#6b7280' }}>
+        <p className="text-base text-gray-600 dark:text-gray-400">
           Wprowadź dane dziecka
         </p>
       </div>
 
       {/* Form */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px',
-          width: '100%',
-          maxWidth: '450px'
-        }}
-      >
+      <div className="flex flex-col gap-5 w-full max-w-md">
         {/* Child name */}
         <div>
-          <label style={labelStyle}>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
             Imię i nazwisko dziecka *
           </label>
           <input
@@ -155,25 +113,23 @@ export default function GuestCheckinForm({
             value={formData.name}
             onChange={(e) => handleChange('name', e.target.value)}
             placeholder="np. Jan Kowalski"
-            style={errors.name ? inputErrorStyle : inputStyle}
+            className={inputClasses(errors.name)}
           />
           {errors.name && (
-            <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '4px' }}>
-              {errors.name}
-            </div>
+            <div className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.name}</div>
           )}
         </div>
 
         {/* Birth year and age */}
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
               Rok urodzenia *
             </label>
             <select
               value={formData.birthYear}
               onChange={(e) => handleChange('birthYear', e.target.value)}
-              style={errors.birthYear ? inputErrorStyle : inputStyle}
+              className={inputClasses(errors.birthYear)}
             >
               <option value="">Wybierz...</option>
               {yearOptions.map(year => (
@@ -181,24 +137,14 @@ export default function GuestCheckinForm({
               ))}
             </select>
             {errors.birthYear && (
-              <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '4px' }}>
-                {errors.birthYear}
-              </div>
+              <div className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.birthYear}</div>
             )}
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>
+          <div className="flex-1">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
               Wiek
             </label>
-            <div
-              style={{
-                padding: '14px 16px',
-                fontSize: '16px',
-                backgroundColor: '#f3f4f6',
-                borderRadius: '10px',
-                color: age !== null ? '#1f2937' : '#9ca3af'
-              }}
-            >
+            <div className="px-4 py-3.5 text-base bg-gray-100 dark:bg-gray-800 rounded-xl text-gray-700 dark:text-gray-300">
               {age !== null ? `${age} lat` : '-'}
             </div>
           </div>
@@ -206,13 +152,13 @@ export default function GuestCheckinForm({
 
         {/* Location */}
         <div>
-          <label style={labelStyle}>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
             Sala *
           </label>
           <select
             value={selectedLocation}
             onChange={(e) => setSelectedLocation(e.target.value)}
-            style={errors.location ? inputErrorStyle : inputStyle}
+            className={inputClasses(errors.location)}
           >
             <option value="">Wybierz salę...</option>
             {locations.map((loc) => (
@@ -225,33 +171,26 @@ export default function GuestCheckinForm({
             ))}
           </select>
           {errors.location && (
-            <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '4px' }}>
-              {errors.location}
-            </div>
+            <div className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.location}</div>
           )}
           {formData.birthYear && selectedLocation && (
-            <div style={{ fontSize: '13px', color: '#22c55e', marginTop: '4px' }}>
-              ✓ Sala dopasowana do wieku
+            <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-sm mt-1">
+              <Check size={14} />
+              Sala dopasowana do wieku
             </div>
           )}
         </div>
 
         {/* Separator */}
-        <div
-          style={{
-            borderTop: '1px solid #e5e7eb',
-            margin: '8px 0',
-            paddingTop: '8px'
-          }}
-        >
-          <span style={{ fontSize: '14px', color: '#6b7280' }}>
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
             Dane rodzica/opiekuna
           </span>
         </div>
 
         {/* Parent name */}
         <div>
-          <label style={labelStyle}>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
             Imię rodzica *
           </label>
           <input
@@ -259,18 +198,16 @@ export default function GuestCheckinForm({
             value={formData.parentName}
             onChange={(e) => handleChange('parentName', e.target.value)}
             placeholder="np. Anna Kowalska"
-            style={errors.parentName ? inputErrorStyle : inputStyle}
+            className={inputClasses(errors.parentName)}
           />
           {errors.parentName && (
-            <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '4px' }}>
-              {errors.parentName}
-            </div>
+            <div className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.parentName}</div>
           )}
         </div>
 
         {/* Parent phone */}
         <div>
-          <label style={labelStyle}>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
             Telefon *
           </label>
           <input
@@ -278,18 +215,16 @@ export default function GuestCheckinForm({
             value={formData.parentPhone}
             onChange={(e) => handleChange('parentPhone', e.target.value)}
             placeholder="np. 123 456 789"
-            style={errors.parentPhone ? inputErrorStyle : inputStyle}
+            className={inputClasses(errors.parentPhone)}
           />
           {errors.parentPhone && (
-            <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '4px' }}>
-              {errors.parentPhone}
-            </div>
+            <div className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.parentPhone}</div>
           )}
         </div>
 
         {/* Optional: Allergies */}
         <div>
-          <label style={labelStyle}>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
             Alergie (opcjonalne)
           </label>
           <input
@@ -297,13 +232,13 @@ export default function GuestCheckinForm({
             value={formData.allergies}
             onChange={(e) => handleChange('allergies', e.target.value)}
             placeholder="np. orzechy, mleko"
-            style={inputStyle}
+            className={inputClasses(false)}
           />
         </div>
 
         {/* Optional: Notes */}
         <div>
-          <label style={labelStyle}>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
             Uwagi (opcjonalne)
           </label>
           <textarea
@@ -311,87 +246,42 @@ export default function GuestCheckinForm({
             onChange={(e) => handleChange('notes', e.target.value)}
             placeholder="Dodatkowe informacje..."
             rows={2}
-            style={{
-              ...inputStyle,
-              resize: 'vertical',
-              minHeight: '60px'
-            }}
+            className={`${inputClasses(false)} resize-vertical min-h-[60px]`}
           />
         </div>
 
         {/* Actions */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '16px',
-            marginTop: '16px'
-          }}
-        >
+        <div className="flex gap-4 mt-4">
           <button
             onClick={onBack}
-            style={{
-              flex: 1,
-              padding: '16px',
-              fontSize: '16px',
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: 'pointer'
-            }}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-4 text-base font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition"
           >
-            ← Wróć
+            <ArrowLeft size={18} />
+            Wróć
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading}
-            style={{
-              flex: 2,
-              padding: '16px',
-              fontSize: '18px',
-              fontWeight: '600',
-              backgroundColor: '#22c55e',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
+            className={`flex-[2] flex items-center justify-center gap-2 px-4 py-4 text-lg font-semibold rounded-xl transition
+              ${loading
+                ? 'bg-green-400 dark:bg-green-600 cursor-not-allowed opacity-70'
+                : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg cursor-pointer'
+              }`}
           >
             {loading ? (
               <>
-                <div
-                  style={{
-                    width: '20px',
-                    height: '20px',
-                    border: '2px solid #ffffff',
-                    borderTopColor: 'transparent',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite'
-                  }}
-                />
+                <Loader2 size={20} className="animate-spin" />
                 Meldowanie...
               </>
             ) : (
-              'Zamelduj gościa'
+              <>
+                <UserPlus size={20} />
+                Zamelduj gościa
+              </>
             )}
           </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        input:focus, select:focus, textarea:focus {
-          border-color: #3b82f6 !important;
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useAttendance } from '../hooks/useAttendance';
+import { ClipboardList, LayoutGrid, RefreshCw, Search, Loader2 } from 'lucide-react';
 
 export default function AttendanceDashboard({ session, locations }) {
-  const [view, setView] = useState('list'); // 'list' or 'rooms'
-  const [filter, setFilter] = useState('active'); // 'active', 'all', 'checkedout'
+  const [view, setView] = useState('list');
+  const [filter, setFilter] = useState('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('all');
 
@@ -16,7 +17,6 @@ export default function AttendanceDashboard({ session, locations }) {
     refresh
   } = useAttendance(session?.id);
 
-  // Filter checkins based on filter state
   const getFilteredCheckins = () => {
     let filtered = [];
 
@@ -28,12 +28,10 @@ export default function AttendanceDashboard({ session, locations }) {
       filtered = checkins;
     }
 
-    // Filter by location
     if (selectedLocation !== 'all') {
       filtered = filtered.filter(c => c.location_id === selectedLocation);
     }
 
-    // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(c => {
@@ -48,207 +46,137 @@ export default function AttendanceDashboard({ session, locations }) {
 
   const filteredCheckins = getFilteredCheckins();
 
-  // Get fill status color
   const getFillColor = (percentage) => {
-    if (percentage === null) return '#e5e7eb';
-    if (percentage < 70) return '#22c55e';
-    if (percentage < 90) return '#eab308';
-    return '#ef4444';
+    if (percentage === null) return 'bg-gray-200 dark:bg-gray-700';
+    if (percentage < 70) return 'bg-green-500';
+    if (percentage < 90) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getFillTextColor = (percentage) => {
+    if (percentage === null) return 'text-gray-400 dark:text-gray-500';
+    if (percentage < 70) return 'text-green-600 dark:text-green-400';
+    if (percentage < 90) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
   };
 
   if (!session) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+      <div className="p-10 text-center text-gray-500 dark:text-gray-400">
         Brak aktywnej sesji. Przejdź do ustawień, aby utworzyć sesję.
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div className="p-6">
       {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '24px',
-          flexWrap: 'wrap',
-          gap: '16px'
-        }}
-      >
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Lista obecności
           </h2>
-          <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0' }}>
-            Aktualnie obecnych: <strong>{activeCheckins.length}</strong>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Aktualnie obecnych: <strong className="text-pink-600 dark:text-pink-400">{activeCheckins.length}</strong>
           </p>
         </div>
 
         {/* View toggle */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="flex gap-2">
           <button
             onClick={() => setView('list')}
-            style={{
-              padding: '10px 20px',
-              fontSize: '14px',
-              backgroundColor: view === 'list' ? '#3b82f6' : '#f3f4f6',
-              color: view === 'list' ? '#ffffff' : '#374151',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition
+              ${view === 'list'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
           >
-            📋 Lista
+            <ClipboardList size={18} />
+            Lista
           </button>
           <button
             onClick={() => setView('rooms')}
-            style={{
-              padding: '10px 20px',
-              fontSize: '14px',
-              backgroundColor: view === 'rooms' ? '#3b82f6' : '#f3f4f6',
-              color: view === 'rooms' ? '#ffffff' : '#374151',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition
+              ${view === 'rooms'
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
           >
-            🏠 Sale
+            <LayoutGrid size={18} />
+            Sale
           </button>
           <button
             onClick={refresh}
             disabled={loading}
-            style={{
-              padding: '10px 16px',
-              fontSize: '14px',
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
+            className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition"
           >
-            🔄
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
       {/* Rooms view */}
       {view === 'rooms' && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '16px'
-          }}
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {locationStats.map((loc) => (
             <div
               key={loc.id}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '2px solid #e5e7eb',
-                borderRadius: '16px',
-                padding: '20px',
-                transition: 'all 0.15s ease'
-              }}
+              className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl p-5 transition hover:border-pink-300 dark:hover:border-pink-600"
             >
               {/* Room header */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '12px'
-                }}
-              >
+              <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {loc.name}
                   </h3>
                   {loc.room_number && (
-                    <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       Sala {loc.room_number}
                     </span>
                   )}
                 </div>
-                <div
-                  style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    color: getFillColor(loc.fillPercentage)
-                  }}
-                >
+                <div className={`text-2xl font-bold ${getFillTextColor(loc.fillPercentage)}`}>
                   {loc.currentCount}
-                  {loc.capacity && <span style={{ fontSize: '16px', color: '#9ca3af' }}>/{loc.capacity}</span>}
+                  {loc.capacity && (
+                    <span className="text-base text-gray-400 dark:text-gray-500">/{loc.capacity}</span>
+                  )}
                 </div>
               </div>
 
               {/* Fill bar */}
               {loc.capacity && (
-                <div
-                  style={{
-                    height: '8px',
-                    backgroundColor: '#e5e7eb',
-                    borderRadius: '4px',
-                    overflow: 'hidden',
-                    marginBottom: '12px'
-                  }}
-                >
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
                   <div
-                    style={{
-                      height: '100%',
-                      width: `${Math.min(loc.fillPercentage || 0, 100)}%`,
-                      backgroundColor: getFillColor(loc.fillPercentage),
-                      transition: 'width 0.3s ease'
-                    }}
+                    className={`h-full ${getFillColor(loc.fillPercentage)} transition-all duration-300`}
+                    style={{ width: `${Math.min(loc.fillPercentage || 0, 100)}%` }}
                   />
                 </div>
               )}
 
               {/* Children list */}
               {loc.children.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div className="flex flex-col gap-1.5">
                   {loc.children.map((child) => (
                     <div
                       key={child.id}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '8px 12px',
-                        backgroundColor: '#f9fafb',
-                        borderRadius: '8px',
-                        fontSize: '14px'
-                      }}
+                      className="flex justify-between items-center px-3 py-2 bg-gray-50 dark:bg-gray-900 rounded-lg text-sm"
                     >
-                      <span>
+                      <span className="text-gray-900 dark:text-gray-100">
                         {child.name}
                         {child.isGuest && (
-                          <span
-                            style={{
-                              marginLeft: '6px',
-                              backgroundColor: '#fbbf24',
-                              color: '#000',
-                              padding: '1px 6px',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              fontWeight: 'bold'
-                            }}
-                          >
+                          <span className="ml-1.5 bg-amber-400 dark:bg-amber-500 text-black px-1.5 py-0.5 rounded text-[10px] font-bold">
                             GOŚĆ
                           </span>
                         )}
                       </span>
-                      <span style={{ color: '#ec4899', fontWeight: '600' }}>
+                      <span className="text-pink-600 dark:text-pink-400 font-semibold">
                         {child.securityCode}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ color: '#9ca3af', fontSize: '14px', textAlign: 'center' }}>
+                <div className="text-center text-sm text-gray-400 dark:text-gray-500 py-2">
                   Brak dzieci w tej sali
                 </div>
               )}
@@ -261,42 +189,21 @@ export default function AttendanceDashboard({ session, locations }) {
       {view === 'list' && (
         <>
           {/* Filters */}
-          <div
-            style={{
-              display: 'flex',
-              gap: '16px',
-              marginBottom: '20px',
-              flexWrap: 'wrap'
-            }}
-          >
-            {/* Status filter */}
+          <div className="flex gap-4 mb-5 flex-wrap">
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              style={{
-                padding: '10px 16px',
-                fontSize: '14px',
-                border: '2px solid #e5e7eb',
-                borderRadius: '8px',
-                backgroundColor: '#ffffff'
-              }}
+              className="px-4 py-2.5 text-sm border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-pink-500 dark:focus:border-pink-400 focus:outline-none transition"
             >
               <option value="active">Obecni ({activeCheckins.length})</option>
               <option value="checkedout">Odebrani ({checkedOutCheckins.length})</option>
               <option value="all">Wszyscy ({checkins.length})</option>
             </select>
 
-            {/* Location filter */}
             <select
               value={selectedLocation}
               onChange={(e) => setSelectedLocation(e.target.value)}
-              style={{
-                padding: '10px 16px',
-                fontSize: '14px',
-                border: '2px solid #e5e7eb',
-                borderRadius: '8px',
-                backgroundColor: '#ffffff'
-              }}
+              className="px-4 py-2.5 text-sm border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-pink-500 dark:focus:border-pink-400 focus:outline-none transition"
             >
               <option value="all">Wszystkie sale</option>
               {locations?.map((loc) => (
@@ -306,201 +213,111 @@ export default function AttendanceDashboard({ session, locations }) {
               ))}
             </select>
 
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Szukaj po imieniu lub kodzie..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                padding: '10px 16px',
-                fontSize: '14px',
-                border: '2px solid #e5e7eb',
-                borderRadius: '8px',
-                backgroundColor: '#ffffff',
-                minWidth: '250px'
-              }}
-            />
+            <div className="relative flex-1 min-w-[250px]">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Szukaj po imieniu lub kodzie..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 text-sm border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-pink-500 dark:focus:border-pink-400 focus:outline-none transition"
+              />
+            </div>
           </div>
 
           {/* Table */}
-          <div
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e5e7eb',
-              borderRadius: '12px',
-              overflow: 'hidden'
-            }}
-          >
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f9fafb' }}>
-                  <th style={thStyle}>Imię</th>
-                  <th style={thStyle}>Sala</th>
-                  <th style={thStyle}>Kod</th>
-                  <th style={thStyle}>Check-in</th>
-                  <th style={thStyle}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCheckins.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                   <tr>
-                    <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
-                      Brak wyników
-                    </td>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Imię</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sala</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kod</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Check-in</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                   </tr>
-                ) : (
-                  filteredCheckins.map((checkin) => {
-                    const name = checkin.is_guest
-                      ? checkin.guest_name
-                      : checkin.kids_students?.full_name;
-                    const isCheckedOut = !!checkin.checked_out_at;
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredCheckins.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
+                        Brak wyników
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCheckins.map((checkin) => {
+                      const name = checkin.is_guest
+                        ? checkin.guest_name
+                        : checkin.kids_students?.full_name;
+                      const isCheckedOut = !!checkin.checked_out_at;
 
-                    return (
-                      <tr
-                        key={checkin.id}
-                        style={{
-                          borderTop: '1px solid #e5e7eb',
-                          opacity: isCheckedOut ? 0.6 : 1
-                        }}
-                      >
-                        <td style={tdStyle}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {name}
-                            {checkin.is_guest && (
-                              <span
-                                style={{
-                                  backgroundColor: '#fbbf24',
-                                  color: '#000',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  fontSize: '10px',
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                GOŚĆ
+                      return (
+                        <tr
+                          key={checkin.id}
+                          className={`hover:bg-gray-50 dark:hover:bg-gray-900 transition ${isCheckedOut ? 'opacity-60' : ''}`}
+                        >
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                            <div className="flex items-center gap-2">
+                              {name}
+                              {checkin.is_guest && (
+                                <span className="bg-amber-400 dark:bg-amber-500 text-black px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                  GOŚĆ
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                            {checkin.checkin_locations?.name}
+                            {checkin.checkin_locations?.room_number && (
+                              <span className="text-gray-500 dark:text-gray-500">
+                                {' '}({checkin.checkin_locations.room_number})
                               </span>
                             )}
-                          </div>
-                        </td>
-                        <td style={tdStyle}>
-                          {checkin.checkin_locations?.name}
-                          {checkin.checkin_locations?.room_number && (
-                            <span style={{ color: '#6b7280' }}>
-                              {' '}({checkin.checkin_locations.room_number})
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-pink-600 dark:text-pink-400 font-semibold text-base">
+                              {checkin.security_code}
                             </span>
-                          )}
-                        </td>
-                        <td style={tdStyle}>
-                          <span
-                            style={{
-                              color: '#ec4899',
-                              fontWeight: '600',
-                              fontSize: '16px'
-                            }}
-                          >
-                            {checkin.security_code}
-                          </span>
-                        </td>
-                        <td style={tdStyle}>
-                          {new Date(checkin.checked_in_at).toLocaleTimeString('pl-PL', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-                        <td style={tdStyle}>
-                          {isCheckedOut ? (
-                            <span
-                              style={{
-                                backgroundColor: '#f3f4f6',
-                                color: '#6b7280',
-                                padding: '4px 12px',
-                                borderRadius: '20px',
-                                fontSize: '12px'
-                              }}
-                            >
-                              Odebrany{' '}
-                              {new Date(checkin.checked_out_at).toLocaleTimeString('pl-PL', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                backgroundColor: '#dcfce7',
-                                color: '#166534',
-                                padding: '4px 12px',
-                                borderRadius: '20px',
-                                fontSize: '12px',
-                                fontWeight: '600'
-                              }}
-                            >
-                              Obecny
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                            {new Date(checkin.checked_in_at).toLocaleTimeString('pl-PL', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </td>
+                          <td className="px-4 py-3">
+                            {isCheckedOut ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                Odebrany{' '}
+                                {new Date(checkin.checked_out_at).toLocaleTimeString('pl-PL', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
+                                Obecny
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
 
       {loading && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            backgroundColor: '#3b82f6',
-            color: '#ffffff',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-          }}
-        >
-          <div
-            style={{
-              width: '16px',
-              height: '16px',
-              border: '2px solid #ffffff',
-              borderTopColor: 'transparent',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }}
-          />
+        <div className="fixed bottom-5 right-5 bg-pink-600 text-white px-5 py-3 rounded-xl flex items-center gap-2 shadow-lg">
+          <Loader2 size={18} className="animate-spin" />
           Odświeżanie...
         </div>
       )}
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
-
-const thStyle = {
-  padding: '14px 16px',
-  textAlign: 'left',
-  fontSize: '13px',
-  fontWeight: '600',
-  color: '#6b7280',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px'
-};
-
-const tdStyle = {
-  padding: '14px 16px',
-  fontSize: '14px'
-};

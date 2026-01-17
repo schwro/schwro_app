@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getSuggestedLocation, formatAge, formatAgeRange } from '../utils/ageCalculator';
+import { ArrowLeft, Check, Loader2, AlertTriangle } from 'lucide-react';
 
 export default function MemberCheckin({
   household,
@@ -15,7 +16,6 @@ export default function MemberCheckin({
   const primaryContact = household?.parent_contacts?.find(c => c.is_primary)
     || household?.parent_contacts?.[0];
 
-  // Initialize default locations based on age
   useEffect(() => {
     if (children.length > 0 && locations.length > 0) {
       const defaults = {};
@@ -59,55 +59,23 @@ export default function MemberCheckin({
   const selectedCount = Object.values(selectedMembers).filter(Boolean).length;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '40px 20px',
-        minHeight: '100%'
-      }}
-    >
+    <div className="flex flex-col items-center px-5 py-10 min-h-full">
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <h1
-          style={{
-            fontSize: '28px',
-            fontWeight: 'bold',
-            color: '#1f2937',
-            marginBottom: '8px'
-          }}
-        >
+      <div className="text-center mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
           {household?.family_name}
         </h1>
         {primaryContact && (
-          <p style={{ fontSize: '16px', color: '#6b7280' }}>
+          <p className="text-base text-gray-600 dark:text-gray-400">
             {primaryContact.full_name}
           </p>
         )}
       </div>
 
       {/* Children list */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-          width: '100%',
-          maxWidth: '500px',
-          marginBottom: '32px'
-        }}
-      >
+      <div className="flex flex-col gap-4 w-full max-w-lg mb-8">
         {children.length === 0 ? (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '40px',
-              backgroundColor: '#fef3c7',
-              borderRadius: '12px',
-              color: '#92400e'
-            }}
-          >
+          <div className="text-center p-10 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-800 dark:text-amber-200">
             Brak zarejestrowanych dzieci w tej rodzinie
           </div>
         ) : (
@@ -118,78 +86,38 @@ export default function MemberCheckin({
             return (
               <div
                 key={child.id}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '16px 20px',
-                  backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
-                  border: `2px solid ${isSelected ? '#3b82f6' : '#e5e7eb'}`,
-                  borderRadius: '16px',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`flex flex-col p-5 rounded-2xl border-2 transition-all
+                  ${isSelected
+                    ? 'bg-pink-50 dark:bg-pink-900/20 border-pink-500 dark:border-pink-400'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}
               >
                 {/* Child row */}
                 <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    cursor: 'pointer'
-                  }}
+                  className="flex items-center gap-4 cursor-pointer"
                   onClick={() => handleMemberToggle(child.id)}
                 >
                   {/* Checkbox */}
                   <div
-                    style={{
-                      width: '28px',
-                      height: '28px',
-                      border: `2px solid ${isSelected ? '#3b82f6' : '#d1d5db'}`,
-                      borderRadius: '6px',
-                      backgroundColor: isSelected ? '#3b82f6' : '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      transition: 'all 0.15s ease'
-                    }}
+                    className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all
+                      ${isSelected
+                        ? 'bg-pink-600 border-pink-600'
+                        : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600'
+                      }`}
                   >
-                    {isSelected && (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path
-                          d="M13.5 4.5L6 12L2.5 8.5"
-                          stroke="white"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
+                    {isSelected && <Check size={16} className="text-white" />}
                   </div>
 
                   {/* Name and age */}
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontSize: '18px',
-                        fontWeight: '600',
-                        color: '#1f2937'
-                      }}
-                    >
+                  <div className="flex-1">
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white">
                       {child.full_name}
                     </div>
-                    <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       {formatAge(child.birth_year)}
                       {child.allergies && (
-                        <span
-                          style={{
-                            marginLeft: '8px',
-                            backgroundColor: '#fecaca',
-                            color: '#991b1b',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontSize: '12px'
-                          }}
-                        >
+                        <span className="flex items-center gap-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded text-xs font-medium">
+                          <AlertTriangle size={12} />
                           Alergie
                         </span>
                       )}
@@ -199,29 +127,14 @@ export default function MemberCheckin({
 
                 {/* Location selector - only show when selected */}
                 {isSelected && (
-                  <div style={{ marginTop: '16px', paddingLeft: '44px' }}>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: '14px',
-                        color: '#6b7280',
-                        marginBottom: '8px'
-                      }}
-                    >
+                  <div className="mt-4 pl-11">
+                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
                       Sala:
                     </label>
                     <select
                       value={memberLocations[child.id] || ''}
                       onChange={(e) => handleLocationChange(child.id, e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        fontSize: '16px',
-                        border: '2px solid #e5e7eb',
-                        borderRadius: '8px',
-                        backgroundColor: '#ffffff',
-                        cursor: 'pointer'
-                      }}
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white cursor-pointer focus:border-pink-500 dark:focus:border-pink-400 focus:outline-none transition"
                     >
                       <option value="">Wybierz salę...</option>
                       {locations.map((loc) => (
@@ -234,13 +147,7 @@ export default function MemberCheckin({
                       ))}
                     </select>
                     {selectedLocation && (
-                      <div
-                        style={{
-                          marginTop: '8px',
-                          fontSize: '13px',
-                          color: '#6b7280'
-                        }}
-                      >
+                      <div className="mt-2 text-sm text-gray-500 dark:text-gray-500">
                         Pojemność: {selectedLocation.capacity || '∞'}
                       </div>
                     )}
@@ -253,76 +160,36 @@ export default function MemberCheckin({
       </div>
 
       {/* Action buttons */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '16px',
-          width: '100%',
-          maxWidth: '500px'
-        }}
-      >
+      <div className="flex gap-4 w-full max-w-lg">
         <button
           onClick={onBack}
-          style={{
-            flex: 1,
-            padding: '16px',
-            fontSize: '16px',
-            backgroundColor: '#f3f4f6',
-            color: '#374151',
-            border: 'none',
-            borderRadius: '12px',
-            cursor: 'pointer'
-          }}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-4 text-base font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition"
         >
-          ← Wróć
+          <ArrowLeft size={18} />
+          Wróć
         </button>
         <button
           onClick={handleCheckin}
           disabled={selectedCount === 0 || loading}
-          style={{
-            flex: 2,
-            padding: '16px',
-            fontSize: '18px',
-            fontWeight: '600',
-            backgroundColor: selectedCount > 0 ? '#22c55e' : '#d1d5db',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '12px',
-            cursor: selectedCount > 0 ? 'pointer' : 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px'
-          }}
+          className={`flex-[2] flex items-center justify-center gap-2 px-4 py-4 text-lg font-semibold rounded-xl transition
+            ${selectedCount > 0
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg cursor-pointer'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+            }`}
         >
           {loading ? (
             <>
-              <div
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  border: '2px solid #ffffff',
-                  borderTopColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }}
-              />
+              <Loader2 size={20} className="animate-spin" />
               Meldowanie...
             </>
           ) : (
             <>
+              <Check size={20} />
               Check In {selectedCount > 0 && `(${selectedCount})`}
             </>
           )}
         </button>
       </div>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

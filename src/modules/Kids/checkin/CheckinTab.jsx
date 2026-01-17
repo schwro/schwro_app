@@ -9,6 +9,7 @@ import CheckoutScreen from './components/CheckoutScreen';
 import AttendanceDashboard from './components/AttendanceDashboard';
 import SessionManager from './components/SessionManager';
 import LocationManager from './components/LocationManager';
+import { UserCheck, UserPlus, LogOut, ClipboardList, Settings } from 'lucide-react';
 
 const MODES = {
   CHECKIN: 'checkin',
@@ -33,7 +34,7 @@ export default function CheckinTab() {
   const [selectedHousehold, setSelectedHousehold] = useState(null);
   const [multipleHouseholds, setMultipleHouseholds] = useState([]);
   const [checkinResults, setCheckinResults] = useState([]);
-  const [settingsTab, setSettingsTab] = useState('sessions'); // 'sessions' or 'locations'
+  const [settingsTab, setSettingsTab] = useState('sessions');
 
   const {
     loading,
@@ -45,7 +46,6 @@ export default function CheckinTab() {
     checkInGuest
   } = useCheckin();
 
-  // Initialize session and locations
   useEffect(() => {
     const init = async () => {
       const [sessionData, locationsData] = await Promise.all([
@@ -58,7 +58,6 @@ export default function CheckinTab() {
     init();
   }, []);
 
-  // Reset to start when mode changes
   useEffect(() => {
     if (mode === MODES.CHECKIN) {
       setCheckinStep(CHECKIN_STEPS.PHONE_SEARCH);
@@ -68,7 +67,6 @@ export default function CheckinTab() {
     }
   }, [mode]);
 
-  // Handle phone search results
   const handleHouseholdFound = useCallback((household) => {
     setSelectedHousehold(household);
     setCheckinStep(CHECKIN_STEPS.MEMBER_CHECKIN);
@@ -84,7 +82,6 @@ export default function CheckinTab() {
     setCheckinStep(CHECKIN_STEPS.MEMBER_CHECKIN);
   }, []);
 
-  // Handle check-in for registered children
   const handleMemberCheckin = useCallback(async (members) => {
     if (!session) return;
 
@@ -107,7 +104,6 @@ export default function CheckinTab() {
     }
   }, [session, selectedHousehold, checkInStudent]);
 
-  // Handle guest check-in
   const handleGuestCheckin = useCallback(async (guestData) => {
     if (!session) return;
 
@@ -120,7 +116,6 @@ export default function CheckinTab() {
     }
   }, [session, checkInGuest]);
 
-  // Handle success done - return to start
   const handleSuccessDone = useCallback(() => {
     setCheckinStep(CHECKIN_STEPS.PHONE_SEARCH);
     setSelectedHousehold(null);
@@ -128,7 +123,6 @@ export default function CheckinTab() {
     setCheckinResults([]);
   }, []);
 
-  // Handle back navigation
   const handleBackToSearch = useCallback(() => {
     setCheckinStep(CHECKIN_STEPS.PHONE_SEARCH);
     setSelectedHousehold(null);
@@ -140,69 +134,42 @@ export default function CheckinTab() {
     setMultipleHouseholds([]);
   }, []);
 
-  // Render navigation tabs
+  const navItems = [
+    { id: MODES.CHECKIN, icon: UserCheck, label: 'Check-in' },
+    { id: MODES.GUEST, icon: UserPlus, label: 'Gość' },
+    { id: MODES.CHECKOUT, icon: LogOut, label: 'Checkout' },
+    { id: MODES.ATTENDANCE, icon: ClipboardList, label: 'Lista obecności' },
+    { id: MODES.SETTINGS, icon: Settings, label: 'Ustawienia' }
+  ];
+
   const renderNav = () => (
-    <div
-      style={{
-        display: 'flex',
-        gap: '8px',
-        padding: '12px 16px',
-        backgroundColor: '#f3f4f6',
-        borderBottom: '1px solid #e5e7eb',
-        flexWrap: 'wrap'
-      }}
-    >
-      <NavButton
-        active={mode === MODES.CHECKIN}
-        onClick={() => setMode(MODES.CHECKIN)}
-        icon="📥"
-        label="Check-in"
-      />
-      <NavButton
-        active={mode === MODES.GUEST}
-        onClick={() => setMode(MODES.GUEST)}
-        icon="➕"
-        label="Gość"
-      />
-      <NavButton
-        active={mode === MODES.CHECKOUT}
-        onClick={() => setMode(MODES.CHECKOUT)}
-        icon="📤"
-        label="Checkout"
-      />
-      <NavButton
-        active={mode === MODES.ATTENDANCE}
-        onClick={() => setMode(MODES.ATTENDANCE)}
-        icon="📋"
-        label="Lista obecności"
-      />
-      <NavButton
-        active={mode === MODES.SETTINGS}
-        onClick={() => setMode(MODES.SETTINGS)}
-        icon="⚙️"
-        label="Ustawienia"
-      />
+    <div className="flex gap-2 p-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-wrap">
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = mode === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => setMode(item.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all
+              ${isActive
+                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-lg shadow-pink-500/25'
+                : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-pink-300 dark:hover:border-pink-600 hover:text-pink-600 dark:hover:text-pink-400'
+              }`}
+          >
+            <Icon size={18} />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 
-  // Render session info bar
   const renderSessionBar = () => {
     if (!session) return null;
 
     return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '12px',
-          padding: '8px 16px',
-          backgroundColor: '#dbeafe',
-          borderBottom: '1px solid #bfdbfe',
-          fontSize: '14px',
-          color: '#1d4ed8'
-        }}
-      >
+      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
         <span>📅</span>
         <span>
           <strong>{session.name}</strong>
@@ -217,38 +184,28 @@ export default function CheckinTab() {
     );
   };
 
-  // Render main content based on mode
   const renderContent = () => {
-    // Settings mode
     if (mode === MODES.SETTINGS) {
       return (
-        <div style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+        <div className="p-6">
+          <div className="flex gap-4 mb-6">
             <button
               onClick={() => setSettingsTab('sessions')}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                backgroundColor: settingsTab === 'sessions' ? '#3b82f6' : '#f3f4f6',
-                color: settingsTab === 'sessions' ? '#ffffff' : '#374151',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
+              className={`px-6 py-3 text-base font-medium rounded-xl transition-all
+                ${settingsTab === 'sessions'
+                  ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-lg'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-pink-300 dark:hover:border-pink-600'
+                }`}
             >
               Sesje
             </button>
             <button
               onClick={() => setSettingsTab('locations')}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                backgroundColor: settingsTab === 'locations' ? '#3b82f6' : '#f3f4f6',
-                color: settingsTab === 'locations' ? '#ffffff' : '#374151',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
+              className={`px-6 py-3 text-base font-medium rounded-xl transition-all
+                ${settingsTab === 'locations'
+                  ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white shadow-lg'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-pink-300 dark:hover:border-pink-600'
+                }`}
             >
               Sale
             </button>
@@ -262,17 +219,14 @@ export default function CheckinTab() {
       );
     }
 
-    // Attendance mode
     if (mode === MODES.ATTENDANCE) {
       return <AttendanceDashboard session={session} locations={locations} />;
     }
 
-    // Checkout mode
     if (mode === MODES.CHECKOUT) {
       return <CheckoutScreen session={session} />;
     }
 
-    // Guest mode
     if (mode === MODES.GUEST) {
       return (
         <GuestCheckinForm
@@ -284,7 +238,6 @@ export default function CheckinTab() {
       );
     }
 
-    // Check-in mode (wizard)
     switch (checkinStep) {
       case CHECKIN_STEPS.PHONE_SEARCH:
         return (
@@ -331,29 +284,14 @@ export default function CheckinTab() {
     }
   };
 
-  // Error display
   if (error) {
     return (
-      <div
-        style={{
-          padding: '40px',
-          textAlign: 'center',
-          color: '#dc2626'
-        }}
-      >
-        <h2>Wystąpił błąd</h2>
-        <p>{error}</p>
+      <div className="p-10 text-center text-red-600 dark:text-red-400">
+        <h2 className="text-xl font-bold mb-2">Wystąpił błąd</h2>
+        <p className="mb-4">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          style={{
-            marginTop: '16px',
-            padding: '12px 24px',
-            backgroundColor: '#3b82f6',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer'
-          }}
+          className="px-6 py-3 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-xl font-medium hover:shadow-lg transition"
         >
           Odśwież stronę
         </button>
@@ -362,45 +300,12 @@ export default function CheckinTab() {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        backgroundColor: '#ffffff'
-      }}
-    >
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900 transition-colors">
       {renderNav()}
       {renderSessionBar()}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div className="flex-1 overflow-auto">
         {renderContent()}
       </div>
     </div>
-  );
-}
-
-// Nav button component
-function NavButton({ active, onClick, icon, label }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '10px 16px',
-        fontSize: '14px',
-        fontWeight: active ? '600' : '400',
-        backgroundColor: active ? '#3b82f6' : '#ffffff',
-        color: active ? '#ffffff' : '#374151',
-        border: active ? 'none' : '1px solid #e5e7eb',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        transition: 'all 0.15s ease'
-      }}
-    >
-      <span>{icon}</span>
-      <span>{label}</span>
-    </button>
   );
 }

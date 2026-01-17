@@ -1,4 +1,5 @@
 import React from 'react';
+import { Delete, X } from 'lucide-react';
 
 export default function VirtualKeypad({ value, onChange, maxLength = 4, disabled = false }) {
   const handleDigitPress = (digit) => {
@@ -18,34 +19,6 @@ export default function VirtualKeypad({ value, onChange, maxLength = 4, disabled
     onChange('');
   };
 
-  const buttonStyle = {
-    width: '80px',
-    height: '80px',
-    fontSize: '32px',
-    fontWeight: 'bold',
-    border: '2px solid #e5e7eb',
-    borderRadius: '12px',
-    backgroundColor: disabled ? '#f3f4f6' : '#ffffff',
-    color: disabled ? '#9ca3af' : '#1f2937',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'all 0.15s ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    userSelect: 'none'
-  };
-
-  const buttonHoverStyle = {
-    ...buttonStyle,
-    backgroundColor: '#f3f4f6'
-  };
-
-  const actionButtonStyle = {
-    ...buttonStyle,
-    fontSize: '18px',
-    backgroundColor: '#f3f4f6'
-  };
-
   const digits = [
     ['1', '2', '3'],
     ['4', '5', '6'],
@@ -54,33 +27,17 @@ export default function VirtualKeypad({ value, onChange, maxLength = 4, disabled
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+    <div className="flex flex-col gap-3 items-center">
       {/* Display */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '12px',
-          marginBottom: '16px',
-          justifyContent: 'center'
-        }}
-      >
+      <div className="flex gap-3 mb-4 justify-center">
         {[...Array(maxLength)].map((_, index) => (
           <div
             key={index}
-            style={{
-              width: '60px',
-              height: '70px',
-              border: '3px solid ' + (value[index] ? '#3b82f6' : '#e5e7eb'),
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '36px',
-              fontWeight: 'bold',
-              color: '#1f2937',
-              backgroundColor: value[index] ? '#eff6ff' : '#ffffff',
-              transition: 'all 0.15s ease'
-            }}
+            className={`w-14 h-16 sm:w-16 sm:h-[70px] border-2 rounded-xl flex items-center justify-center text-3xl sm:text-4xl font-bold transition-all
+              ${value[index]
+                ? 'border-pink-500 dark:border-pink-400 bg-pink-50 dark:bg-pink-900/30 text-gray-900 dark:text-white'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-600'
+              }`}
           >
             {value[index] || ''}
           </div>
@@ -88,9 +45,9 @@ export default function VirtualKeypad({ value, onChange, maxLength = 4, disabled
       </div>
 
       {/* Keypad */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="flex flex-col gap-3">
         {digits.map((row, rowIndex) => (
-          <div key={rowIndex} style={{ display: 'flex', gap: '12px' }}>
+          <div key={rowIndex} className="flex gap-3">
             {row.map((key) => {
               if (key === 'C') {
                 return (
@@ -98,14 +55,14 @@ export default function VirtualKeypad({ value, onChange, maxLength = 4, disabled
                     key={key}
                     onClick={handleClear}
                     disabled={disabled || value.length === 0}
-                    style={{
-                      ...actionButtonStyle,
-                      color: '#ef4444',
-                      opacity: value.length === 0 ? 0.5 : 1
-                    }}
                     onMouseDown={(e) => e.preventDefault()}
+                    className={`w-16 h-16 sm:w-20 sm:h-20 text-base font-semibold rounded-xl border-2 flex items-center justify-center select-none transition-all
+                      ${disabled || value.length === 0
+                        ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                        : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 cursor-pointer'
+                      }`}
                   >
-                    Wyczyść
+                    <X size={20} />
                   </button>
                 );
               }
@@ -115,13 +72,14 @@ export default function VirtualKeypad({ value, onChange, maxLength = 4, disabled
                     key={key}
                     onClick={handleBackspace}
                     disabled={disabled || value.length === 0}
-                    style={{
-                      ...actionButtonStyle,
-                      opacity: value.length === 0 ? 0.5 : 1
-                    }}
                     onMouseDown={(e) => e.preventDefault()}
+                    className={`w-16 h-16 sm:w-20 sm:h-20 text-base font-semibold rounded-xl border-2 flex items-center justify-center select-none transition-all
+                      ${disabled || value.length === 0
+                        ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                        : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer'
+                      }`}
                   >
-                    ←
+                    <Delete size={20} />
                   </button>
                 );
               }
@@ -130,14 +88,12 @@ export default function VirtualKeypad({ value, onChange, maxLength = 4, disabled
                   key={key}
                   onClick={() => handleDigitPress(key)}
                   disabled={disabled || value.length >= maxLength}
-                  style={buttonStyle}
                   onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={(e) => {
-                    if (!disabled) e.target.style.backgroundColor = '#f3f4f6';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!disabled) e.target.style.backgroundColor = '#ffffff';
-                  }}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 text-2xl sm:text-3xl font-bold rounded-xl border-2 flex items-center justify-center select-none transition-all
+                    ${disabled || value.length >= maxLength
+                      ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                      : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-pink-300 dark:hover:border-pink-600 cursor-pointer'
+                    }`}
                 >
                   {key}
                 </button>
