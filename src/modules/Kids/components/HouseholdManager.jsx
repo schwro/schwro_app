@@ -47,7 +47,7 @@ export default function HouseholdManager() {
           .order('full_name'),
         supabase
           .from('members')
-          .select('id, first_name, last_name, household_id')
+          .select('id, first_name, last_name, household_id, phone, email')
           .order('last_name')
       ]);
 
@@ -468,14 +468,27 @@ export default function HouseholdManager() {
                           <select
                             value={contact.member_id || ''}
                             onChange={(e) => {
-                              const memberId = e.target.value;
-                              if (memberId) {
+                              const memberIdStr = e.target.value;
+                              if (memberIdStr) {
+                                const memberId = parseInt(memberIdStr, 10);
                                 const selectedMember = members.find(m => m.id === memberId);
                                 if (selectedMember) {
-                                  handleContactChange(index, 'member_id', memberId);
-                                  handleContactChange(index, 'full_name', `${selectedMember.first_name} ${selectedMember.last_name}`);
-                                  handleContactChange(index, 'phone', selectedMember.phone || '');
-                                  handleContactChange(index, 'email', selectedMember.email || '');
+                                  // Aktualizuj wszystkie pola naraz
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    contacts: prev.contacts.map((c, i) => {
+                                      if (i === index) {
+                                        return {
+                                          ...c,
+                                          member_id: memberId,
+                                          full_name: `${selectedMember.first_name} ${selectedMember.last_name}`,
+                                          phone: selectedMember.phone || '',
+                                          email: selectedMember.email || ''
+                                        };
+                                      }
+                                      return c;
+                                    })
+                                  }));
                                 }
                               } else {
                                 handleContactChange(index, 'member_id', null);
