@@ -9,6 +9,7 @@ import {
 export default function HouseholdManager() {
   const [households, setHouseholds] = useState([]);
   const [students, setStudents] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -30,26 +31,33 @@ export default function HouseholdManager() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [householdsRes, studentsRes] = await Promise.all([
+      const [householdsRes, studentsRes, membersRes] = await Promise.all([
         supabase
           .from('households')
           .select(`
             *,
             parent_contacts(*),
-            kids_students(id, full_name, birth_year, group_id)
+            kids_students(id, full_name, birth_year, group_id),
+            members(id, first_name, last_name, email, phone)
           `)
           .order('family_name'),
         supabase
           .from('kids_students')
           .select('id, full_name, birth_year, household_id, group_id')
-          .order('full_name')
+          .order('full_name'),
+        supabase
+          .from('members')
+          .select('id, first_name, last_name, household_id')
+          .order('last_name')
       ]);
 
       if (householdsRes.error) throw householdsRes.error;
       if (studentsRes.error) throw studentsRes.error;
+      if (membersRes.error) throw membersRes.error;
 
       setHouseholds(householdsRes.data || []);
       setStudents(studentsRes.data || []);
+      setMembers(membersRes.data || []);
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
@@ -284,10 +292,12 @@ export default function HouseholdManager() {
         c.full_name.toLowerCase().includes(term) ||
         c.phone?.includes(term)
       ) ||
-      h.kids_students?.some(s => s.full_name.toLowerCase().includes(term));
+      h.kids_students?.some(s => s.full_name.toLowerCase().includes(term)) ||
+      h.members?.some(m => `${m.first_name} ${m.last_name}`.toLowerCase().includes(term));
   });
 
   const unassignedStudents = students.filter(s => !s.household_id);
+  const unassignedMembers = members.filter(m => !m.household_id);
 
   const inputClasses = "w-full px-4 py-3 text-base border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-pink-500 dark:focus:border-pink-400 focus:outline-none transition";
 
@@ -784,6 +794,48 @@ export default function HouseholdManager() {
                         </p>
                       )}
                     </div>
+
+                    {/* Members (adults) */}
+                    {household.members?.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Członkowie kościoła
+                        </h4>
+                        <div className="grid gap-2">
+                          {household.members.map(member => (
+                            <div
+                              key={member.id}
+                              className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center">
+                                  <User size={14} className="text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-900 dark:text-white">
+                                    {member.first_name} {member.last_name}
+                                  </span>
+                                  <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                                    {member.phone && (
+                                      <span className="flex items-center gap-1">
+                                        <Phone size={12} />
+                                        {member.phone}
+                                      </span>
+                                    )}
+                                    {member.email && (
+                                      <span className="flex items-center gap-1">
+                                        <Mail size={12} />
+                                        {member.email}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Notes */}
                     {household.notes && (
