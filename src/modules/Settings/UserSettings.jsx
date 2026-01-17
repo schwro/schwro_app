@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key, Bell, BellOff, Smartphone, FileText, Code, Eye,
-  Shield, ShieldCheck, ShieldOff, KeyRound, RefreshCw, Copy, Download
+  Shield, ShieldCheck, ShieldOff, KeyRound, RefreshCw, Copy, Download, Calendar, Link, ExternalLink
 } from 'lucide-react';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useTwoFactor } from '../../hooks/useTwoFactor';
@@ -39,6 +39,21 @@ export default function UserSettings() {
   const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [backupCodesData, setBackupCodesData] = useState({ unused: [], used: [] });
   const [regenerateCode, setRegenerateCode] = useState('');
+
+  // iCal Subscription
+  const [icalSubscription, setIcalSubscription] = useState(null);
+  const [icalLoading, setIcalLoading] = useState(false);
+  const [icalPreferences, setIcalPreferences] = useState({
+    programs: true,
+    events: true,
+    tasks: true,
+    mlodziezowka: false,
+    worship: false,
+    media: false,
+    atmosfera: false,
+    kids: false,
+    homegroups: false
+  });
 
   // Push notifications
   const {
@@ -303,6 +318,122 @@ export default function UserSettings() {
     a.download = 'church-manager-backup-codes.txt';
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // --- LOGIKA iCAL ---
+  // Pobierz subskrypcję iCal
+  useEffect(() => {
+    const fetchIcalSubscription = async () => {
+      if (!formData.email) return;
+
+      const { data } = await supabase
+        .from('ical_subscriptions')
+        .select('*')
+        .eq('user_email', formData.email)
+        .maybeSingle();
+
+      if (data) {
+        setIcalSubscription(data);
+        setIcalPreferences(data.export_preferences || icalPreferences);
+      }
+    };
+
+    fetchIcalSubscription();
+  }, [formData.email]);
+
+  // Generowanie nowego tokena
+  const generateIcalToken = () => {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  // Utworzenie lub reset subskrypcji iCal
+  const handleCreateOrResetIcal = async () => {
+    setIcalLoading(true);
+    const newToken = generateIcalToken();
+
+    try {
+      if (icalSubscription) {
+        // Reset tokena
+        const { error } = await supabase
+          .from('ical_subscriptions')
+          .update({
+            token: newToken,
+            export_preferences: icalPreferences
+          })
+          .eq('id', icalSubscription.id);
+
+        if (!error) {
+          setIcalSubscription({ ...icalSubscription, token: newToken, export_preferences: icalPreferences });
+          setMessage({ type: 'success', text: 'Token kalendarza został zresetowany. Poprzedni link przestał działać.' });
+        } else {
+          throw error;
+        }
+      } else {
+        // Nowa subskrypcja
+        const { data, error } = await supabase
+          .from('ical_subscriptions')
+          .insert({
+            user_email: formData.email,
+            token: newToken,
+            export_preferences: icalPreferences
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          setIcalSubscription(data);
+          setMessage({ type: 'success', text: 'Subskrypcja kalendarza została utworzona!' });
+        } else {
+          throw error;
+        }
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Nie udało się utworzyć/zresetować subskrypcji.' });
+    }
+    setIcalLoading(false);
+  };
+
+  // Aktualizacja preferencji iCal
+  const handleUpdateIcalPreferences = async () => {
+    if (!icalSubscription) return;
+    setIcalLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('ical_subscriptions')
+        .update({ export_preferences: icalPreferences })
+        .eq('id', icalSubscription.id);
+
+      if (!error) {
+        setIcalSubscription({ ...icalSubscription, export_preferences: icalPreferences });
+        setMessage({ type: 'success', text: 'Preferencje kalendarza zapisane.' });
+      } else {
+        throw error;
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Nie udało się zapisać preferencji.' });
+    }
+    setIcalLoading(false);
+  };
+
+  // URL subskrypcji iCal
+  const getIcalSubscriptionUrl = () => {
+    if (!icalSubscription) return '';
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+    return `${baseUrl}/functions/v1/ical/${icalSubscription.token}`;
+  };
+
+  // Kopiowanie URL do schowka
+  const copyIcalUrl = () => {
+    navigator.clipboard.writeText(getIcalSubscriptionUrl());
+    setMessage({ type: 'success', text: 'Link skopiowany do schowka!' });
+  };
+
+  // Pobieranie pliku .ics
+  const downloadIcs = () => {
+    window.open(getIcalSubscriptionUrl(), '_blank');
   };
 
   // --- LOGIKA HASŁA ---
@@ -680,6 +811,157 @@ export default function UserSettings() {
               onClose={() => setShow2FASetup(false)}
             />
           )}
+
+          {/* SUBSKRYPCJA KALENDARZA iCAL */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 transition-colors duration-300">
+            <div className="flex items-center gap-3 mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+              <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
+                <Calendar size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Subskrypcja Kalendarza</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Synchronizuj wydarzenia z Google Calendar, Apple Calendar lub Outlook
+                </p>
+              </div>
+            </div>
+
+            {/* Konfiguracja źródeł */}
+            <div className="space-y-4 mb-6">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Wybierz co chcesz eksportować:
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { key: 'programs', label: 'Nabożeństwa', icon: '⛪' },
+                  { key: 'events', label: 'Wydarzenia', icon: '📅' },
+                  { key: 'tasks', label: 'Zadania', icon: '✅' },
+                  { key: 'mlodziezowka', label: 'Młodzieżówka', icon: '🎉' },
+                  { key: 'worship', label: 'Uwielbienie', icon: '🎵' },
+                  { key: 'media', label: 'Media', icon: '🎬' },
+                  { key: 'atmosfera', label: 'Atmosfera', icon: '💚' },
+                  { key: 'kids', label: 'Dzieci', icon: '👶' },
+                  { key: 'homegroups', label: 'Grupy Domowe', icon: '🏠' }
+                ].map(item => (
+                  <label
+                    key={item.key}
+                    className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition ${
+                      icalPreferences[item.key]
+                        ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700'
+                        : 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={icalPreferences[item.key]}
+                      onChange={(e) => setIcalPreferences({
+                        ...icalPreferences,
+                        [item.key]: e.target.checked
+                      })}
+                      className="sr-only"
+                    />
+                    <span className="text-lg">{item.icon}</span>
+                    <span className={`text-sm font-medium ${
+                      icalPreferences[item.key]
+                        ? 'text-orange-800 dark:text-orange-300'
+                        : 'text-gray-600 dark:text-gray-400'
+                    }`}>
+                      {item.label}
+                    </span>
+                    {icalPreferences[item.key] && (
+                      <CheckCircle size={16} className="ml-auto text-orange-600 dark:text-orange-400" />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Link subskrypcji lub przycisk tworzenia */}
+            {icalSubscription ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
+                    Link subskrypcji (dodaj do aplikacji kalendarzowej)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={getIcalSubscriptionUrl()}
+                      readOnly
+                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-400 font-mono truncate"
+                    />
+                    <button
+                      onClick={copyIcalUrl}
+                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                      title="Kopiuj link"
+                    >
+                      <Copy size={18} />
+                    </button>
+                    <button
+                      onClick={downloadIcs}
+                      className="px-3 py-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/50 transition"
+                      title="Pobierz plik .ics"
+                    >
+                      <Download size={18} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                    Wklej ten link w Google Calendar (Inne kalendarze → Z adresu URL) lub Apple Calendar (Plik → Nowa subskrypcja)
+                  </p>
+                </div>
+
+                {/* Statystyki */}
+                {icalSubscription.last_accessed_at && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Ostatnia synchronizacja: {new Date(icalSubscription.last_accessed_at).toLocaleString('pl-PL')}
+                    {icalSubscription.access_count > 0 && ` (łączna liczba: ${icalSubscription.access_count})`}
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleUpdateIcalPreferences}
+                    disabled={icalLoading}
+                    className="flex-1 px-4 py-2.5 bg-orange-600 text-white font-medium rounded-xl hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                  >
+                    {icalLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Zapisz preferencje
+                  </button>
+                  <button
+                    onClick={handleCreateOrResetIcal}
+                    disabled={icalLoading}
+                    className="px-4 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center gap-2"
+                    title="Resetuj token (poprzedni link przestanie działać)"
+                  >
+                    <RefreshCw size={16} />
+                    Resetuj token
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleCreateOrResetIcal}
+                disabled={icalLoading}
+                className="w-full px-4 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-orange-500/30 transition flex items-center justify-center gap-2"
+              >
+                {icalLoading ? <Loader2 size={18} className="animate-spin" /> : <Calendar size={18} />}
+                Utwórz subskrypcję kalendarza
+              </button>
+            )}
+
+            {/* Instrukcja */}
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+                Jak dodać kalendarz?
+              </p>
+              <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1 list-disc list-inside">
+                <li><strong>Google Calendar:</strong> Ustawienia → Dodaj kalendarz → Z adresu URL</li>
+                <li><strong>Apple Calendar:</strong> Plik → Nowa subskrypcja kalendarza</li>
+                <li><strong>Outlook:</strong> Dodaj kalendarz → Subskrybuj z internetu</li>
+              </ul>
+            </div>
+          </div>
 
           {/* PODPIS EMAIL */}
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 transition-colors duration-300">
