@@ -113,10 +113,18 @@ export default function UserSettings() {
 
   const fetchUserProfile = async () => {
     setLoading(true);
+
+    // Timeout - nie blokuj UI dłużej niż 5 sekund
+    const timeoutId = setTimeout(() => {
+      console.warn('UserSettings fetch timeout');
+      setLoading(false);
+    }, 5000);
+
     try {
       // 1. Pobierz sesję (aby znać email)
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        clearTimeout(timeoutId);
         setLoading(false);
         return;
       }
@@ -142,6 +150,7 @@ export default function UserSettings() {
     } catch (err) {
       console.error(err);
     }
+    clearTimeout(timeoutId);
     setLoading(false);
   };
 
@@ -326,15 +335,24 @@ export default function UserSettings() {
     const fetchIcalSubscription = async () => {
       if (!formData.email) return;
 
-      const { data } = await supabase
-        .from('ical_subscriptions')
-        .select('*')
-        .eq('user_email', formData.email)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('ical_subscriptions')
+          .select('*')
+          .eq('user_email', formData.email)
+          .maybeSingle();
 
-      if (data) {
-        setIcalSubscription(data);
-        setIcalPreferences(data.export_preferences || icalPreferences);
+        if (error) {
+          console.warn('iCal subscription fetch error (możliwe że tabela nie istnieje):', error.message);
+          return;
+        }
+
+        if (data) {
+          setIcalSubscription(data);
+          setIcalPreferences(data.export_preferences || icalPreferences);
+        }
+      } catch (err) {
+        console.warn('iCal subscription error:', err);
       }
     };
 
