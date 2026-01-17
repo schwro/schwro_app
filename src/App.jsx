@@ -150,6 +150,12 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Timeout bezpieczeństwa - jeśli auth nie odpowie w 10 sekund, zakończ ładowanie
+    const safetyTimeout = setTimeout(() => {
+      console.warn('Auth timeout - forcing loading to complete');
+      setLoading(false);
+    }, 10000);
+
     const initAuth = async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -160,6 +166,7 @@ export default function App() {
       } catch (error) {
         console.error('Auth error:', error);
       } finally {
+        clearTimeout(safetyTimeout);
         setLoading(false);
       }
     };
