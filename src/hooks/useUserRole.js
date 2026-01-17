@@ -27,12 +27,23 @@ const fetchRole = async () => {
     notifyListeners();
   }
 
+  // Timeout - jeśli pobieranie trwa zbyt długo, użyj domyślnej roli
+  const timeoutId = setTimeout(() => {
+    if (globalLoading) {
+      console.warn('useUserRole timeout - using default role');
+      globalUserRole = cachedRole || 'czlonek';
+      globalLoading = false;
+      notifyListeners();
+    }
+  }, 5000);
+
   fetchPromise = (async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         globalUserRole = null;
         globalLoading = false;
+        clearTimeout(timeoutId);
         notifyListeners();
         return;
       }
@@ -60,6 +71,7 @@ const fetchRole = async () => {
         globalUserRole = localStorage.getItem('userRole') || 'czlonek';
       }
     } finally {
+      clearTimeout(timeoutId);
       globalLoading = false;
       notifyListeners();
     }
