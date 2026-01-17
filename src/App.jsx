@@ -120,25 +120,33 @@ export default function App() {
     };
   }, []);
 
-  // Sprawdź czy użytkownik ma wymagane 2FA
+  // Sprawdź czy użytkownik ma wymagane 2FA - z timeout i bez blokowania
   const check2FARequirement = async (userEmail) => {
     if (!userEmail) return;
-    try {
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('totp_required, totp_enabled')
-        .eq('email', userEmail)
-        .maybeSingle();
 
-      // Ignoruj błędy (np. brak kolumn) - po prostu wyłącz wymóg 2FA
-      if (error) {
-        console.warn('2FA check skipped due to error:', error.message);
+    // Użyj Promise.race z 2-sekundowym timeout
+    const timeoutPromise = new Promise(resolve =>
+      setTimeout(() => resolve({ data: null, timeout: true }), 2000)
+    );
+
+    try {
+      const result = await Promise.race([
+        supabase
+          .from('app_users')
+          .select('totp_required, totp_enabled')
+          .eq('email', userEmail)
+          .maybeSingle(),
+        timeoutPromise
+      ]);
+
+      // Jeśli timeout lub błąd - nie wymagaj 2FA
+      if (result.timeout || result.error) {
         setRequires2FASetup(false);
         return;
       }
 
       // Jeśli 2FA jest wymagane ale nie skonfigurowane
-      if (data?.totp_required && !data?.totp_enabled) {
+      if (result.data?.totp_required && !result.data?.totp_enabled) {
         setRequires2FASetup(true);
       } else {
         setRequires2FASetup(false);

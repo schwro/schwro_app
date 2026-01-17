@@ -114,20 +114,25 @@ export function useTwoFactor(userEmail) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Sprawdz czy uzytkownik ma wlaczone 2FA
+  // Sprawdz czy uzytkownik ma wlaczone 2FA - z timeout
   const checkTwoFactorStatus = useCallback(async (email) => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('app_users')
-        .select('totp_enabled, totp_verified_at')
-        .eq('email', email || userEmail)
-        .maybeSingle();
+      const result = await Promise.race([
+        supabase
+          .from('app_users')
+          .select('totp_enabled, totp_verified_at')
+          .eq('email', email || userEmail)
+          .maybeSingle(),
+        new Promise(resolve => setTimeout(() => resolve({ data: null, timeout: true }), 2000))
+      ]);
 
-      if (fetchError) throw fetchError;
+      if (result.timeout || result.error) {
+        return { enabled: false, verifiedAt: null };
+      }
 
       return {
-        enabled: data?.totp_enabled || false,
-        verifiedAt: data?.totp_verified_at || null
+        enabled: result.data?.totp_enabled || false,
+        verifiedAt: result.data?.totp_verified_at || null
       };
     } catch (err) {
       console.error('Error checking 2FA status:', err);
@@ -386,18 +391,20 @@ export function useTwoFactor(userEmail) {
     }
   }, [userEmail]);
 
-  // Logowanie akcji 2FA
-  const logTwoFactorAction = async (action, success, email = null) => {
-    try {
-      await supabase.from('totp_auth_logs').insert({
+  // Logowanie akcji 2FA - nieblokujące, z timeout
+  const logTwoFactorAction = (action, success, email = null) => {
+    // Fire and forget - nie czekaj na wynik
+    Promise.race([
+      supabase.from('totp_auth_logs').insert({
         user_email: email || userEmail,
         action,
         success,
         user_agent: navigator.userAgent
-      });
-    } catch (err) {
-      console.error('Error logging 2FA action:', err);
-    }
+      }),
+      new Promise(resolve => setTimeout(resolve, 1000)) // 1s timeout
+    ]).catch(() => {
+      // Ignoruj błędy logowania - nie blokuj aplikacji
+    });
   };
 
   return {
