@@ -20,7 +20,7 @@ export default function HouseholdManager() {
     phone_full: '',
     address: '',
     notes: '',
-    contacts: [{ full_name: '', phone: '', email: '', relationship: 'Rodzic', is_primary: true, can_pickup: true }]
+    contacts: [{ member_id: null, full_name: '', phone: '', email: '', relationship: 'Rodzic', is_primary: true, can_pickup: true }]
   });
   const [assignStudentModal, setAssignStudentModal] = useState(null);
 
@@ -77,7 +77,7 @@ export default function HouseholdManager() {
       phone_full: '',
       address: '',
       notes: '',
-      contacts: [{ full_name: '', phone: '', email: '', relationship: 'Rodzic', is_primary: true, can_pickup: true }]
+      contacts: [{ member_id: null, full_name: '', phone: '', email: '', relationship: 'Rodzic', is_primary: true, can_pickup: true }]
     });
     setEditingHousehold(null);
     setShowForm(false);
@@ -92,6 +92,7 @@ export default function HouseholdManager() {
       contacts: household.parent_contacts?.length > 0
         ? household.parent_contacts.map(c => ({
             id: c.id,
+            member_id: c.member_id || null,
             full_name: c.full_name,
             phone: c.phone || '',
             email: c.email || '',
@@ -99,7 +100,7 @@ export default function HouseholdManager() {
             is_primary: c.is_primary,
             can_pickup: c.can_pickup
           }))
-        : [{ full_name: '', phone: '', email: '', relationship: 'Rodzic', is_primary: true, can_pickup: true }]
+        : [{ member_id: null, full_name: '', phone: '', email: '', relationship: 'Rodzic', is_primary: true, can_pickup: true }]
     });
     setEditingHousehold(household);
     setShowForm(true);
@@ -165,6 +166,7 @@ export default function HouseholdManager() {
 
         const contactPayload = {
           household_id: householdId,
+          member_id: contact.member_id || null,
           full_name: contact.full_name.trim(),
           phone: contact.phone || null,
           email: contact.email || null,
@@ -221,7 +223,7 @@ export default function HouseholdManager() {
   const handleAddContact = () => {
     setFormData(prev => ({
       ...prev,
-      contacts: [...prev.contacts, { full_name: '', phone: '', email: '', relationship: 'Rodzic', is_primary: false, can_pickup: true }]
+      contacts: [...prev.contacts, { member_id: null, full_name: '', phone: '', email: '', relationship: 'Rodzic', is_primary: false, can_pickup: true }]
     }));
   };
 
@@ -409,7 +411,7 @@ export default function HouseholdManager() {
                 </div>
               </div>
 
-              {/* Contacts */}
+              {/* Contacts - wybór z listy członków */}
               <div>
                 <div className="flex justify-between items-center mb-3">
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -458,50 +460,81 @@ export default function HouseholdManager() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <input
-                            type="text"
-                            value={contact.full_name}
-                            onChange={(e) => handleContactChange(index, 'full_name', e.target.value)}
-                            placeholder="Imię i nazwisko"
-                            className={inputClasses}
-                          />
-                        </div>
-                        <div>
+                        {/* Wybór członka z listy */}
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Wybierz z listy członków
+                          </label>
                           <select
-                            value={contact.relationship}
-                            onChange={(e) => handleContactChange(index, 'relationship', e.target.value)}
+                            value={contact.member_id || ''}
+                            onChange={(e) => {
+                              const memberId = e.target.value;
+                              if (memberId) {
+                                const selectedMember = members.find(m => m.id === memberId);
+                                if (selectedMember) {
+                                  handleContactChange(index, 'member_id', memberId);
+                                  handleContactChange(index, 'full_name', `${selectedMember.first_name} ${selectedMember.last_name}`);
+                                  handleContactChange(index, 'phone', selectedMember.phone || '');
+                                  handleContactChange(index, 'email', selectedMember.email || '');
+                                }
+                              } else {
+                                handleContactChange(index, 'member_id', null);
+                              }
+                            }}
                             className={inputClasses}
                           >
-                            <option value="Rodzic">Rodzic</option>
-                            <option value="Mama">Mama</option>
-                            <option value="Tata">Tata</option>
-                            <option value="Dziadek">Dziadek</option>
-                            <option value="Babcia">Babcia</option>
-                            <option value="Opiekun">Opiekun</option>
-                            <option value="Inny">Inny</option>
+                            <option value="">-- Wybierz członka --</option>
+                            {members.map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.first_name} {m.last_name} {m.phone ? `(${m.phone})` : ''}
+                              </option>
+                            ))}
                           </select>
                         </div>
-                        <div className="relative">
-                          <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="tel"
-                            value={contact.phone}
-                            onChange={(e) => handleContactChange(index, 'phone', e.target.value)}
-                            placeholder="Telefon"
-                            className={`${inputClasses} pl-10`}
-                          />
-                        </div>
-                        <div className="relative">
-                          <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="email"
-                            value={contact.email}
-                            onChange={(e) => handleContactChange(index, 'email', e.target.value)}
-                            placeholder="Email"
-                            className={`${inputClasses} pl-10`}
-                          />
-                        </div>
+
+                        {/* Wyświetlanie wybranego kontaktu */}
+                        {contact.full_name && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                                Imię i nazwisko
+                              </label>
+                              <div className="px-4 py-3 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
+                                {contact.full_name}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                                Relacja
+                              </label>
+                              <select
+                                value={contact.relationship}
+                                onChange={(e) => handleContactChange(index, 'relationship', e.target.value)}
+                                className={inputClasses}
+                              >
+                                <option value="Rodzic">Rodzic</option>
+                                <option value="Mama">Mama</option>
+                                <option value="Tata">Tata</option>
+                                <option value="Dziadek">Dziadek</option>
+                                <option value="Babcia">Babcia</option>
+                                <option value="Opiekun">Opiekun</option>
+                                <option value="Inny">Inny</option>
+                              </select>
+                            </div>
+                            {contact.phone && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                <Phone size={14} className="text-pink-500" />
+                                {contact.phone}
+                              </div>
+                            )}
+                            {contact.email && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                <Mail size={14} className="text-pink-500" />
+                                {contact.email}
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
 
                       <div className="mt-3">
