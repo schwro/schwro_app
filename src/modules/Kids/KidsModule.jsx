@@ -4,12 +4,13 @@ import { supabase } from '../../lib/supabase';
 import {
   Plus, Search, Trash2, X, FileText, Calendar, Check, UserX,
   ChevronUp, ChevronDown, Users, BookOpen, GraduationCap,
-  MapPin, Baby, Upload, UserPlus, Link as LinkIcon, DollarSign, ChevronLeft, ChevronRight, Tag, FolderOpen, Package
+  MapPin, Baby, Upload, UserPlus, Link as LinkIcon, DollarSign, ChevronLeft, ChevronRight, Tag, FolderOpen, Package, UserCheck
 } from 'lucide-react';
 import FinanceTab from '../shared/FinanceTab';
 import EventsTab from '../shared/EventsTab';
 import MaterialsTab from '../shared/MaterialsTab';
 import EquipmentTab from '../shared/EquipmentTab';
+import CheckinTab from './checkin/CheckinTab';
 import CustomSelect from '../../components/CustomSelect';
 import ResponsiveTabs from '../../components/ResponsiveTabs';
 import { useUserRole } from '../../hooks/useUserRole';
@@ -550,6 +551,7 @@ export default function KidsModule() {
       {/* TABS */}
       <ResponsiveTabs
         tabs={[
+          { id: 'checkin', label: 'Check-in', icon: UserCheck },
           { id: 'events', label: 'Wydarzenia', icon: Calendar },
           { id: 'schedule', label: 'Grafik', icon: Calendar },
           { id: 'groups', label: 'Grupy', icon: Users },
@@ -562,6 +564,13 @@ export default function KidsModule() {
         activeTab={activeTab}
         onChange={setActiveTab}
       />
+
+      {/* CHECK-IN TAB */}
+      {activeTab === 'checkin' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors" style={{ minHeight: '600px' }}>
+          <CheckinTab />
+        </section>
+      )}
 
       {/* WYDARZENIA TAB */}
       {activeTab === 'events' && (
