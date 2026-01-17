@@ -11,6 +11,7 @@ import CustomSelect from '../components/CustomSelect';
 import CustomDatePicker from '../components/CustomDatePicker';
 import MaterialsTab from './shared/MaterialsTab';
 import ResponsiveTabs from '../components/ResponsiveTabs';
+import HouseholdManager from './Kids/components/HouseholdManager';
 
 // --- STAŁE DANE ---
 
@@ -35,6 +36,7 @@ export default function Members() {
   const [activeTab, setActiveTab] = useState('members');
   const [members, setMembers] = useState([]);
   const [homeGroups, setHomeGroups] = useState([]);
+  const [households, setHouseholds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -50,6 +52,7 @@ export default function Members() {
     phone: '',
     address: '',
     home_group_id: '',
+    household_id: '',
     status: 'Sympatyk',
     membership_date: '',
     membership_declaration_url: '',
@@ -66,16 +69,19 @@ export default function Members() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [membersResult, groupsResult] = await Promise.all([
+      const [membersResult, groupsResult, householdsResult] = await Promise.all([
         supabase.from('members').select('*').order('last_name'),
-        supabase.from('home_groups').select('id, name').order('name')
+        supabase.from('home_groups').select('id, name').order('name'),
+        supabase.from('households').select('*').order('family_name')
       ]);
 
       if (membersResult.error) throw membersResult.error;
       if (groupsResult.error) throw groupsResult.error;
+      if (householdsResult.error) throw householdsResult.error;
 
       setMembers(membersResult.data || []);
       setHomeGroups(groupsResult.data || []);
+      setHouseholds(householdsResult.data || []);
     } catch (error) {
       console.error('Błąd pobierania danych:', error);
     } finally {
@@ -168,6 +174,7 @@ export default function Members() {
       if (!dataToSave.membership_date) dataToSave.membership_date = null;
       if (!dataToSave.membership_declaration_url) dataToSave.membership_declaration_url = null;
       if (!dataToSave.home_group_id) dataToSave.home_group_id = null;
+      if (!dataToSave.household_id) dataToSave.household_id = null;
       if (!dataToSave.address) dataToSave.address = null;
       if (!dataToSave.email) dataToSave.email = null;
       if (!dataToSave.phone) dataToSave.phone = null;
@@ -264,6 +271,7 @@ export default function Members() {
         ...member,
         address: member.address || '',
         home_group_id: member.home_group_id || '',
+        household_id: member.household_id || '',
         status: member.status || 'Sympatyk',
         membership_date: member.membership_date || '',
         membership_declaration_url: member.membership_declaration_url || '',
@@ -278,6 +286,7 @@ export default function Members() {
         phone: '',
         address: '',
         home_group_id: '',
+        household_id: '',
         status: 'Sympatyk',
         membership_date: '',
         membership_declaration_url: '',
@@ -357,6 +366,10 @@ export default function Members() {
     return group?.name || '';
   };
 
+  const getHousehold = (householdId) => {
+    return households.find(h => h.id === householdId);
+  };
+
   const getMinistryLabels = (ministries) => {
     if (!ministries || ministries.length === 0) return [];
     return ministries.map(key => {
@@ -414,6 +427,7 @@ export default function Members() {
       <ResponsiveTabs
         tabs={[
           { id: 'members', label: 'Członkowie', icon: Users },
+          { id: 'households', label: 'Rodziny', icon: Home },
           { id: 'files', label: 'Pliki', icon: FolderOpen },
         ]}
         activeTab={activeTab}
@@ -459,6 +473,7 @@ export default function Members() {
               <tr>
                 <th className="p-4 pl-6">Osoba</th>
                 <th className="p-4">Kontakt & Adres</th>
+                <th className="p-4">Rodzina</th>
                 <th className="p-4">Grupa Domowa</th>
                 <th className="p-4">Służby</th>
                 <th className="p-4">Status</th>
@@ -491,6 +506,20 @@ export default function Members() {
                       {member.phone && <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-xs"><Phone size={14} className="text-orange-400" /> {member.phone}</div>}
                       {member.address && <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-xs"><MapPin size={14} className="text-green-500" /> {member.address}</div>}
                     </div>
+                  </td>
+
+                  <td className="p-4">
+                    {(() => {
+                      const household = getHousehold(member.household_id);
+                      return household ? (
+                        <span className="inline-flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-md text-xs font-medium">
+                          <Users size={12} /> {household.family_name}
+                          {household.phone_last_four && <span className="text-blue-500 dark:text-blue-400">(...{household.phone_last_four})</span>}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
+                      );
+                    })()}
                   </td>
 
                   <td className="p-4">
@@ -555,6 +584,13 @@ export default function Members() {
           )}
         </div>
       </section>
+      )}
+
+      {/* HOUSEHOLDS TAB */}
+      {activeTab === 'households' && (
+        <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden transition-colors duration-300">
+          <HouseholdManager />
+        </section>
       )}
 
       {/* FILES TAB */}
@@ -705,6 +741,18 @@ export default function Members() {
                   />
                 </div>
               </div>
+
+              {/* Rodzina (Household) */}
+              <CustomSelect
+                label="Rodzina (do Check-in)"
+                placeholder="Wybierz rodzinę..."
+                value={formData.household_id}
+                onChange={(val) => setFormData({ ...formData, household_id: val })}
+                options={[{ id: '', family_name: 'Brak', phone_last_four: '' }, ...households]}
+                mapOptionToValue={(opt) => opt.id}
+                mapOptionToLabel={(opt) => opt.family_name + (opt.phone_last_four ? ` (tel. ...${opt.phone_last_four})` : '')}
+                icon={Users}
+              />
 
               {/* Grupa Domowa */}
               <CustomSelect

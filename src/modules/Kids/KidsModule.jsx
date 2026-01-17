@@ -4,13 +4,14 @@ import { supabase } from '../../lib/supabase';
 import {
   Plus, Search, Trash2, X, FileText, Calendar, Check, UserX,
   ChevronUp, ChevronDown, Users, BookOpen, GraduationCap,
-  MapPin, Baby, Upload, UserPlus, Link as LinkIcon, DollarSign, ChevronLeft, ChevronRight, Tag, FolderOpen, Package, UserCheck
+  MapPin, Baby, Upload, UserPlus, Link as LinkIcon, DollarSign, ChevronLeft, ChevronRight, Tag, FolderOpen, Package, UserCheck, Home
 } from 'lucide-react';
 import FinanceTab from '../shared/FinanceTab';
 import EventsTab from '../shared/EventsTab';
 import MaterialsTab from '../shared/MaterialsTab';
 import EquipmentTab from '../shared/EquipmentTab';
 import CheckinTab from './checkin/CheckinTab';
+import HouseholdManager from './components/HouseholdManager';
 import CustomSelect from '../../components/CustomSelect';
 import ResponsiveTabs from '../../components/ResponsiveTabs';
 import { useUserRole } from '../../hooks/useUserRole';
@@ -312,7 +313,8 @@ export default function KidsModule() {
   const [showGlobalStudentModal, setShowGlobalStudentModal] = useState(false);
   const [teacherForm, setTeacherForm] = useState({ id: null, full_name: '', role: 'Nauczyciel', email: '', phone: '' });
   const [groupForm, setGroupForm] = useState({ id: null, name: '', teacher_ids: [], room: '', age_range: '' });
-  const [globalStudentForm, setGlobalStudentForm] = useState({ id: null, full_name: '', birth_year: '', parent_info: '', notes: '', group_id: null });
+  const [globalStudentForm, setGlobalStudentForm] = useState({ id: null, full_name: '', birth_year: '', parent_info: '', notes: '', group_id: null, household_id: null });
+  const [households, setHouseholds] = useState([]);
   const [materialForm, setMaterialForm] = useState({ title: '', type: 'Lekcja', attachment: null });
   const [currentGroup, setCurrentGroup] = useState(null);
   const [attachStudentId, setAddStudentId] = useState('');
@@ -489,7 +491,8 @@ export default function KidsModule() {
       const { data: g } = await supabase.from('kids_groups').select('*').order('created_at');
       const { data: s } = await supabase.from('kids_students').select('*').order('full_name');
       const { data: p } = await supabase.from('programs').select('*').order('date', { ascending: false });
-      setTeachers(t || []); setGroups(g || []); setStudents(s || []); setPrograms(p || []);
+      const { data: h } = await supabase.from('households').select('*').order('family_name');
+      setTeachers(t || []); setGroups(g || []); setStudents(s || []); setPrograms(p || []); setHouseholds(h || []);
     } catch (err) { console.error('Błąd:', err); }
     setLoading(false);
   }
@@ -524,9 +527,9 @@ export default function KidsModule() {
   const deleteTeacher = async (id) => { if (confirm('Usunąć?')) { await supabase.from('kids_teachers').delete().eq('id', id); fetchData(); } };
   const saveGroup = async () => { if (!groupForm.name) return alert('Podaj nazwę'); const payload = { name: groupForm.name, room: groupForm.room, age_range: groupForm.age_range, teacher_ids: groupForm.teacher_ids }; try { if (groupForm.id) await supabase.from('kids_groups').update(payload).eq('id', groupForm.id); else await supabase.from('kids_groups').insert([{ ...payload, materials: [] }]); setShowGroupModal(false); fetchData(); } catch (err) { alert(err.message); } };
   const deleteGroup = async (id) => { if (confirm('Usunąć?')) { await supabase.from('kids_groups').delete().eq('id', id); fetchData(); } };
-  const saveGlobalStudent = async () => { if (!globalStudentForm.full_name) return alert('Podaj imię'); const payload = { full_name: globalStudentForm.full_name, birth_year: globalStudentForm.birth_year, parent_info: globalStudentForm.parent_info, notes: globalStudentForm.notes, group_id: globalStudentForm.group_id ? parseInt(globalStudentForm.group_id) : null }; try { if (globalStudentForm.id) await supabase.from('kids_students').update(payload).eq('id', globalStudentForm.id); else await supabase.from('kids_students').insert([payload]); setShowGlobalStudentModal(false); fetchData(); } catch (err) { alert(err.message); } };
+  const saveGlobalStudent = async () => { if (!globalStudentForm.full_name) return alert('Podaj imię'); const payload = { full_name: globalStudentForm.full_name, birth_year: globalStudentForm.birth_year, parent_info: globalStudentForm.parent_info, notes: globalStudentForm.notes, group_id: globalStudentForm.group_id ? parseInt(globalStudentForm.group_id) : null, household_id: globalStudentForm.household_id || null }; try { if (globalStudentForm.id) await supabase.from('kids_students').update(payload).eq('id', globalStudentForm.id); else await supabase.from('kids_students').insert([payload]); setShowGlobalStudentModal(false); fetchData(); } catch (err) { alert(err.message); } };
   const deleteStudent = async (id) => { if(confirm('Usunąć?')) { await supabase.from('kids_students').delete().eq('id', id); fetchData(); } };
-  const openEditStudent = (s) => { setGlobalStudentForm({ id: s.id, full_name: s.full_name, birth_year: s.birth_year, parent_info: s.parent_info, notes: s.notes, group_id: s.group_id }); setShowGlobalStudentModal(true); };
+  const openEditStudent = (s) => { setGlobalStudentForm({ id: s.id, full_name: s.full_name, birth_year: s.birth_year, parent_info: s.parent_info, notes: s.notes, group_id: s.group_id, household_id: s.household_id }); setShowGlobalStudentModal(true); };
   const attachStudentToGroup = async () => { if (!attachStudentId) return alert('Wybierz ucznia'); await supabase.from('kids_students').update({ group_id: currentGroup.id }).eq('id', attachStudentId); setAddStudentId(''); fetchData(); };
   const detachStudentFromGroup = async (studentId) => { await supabase.from('kids_students').update({ group_id: null }).eq('id', studentId); fetchData(); };
   const handleMaterialFileUpload = async (file) => { if (!file) return null; const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}.${file.name.split('.').pop()}`; const { error } = await supabase.storage.from('kids-materials').upload(fileName, file); if (error) throw error; const { data } = supabase.storage.from('kids-materials').getPublicUrl(fileName); return { url: data.publicUrl, name: file.name }; };
@@ -537,6 +540,7 @@ export default function KidsModule() {
   const groupStudents = currentGroup ? students.filter(s => s.group_id === currentGroup.id) : [];
   const availableStudents = students.filter(s => s.group_id !== (currentGroup?.id || -1));
   const groupOptions = groups.map(g => ({ value: g.id, label: g.name }));
+  const householdOptions = households.map(h => ({ value: h.id, label: `${h.family_name}${h.phone_last_four ? ` (tel. ...${h.phone_last_four})` : ''}` }));
   const availableStudentOptions = availableStudents.map(s => ({ value: s.id, label: s.full_name }));
   const materialTypeOptions = ['Lekcja', 'Kolorowanka', 'Gra', 'Film', 'Książka', 'Inne'].map(t => ({ value: t, label: t }));
 
@@ -557,6 +561,7 @@ export default function KidsModule() {
           { id: 'groups', label: 'Grupy', icon: Users },
           ...(hasTabAccess('kids', 'teachers', userRole) ? [{ id: 'teachers', label: 'Nauczyciele', icon: GraduationCap }] : []),
           { id: 'students', label: 'Uczniowie', icon: Baby },
+          { id: 'households', label: 'Rodziny', icon: Home },
           ...(hasTabAccess('kids', 'finances', userRole) ? [{ id: 'finances', label: 'Finanse', icon: DollarSign }] : []),
           ...(hasTabAccess('kids', 'equipment', userRole) ? [{ id: 'equipment', label: 'Wyposażenie', icon: Package }] : []),
           { id: 'files', label: 'Pliki', icon: FolderOpen },
@@ -666,7 +671,7 @@ export default function KidsModule() {
               <Search size={16} className="text-gray-400 dark:text-gray-500"/>
               <input className="bg-transparent text-sm outline-none w-full text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500" placeholder="Szukaj ucznia..." value={studentFilter} onChange={e => setStudentFilter(e.target.value)}/>
             </div>
-            <button onClick={() => { setGlobalStudentForm({ id: null, full_name: '', birth_year: '', parent_info: '', notes: '', group_id: null }); setShowGlobalStudentModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-4 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><UserPlus size={18}/> Nowy uczeń</button>
+            <button onClick={() => { setGlobalStudentForm({ id: null, full_name: '', birth_year: '', parent_info: '', notes: '', group_id: null, household_id: null }); setShowGlobalStudentModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 text-white text-sm px-4 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><UserPlus size={18}/> Nowy uczeń</button>
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -674,26 +679,44 @@ export default function KidsModule() {
           <table className="w-full text-left text-sm min-w-[700px]">
              {/* USUNIĘTO STYLE BACKGROUND BLACK - TERAZ JEST CZYSTA KLASA */}
             <thead className="text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-              <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Wiek/Rocznik</th><th className="p-4">Rodzic/Opiekun</th><th className="p-4">Grupa</th><th className="p-4 text-right">Akcje</th></tr>
+              <tr><th className="p-4">Imię i nazwisko</th><th className="p-4">Wiek/Rocznik</th><th className="p-4">Rodzina</th><th className="p-4">Grupa</th><th className="p-4 text-right">Akcje</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-              {filteredStudents.map((s) => (
+              {filteredStudents.map((s) => {
+                const household = households.find(h => h.id === s.household_id);
+                return (
                 <tr key={s.id} className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
                   <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{s.full_name}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{s.birth_year || '-'}</td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{s.parent_info || '-'}</td>
+                  <td className="p-4">
+                    {household ? (
+                      <span className="px-2 py-1 rounded-lg text-xs font-bold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                        {household.family_name}
+                        {household.phone_last_four && <span className="text-blue-500 dark:text-blue-400 ml-1">(...{household.phone_last_four})</span>}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500">-</span>
+                    )}
+                  </td>
                   <td className="p-4"><span className={`px-2 py-1 rounded-lg text-xs font-bold ${s.group_id ? 'bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>{groups.find(g => g.id === s.group_id)?.name || '-'}</span></td>
                   <td className="p-4 text-right flex justify-end gap-2">
                     <button onClick={() => openEditStudent(s)} className="text-pink-600 dark:text-pink-400 font-medium hover:underline">Edytuj</button>
                     <button onClick={() => deleteStudent(s.id)} className="text-red-500 dark:text-red-400 font-medium hover:underline">Usuń</button>
                   </td>
                 </tr>
-              ))}
+              );})}
               {filteredStudents.length === 0 && <tr><td colSpan="5" className="p-6 text-center text-gray-400 dark:text-gray-500">Brak uczniów</td></tr>}
             </tbody>
           </table>
           </div>
         </div>
+        </section>
+      )}
+
+      {/* HOUSEHOLDS (FAMILIES) TAB */}
+      {activeTab === 'households' && (
+        <section className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+          <HouseholdManager />
         </section>
       )}
 
@@ -747,7 +770,8 @@ export default function KidsModule() {
             <div className="space-y-4">
               <input className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-600 dark:text-white" placeholder="Imię i nazwisko" value={globalStudentForm.full_name} onChange={e => setGlobalStudentForm({...globalStudentForm, full_name: e.target.value})} />
               <input className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-600 dark:text-white" placeholder="Rocznik" value={globalStudentForm.birth_year} onChange={e => setGlobalStudentForm({...globalStudentForm, birth_year: e.target.value})} />
-              <input className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-600 dark:text-white" placeholder="Kontakt do rodzica" value={globalStudentForm.parent_info} onChange={e => setGlobalStudentForm({...globalStudentForm, parent_info: e.target.value})} />
+              <CustomSelect options={householdOptions} value={globalStudentForm.household_id} onChange={v => setGlobalStudentForm({...globalStudentForm, household_id: v})} placeholder="Przypisz do rodziny..." icon={Home} label="Rodzina" />
+              <input className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-600 dark:text-white" placeholder="Kontakt do rodzica (opcjonalnie)" value={globalStudentForm.parent_info} onChange={e => setGlobalStudentForm({...globalStudentForm, parent_info: e.target.value})} />
               <CustomSelect options={groupOptions} value={globalStudentForm.group_id} onChange={v => setGlobalStudentForm({...globalStudentForm, group_id: v})} placeholder="Przypisz do grupy..." icon={Users} />
               <textarea className="w-full p-3 rounded-xl border resize-none dark:bg-gray-900 dark:border-gray-600 dark:text-white" rows={3} placeholder="Uwagi" value={globalStudentForm.notes} onChange={e => setGlobalStudentForm({...globalStudentForm, notes: e.target.value})} />
               <button onClick={saveGlobalStudent} className="w-full py-3 bg-pink-600 text-white rounded-xl font-bold mt-2">Zapisz</button>
