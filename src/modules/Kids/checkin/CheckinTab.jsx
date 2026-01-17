@@ -43,7 +43,8 @@ export default function CheckinTab() {
     getOrCreateTodaySession,
     getLocations,
     checkInStudent,
-    checkInGuest
+    checkInGuest,
+    getSecurityCodesForHousehold
   } = useCheckin();
 
   useEffect(() => {
@@ -85,13 +86,17 @@ export default function CheckinTab() {
   const handleMemberCheckin = useCallback(async (members) => {
     if (!session) return;
 
+    // Pobierz kody bezpieczeństwa dla rodziny (ostatnie 4 cyfry telefonów osób z can_pickup)
+    const securityCodes = await getSecurityCodesForHousehold(selectedHousehold.id);
+
     const results = [];
     for (const member of members) {
       const result = await checkInStudent(
         session.id,
         member.studentId,
         member.locationId,
-        selectedHousehold.id
+        selectedHousehold.id,
+        securityCodes
       );
       if (result) {
         results.push(result);
@@ -102,7 +107,7 @@ export default function CheckinTab() {
       setCheckinResults(results);
       setCheckinStep(CHECKIN_STEPS.SUCCESS);
     }
-  }, [session, selectedHousehold, checkInStudent]);
+  }, [session, selectedHousehold, checkInStudent, getSecurityCodesForHousehold]);
 
   const handleGuestCheckin = useCallback(async (guestData) => {
     if (!session) return;

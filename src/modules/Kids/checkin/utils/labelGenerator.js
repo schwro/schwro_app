@@ -9,6 +9,13 @@ export function generateChildLabel(checkin) {
   const parentName = isGuest ? checkin.guest_parent_name : null;
   const parentPhone = isGuest ? checkin.guest_parent_phone : null;
 
+  // Pobierz listę kodów bezpieczeństwa (ostatnie 4 cyfry telefonów)
+  const securityCodes = checkin.security_codes_list || [];
+  const codesFromField = checkin.security_code?.split('|') || [];
+  const displayCodes = securityCodes.length > 0
+    ? securityCodes.map(c => c.code)
+    : codesFromField;
+
   return `
     <!DOCTYPE html>
     <html>
@@ -39,10 +46,10 @@ export function generateChildLabel(checkin) {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 8px;
+          margin-bottom: 4px;
         }
         .name {
-          font-size: 24pt;
+          font-size: 22pt;
           font-weight: bold;
           color: #000;
         }
@@ -54,15 +61,26 @@ export function generateChildLabel(checkin) {
           font-size: 10pt;
           font-weight: bold;
         }
+        .codes-container {
+          display: flex;
+          justify-content: center;
+          gap: 12px;
+          margin: 6px 0;
+        }
         .security-code {
-          font-size: 36pt;
+          font-size: ${displayCodes.length > 2 ? '24pt' : '32pt'};
           font-weight: bold;
           color: #ec4899;
           text-align: center;
-          margin: 8px 0;
+        }
+        .codes-label {
+          font-size: 8pt;
+          color: #6b7280;
+          text-align: center;
+          margin-bottom: 2px;
         }
         .location {
-          font-size: 14pt;
+          font-size: 12pt;
           color: #374151;
           text-align: center;
         }
@@ -72,15 +90,15 @@ export function generateChildLabel(checkin) {
         .allergies {
           background: #fecaca;
           color: #991b1b;
-          padding: 4px 8px;
+          padding: 3px 6px;
           border-radius: 4px;
-          font-size: 10pt;
+          font-size: 9pt;
           font-weight: bold;
           margin-top: auto;
           text-align: center;
         }
         .parent-info {
-          font-size: 10pt;
+          font-size: 9pt;
           color: #6b7280;
           margin-top: 4px;
           text-align: center;
@@ -93,7 +111,10 @@ export function generateChildLabel(checkin) {
           <span class="name">${name || 'Nieznane'}</span>
           ${isGuest ? '<span class="guest-badge">GOŚĆ</span>' : ''}
         </div>
-        <div class="security-code">${checkin.security_code}</div>
+        ${displayCodes.length > 1 ? '<div class="codes-label">Kody odbioru (ostatnie 4 cyfry tel.)</div>' : ''}
+        <div class="codes-container">
+          ${displayCodes.map(code => `<span class="security-code">${code}</span>`).join('')}
+        </div>
         <div class="location">
           ${location?.name || 'Sala'}
           ${location?.room_number ? `<span class="room-number">(${location.room_number})</span>` : ''}
@@ -114,6 +135,13 @@ export function generateParentTicket(checkins, securityCode) {
     if (c.is_guest) return c.guest_name;
     return c.kids_students?.full_name || 'Nieznane';
   });
+
+  // Pobierz wszystkie kody bezpieczeństwa
+  const securityCodes = checkins[0]?.security_codes_list || [];
+  const codesFromField = securityCode?.split('|') || [];
+  const displayCodes = securityCodes.length > 0
+    ? securityCodes
+    : codesFromField.map(code => ({ code, name: '' }));
 
   const date = new Date().toLocaleDateString('pl-PL', {
     weekday: 'long',
@@ -151,29 +179,45 @@ export function generateParentTicket(checkins, securityCode) {
           justify-content: center;
         }
         .title {
-          font-size: 12pt;
+          font-size: 11pt;
           color: #6b7280;
           margin-bottom: 4px;
         }
+        .codes-container {
+          display: flex;
+          justify-content: center;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+        .code-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
         .security-code {
-          font-size: 48pt;
+          font-size: ${displayCodes.length > 2 ? '28pt' : '36pt'};
           font-weight: bold;
           color: #ec4899;
           line-height: 1;
         }
+        .code-name {
+          font-size: 8pt;
+          color: #6b7280;
+          margin-top: 2px;
+        }
         .children {
-          font-size: 12pt;
+          font-size: 11pt;
           color: #374151;
-          margin-top: 8px;
+          margin-top: 6px;
           text-align: center;
         }
         .date {
-          font-size: 10pt;
+          font-size: 9pt;
           color: #9ca3af;
           margin-top: auto;
         }
         .instructions {
-          font-size: 9pt;
+          font-size: 8pt;
           color: #6b7280;
           margin-top: 4px;
         }
@@ -181,11 +225,18 @@ export function generateParentTicket(checkins, securityCode) {
     </head>
     <body>
       <div class="ticket">
-        <div class="title">BILET RODZICA</div>
-        <div class="security-code">${securityCode}</div>
+        <div class="title">BILET RODZICA - ${displayCodes.length > 1 ? 'KODY ODBIORU' : 'KOD ODBIORU'}</div>
+        <div class="codes-container">
+          ${displayCodes.map(c => `
+            <div class="code-item">
+              <span class="security-code">${c.code}</span>
+              ${c.name ? `<span class="code-name">${c.name}</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
         <div class="children">${children.join(', ')}</div>
         <div class="date">${date}</div>
-        <div class="instructions">Zachowaj ten bilet do odbioru dziecka</div>
+        <div class="instructions">${displayCodes.length > 1 ? 'Każdy z kodów może być użyty do odbioru' : 'Zachowaj ten bilet do odbioru dziecka'}</div>
       </div>
     </body>
     </html>

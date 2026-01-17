@@ -35,7 +35,14 @@ export default function CheckinSuccess({
     onDone();
   };
 
-  const securityCode = checkins?.[0]?.security_code || '---';
+  // Pobierz listę kodów bezpieczeństwa (ostatnie 4 cyfry telefonów osób z can_pickup)
+  const securityCodesList = checkins?.[0]?.security_codes_list || [];
+  // Alternatywnie parsuj z security_code jeśli security_codes_list nie jest dostępne
+  const securityCodesFromField = checkins?.[0]?.security_code?.split('|') || [];
+  const displayCodes = securityCodesList.length > 0
+    ? securityCodesList
+    : securityCodesFromField.map(code => ({ code, name: '' }));
+
   const isGuest = checkins?.some(c => c.is_guest);
 
   const childrenNames = checkins?.map(c => {
@@ -55,14 +62,30 @@ export default function CheckinSuccess({
         Zameldowano!
       </h1>
 
-      {/* Security code */}
-      <div className="bg-pink-50 dark:bg-pink-900/30 px-10 py-5 rounded-2xl mb-6">
-        <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-          Kod bezpieczeństwa
+      {/* Security codes */}
+      <div className="bg-pink-50 dark:bg-pink-900/30 px-6 sm:px-10 py-5 rounded-2xl mb-6">
+        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          {displayCodes.length > 1 ? 'Kody bezpieczeństwa (ostatnie 4 cyfry telefonu)' : 'Kod bezpieczeństwa'}
         </div>
-        <div className="text-5xl sm:text-6xl font-bold text-pink-600 dark:text-pink-400 tracking-widest">
-          {securityCode}
+        <div className="flex flex-wrap justify-center gap-3">
+          {displayCodes.map((codeInfo, index) => (
+            <div key={index} className="flex flex-col items-center">
+              <div className="text-4xl sm:text-5xl font-bold text-pink-600 dark:text-pink-400 tracking-widest">
+                {codeInfo.code}
+              </div>
+              {codeInfo.name && (
+                <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  {codeInfo.name}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
+        {displayCodes.length > 1 && (
+          <div className="text-xs text-gray-500 dark:text-gray-500 mt-3 text-center">
+            Każdy z tych kodów może być użyty do odbioru dziecka
+          </div>
+        )}
       </div>
 
       {/* Children list */}

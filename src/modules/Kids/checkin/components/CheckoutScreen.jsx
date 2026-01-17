@@ -4,7 +4,6 @@ import VirtualKeypad from './VirtualKeypad';
 import { Search, Check, CheckCircle, Loader2 } from 'lucide-react';
 
 export default function CheckoutScreen({ session }) {
-  const [searchMode, setSearchMode] = useState('code');
   const [searchValue, setSearchValue] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedCheckins, setSelectedCheckins] = useState({});
@@ -12,32 +11,18 @@ export default function CheckoutScreen({ session }) {
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [checkedOutNames, setCheckedOutNames] = useState([]);
 
-  const { searchBySecurityCode, searchByPhone, checkOutMultiple, loading } = useCheckin();
+  const { searchBySecurityCode, checkOutMultiple, loading } = useCheckin();
 
   const handleSearch = async () => {
-    if (!searchValue || !session) return;
+    if (searchValue.length !== 4 || !session) return;
 
     setSearching(true);
     setSearchResults([]);
     setSelectedCheckins({});
 
     try {
-      let results = [];
-
-      if (searchMode === 'code') {
-        results = await searchBySecurityCode(session.id, searchValue);
-      } else {
-        const households = await searchByPhone(searchValue);
-        if (households.length > 0) {
-          for (const household of households) {
-            const householdResults = await searchBySecurityCode(session.id, '');
-            results = [
-              ...results,
-              ...householdResults.filter(c => c.household_id === household.id)
-            ];
-          }
-        }
-      }
+      // Szukaj po 4 cyfrach telefonu (kod bezpieczeństwa)
+      const results = await searchBySecurityCode(session.id, searchValue);
 
       setSearchResults(results);
 
@@ -132,109 +117,40 @@ export default function CheckoutScreen({ session }) {
           Checkout - Odbiór dzieci
         </h1>
         <p className="text-base text-gray-600 dark:text-gray-400">
-          Wpisz kod bezpieczeństwa z biletu
+          Wpisz ostatnie 4 cyfry swojego numeru telefonu
         </p>
       </div>
 
-      {/* Search mode toggle */}
-      <div className="flex gap-2 mb-6">
+      {/* Search input - klawiatura numeryczna dla 4 cyfr telefonu */}
+      <div className="mb-6">
+        <VirtualKeypad
+          value={searchValue}
+          onChange={setSearchValue}
+          maxLength={4}
+          disabled={searching}
+        />
         <button
-          onClick={() => {
-            setSearchMode('code');
-            handleClear();
-          }}
-          className={`px-6 py-2.5 text-sm font-medium rounded-xl transition
-            ${searchMode === 'code'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+          onClick={handleSearch}
+          disabled={searchValue.length !== 4 || searching}
+          className={`w-full mt-4 flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold rounded-xl transition
+            ${searchValue.length === 4
+              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white hover:shadow-lg cursor-pointer'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
             }`}
         >
-          Po kodzie
-        </button>
-        <button
-          onClick={() => {
-            setSearchMode('phone');
-            handleClear();
-          }}
-          className={`px-6 py-2.5 text-sm font-medium rounded-xl transition
-            ${searchMode === 'phone'
-              ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
-        >
-          Po telefonie
+          {searching ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Szukam...
+            </>
+          ) : (
+            <>
+              <Search size={18} />
+              Szukaj dzieci
+            </>
+          )}
         </button>
       </div>
-
-      {/* Search input */}
-      {searchMode === 'code' ? (
-        <div className="mb-6">
-          <div className="flex gap-2 justify-center mb-4">
-            <input
-              type="text"
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value.toUpperCase())}
-              placeholder="np. A34"
-              maxLength={4}
-              className="w-40 px-4 py-4 text-3xl font-bold text-center border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase tracking-widest focus:border-pink-500 dark:focus:border-pink-400 focus:outline-none transition"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSearch();
-              }}
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            disabled={!searchValue || searching}
-            className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold rounded-xl transition
-              ${searchValue
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white hover:shadow-lg cursor-pointer'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-              }`}
-          >
-            {searching ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Szukam...
-              </>
-            ) : (
-              <>
-                <Search size={18} />
-                Szukaj
-              </>
-            )}
-          </button>
-        </div>
-      ) : (
-        <div className="mb-6">
-          <VirtualKeypad
-            value={searchValue}
-            onChange={setSearchValue}
-            maxLength={4}
-            disabled={searching}
-          />
-          <button
-            onClick={handleSearch}
-            disabled={searchValue.length !== 4 || searching}
-            className={`w-full mt-4 flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold rounded-xl transition
-              ${searchValue.length === 4
-                ? 'bg-gradient-to-r from-pink-600 to-orange-600 text-white hover:shadow-lg cursor-pointer'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-              }`}
-          >
-            {searching ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Szukam...
-              </>
-            ) : (
-              <>
-                <Search size={18} />
-                Szukaj rodziny
-              </>
-            )}
-          </button>
-        </div>
-      )}
 
       {/* Results */}
       {searchResults.length > 0 && (
@@ -301,11 +217,6 @@ export default function CheckoutScreen({ session }) {
                         minute: '2-digit'
                       })}
                     </div>
-                  </div>
-
-                  {/* Code */}
-                  <div className="text-pink-600 dark:text-pink-400 font-bold text-lg">
-                    {checkin.security_code}
                   </div>
                 </div>
               );

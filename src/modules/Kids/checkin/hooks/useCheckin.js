@@ -133,24 +133,49 @@ export function useCheckin() {
     }
   }, []);
 
+  // Pobierz kody bezpieczeństwa dla rodziny (ostatnie 4 cyfry telefonów osób z can_pickup)
+  const getSecurityCodesForHousehold = useCallback(async (householdId) => {
+    if (!householdId) return [];
+
+    try {
+      const { data: contacts, error } = await supabase
+        .from('parent_contacts')
+        .select('phone, full_name')
+        .eq('household_id', householdId)
+        .eq('can_pickup', true);
+
+      if (error) throw error;
+
+      // Wyodrębnij ostatnie 4 cyfry z każdego telefonu
+      const codes = (contacts || [])
+        .filter(c => c.phone)
+        .map(c => {
+          const digits = c.phone.replace(/\D/g, ''); // Usuń wszystko poza cyframi
+          return {
+            code: digits.slice(-4), // Ostatnie 4 cyfry
+            name: c.full_name
+          };
+        })
+        .filter(c => c.code.length === 4); // Tylko pełne 4-cyfrowe kody
+
+      return codes;
+    } catch (err) {
+      console.error('Error getting security codes:', err);
+      return [];
+    }
+  }, []);
+
   // Wykonaj check-in dla dziecka
-  const checkInStudent = useCallback(async (sessionId, studentId, locationId, householdId) => {
+  const checkInStudent = useCallback(async (sessionId, studentId, locationId, householdId, securityCodes = []) => {
     setLoading(true);
     setError(null);
 
     try {
       const user = await getCachedUser();
 
-      // Wygeneruj kod bezpieczeństwa
-      const { data: codeResult, error: codeError } = await supabase
-        .rpc('generate_security_code', {
-          p_session_id: sessionId,
-          p_household_id: householdId
-        });
-
-      if (codeError) throw codeError;
-
-      const securityCode = codeResult;
+      // Użyj pierwszego kodu jako głównego (wszystkie kody są zapisane jako JSON w polu)
+      // Format: "1234|5678|9012" - kody oddzielone |
+      const securityCodeStr = securityCodes.map(c => c.code).join('|') || 'XXXX';
 
       // Utwórz rekord check-in
       const { data, error: insertError } = await supabase
@@ -160,7 +185,7 @@ export function useCheckin() {
           student_id: studentId,
           location_id: locationId,
           household_id: householdId,
-          security_code: securityCode,
+          security_code: securityCodeStr,
           checked_in_by: user?.email || 'system',
           is_guest: false
         })
@@ -172,7 +197,9 @@ export function useCheckin() {
         .single();
 
       if (insertError) throw insertError;
-      return data;
+
+      // Dodaj informacje o kodach do zwracanego obiektu
+      return { ...data, security_codes_list: securityCodes };
     } catch (err) {
       setError(err.message);
       return null;
@@ -189,16 +216,9 @@ export function useCheckin() {
     try {
       const user = await getCachedUser();
 
-      // Wygeneruj unikalny kod dla gościa (bez household_id)
-      const { data: codeResult, error: codeError } = await supabase
-        .rpc('generate_security_code', {
-          p_session_id: sessionId,
-          p_household_id: null
-        });
-
-      if (codeError) throw codeError;
-
-      const securityCode = codeResult;
+      // Kod bezpieczeństwa = ostatnie 4 cyfry telefonu rodzica gościa
+      const parentPhoneDigits = (guestData.parentPhone || '').replace(/\D/g, '');
+      const securityCode = parentPhoneDigits.slice(-4) || 'XXXX';
 
       // Utwórz rekord check-in dla gościa
       const { data, error: insertError } = await supabase
@@ -225,7 +245,12 @@ export function useCheckin() {
         .single();
 
       if (insertError) throw insertError;
-      return data;
+
+      // Dodaj informację o kodzie do zwracanego obiektu
+      return {
+        ...data,
+        security_codes_list: [{ code: securityCode, name: guestData.parentName }]
+      };
     } catch (err) {
       setError(err.message);
       return null;
@@ -235,8 +260,9 @@ export function useCheckin() {
   }, []);
 
   // Wyszukaj check-iny po kodzie bezpieczeństwa (dla checkout)
+  // Szuka kodu w formacie "1234" w polu security_code, które może zawierać "1234|5678|9012"
   const searchBySecurityCode = useCallback(async (sessionId, securityCode) => {
-    if (!securityCode || securityCode.length < 2) {
+    if (!securityCode || securityCode.length !== 4) {
       return [];
     }
 
@@ -244,6 +270,7 @@ export function useCheckin() {
     setError(null);
 
     try {
+      // Szukamy kodu, który zawiera podane 4 cyfry (może być w formacie "1234|5678|9012")
       const { data, error: queryError } = await supabase
         .from('checkins')
         .select(`
@@ -252,11 +279,18 @@ export function useCheckin() {
           checkin_locations (*)
         `)
         .eq('session_id', sessionId)
-        .eq('security_code', securityCode.toUpperCase())
+        .like('security_code', `%${securityCode}%`)
         .is('checked_out_at', null);
 
       if (queryError) throw queryError;
-      return data || [];
+
+      // Dodatkowo filtrujemy, żeby upewnić się że kod dokładnie pasuje (nie np. "1234" w "12345")
+      const filteredData = (data || []).filter(checkin => {
+        const codes = checkin.security_code.split('|');
+        return codes.includes(securityCode);
+      });
+
+      return filteredData;
     } catch (err) {
       setError(err.message);
       return [];
@@ -359,6 +393,7 @@ export function useCheckin() {
     searchBySecurityCode,
     checkOut,
     checkOutMultiple,
-    getHouseholdChildren
+    getHouseholdChildren,
+    getSecurityCodesForHousehold
   };
 }
