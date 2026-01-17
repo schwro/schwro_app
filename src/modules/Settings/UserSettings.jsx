@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase, getCachedUser } from '../../lib/supabase';
 import {
   User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key, Bell, BellOff, Smartphone, FileText, Code, Eye,
-  Shield, ShieldCheck, ShieldOff, KeyRound, RefreshCw, Copy, Download, Calendar, Link, ExternalLink
+  Shield, ShieldCheck, ShieldOff, KeyRound, RefreshCw, Copy, Download, Calendar, Link, ExternalLink, QrCode, X
 } from 'lucide-react';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useTwoFactor } from '../../hooks/useTwoFactor';
@@ -43,6 +43,7 @@ export default function UserSettings() {
   // iCal Subscription
   const [icalSubscription, setIcalSubscription] = useState(null);
   const [icalLoading, setIcalLoading] = useState(false);
+  const [showIcalQrCode, setShowIcalQrCode] = useState(false);
   const [icalPreferences, setIcalPreferences] = useState({
     programs: true,
     events: true,
@@ -917,6 +918,13 @@ export default function UserSettings() {
                       <Copy size={18} />
                     </button>
                     <button
+                      onClick={() => setShowIcalQrCode(true)}
+                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                      title="Pokaż kod QR"
+                    >
+                      <QrCode size={18} />
+                    </button>
+                    <button
                       onClick={downloadIcs}
                       className="px-3 py-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/50 transition"
                       title="Pobierz plik .ics"
@@ -966,6 +974,56 @@ export default function UserSettings() {
                 {icalLoading ? <Loader2 size={18} className="animate-spin" /> : <Calendar size={18} />}
                 Utwórz subskrypcję kalendarza
               </button>
+            )}
+
+            {/* Modal z kodem QR */}
+            {showIcalQrCode && icalSubscription && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                      <QrCode size={20} className="text-orange-600 dark:text-orange-400" />
+                      Kod QR kalendarza
+                    </h4>
+                    <button
+                      onClick={() => setShowIcalQrCode(false)}
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="flex justify-center mb-4">
+                    <div className="p-4 bg-white rounded-xl">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getIcalSubscriptionUrl())}`}
+                        alt="QR Code"
+                        className="w-48 h-48"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
+                    Zeskanuj kod QR aparatem telefonu, aby dodać kalendarz do aplikacji
+                  </p>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={copyIcalUrl}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                    >
+                      <Copy size={16} />
+                      Kopiuj link
+                    </button>
+                    <button
+                      onClick={() => setShowIcalQrCode(false)}
+                      className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition"
+                    >
+                      Zamknij
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Instrukcja */}
