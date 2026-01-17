@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, getCachedUser } from '../../lib/supabase';
 import {
   User, Lock, Camera, Save, Loader2, CheckCircle, AlertCircle, Mail, Key, Bell, BellOff, Smartphone, FileText, Code, Eye,
   Shield, ShieldCheck, ShieldOff, KeyRound, RefreshCw, Copy, Download, Calendar, Link, ExternalLink
@@ -121,8 +121,8 @@ export default function UserSettings() {
     }, 5000);
 
     try {
-      // 1. Pobierz sesję (aby znać email)
-      const { data: { user } } = await supabase.auth.getUser();
+      // 1. Pobierz sesję (aby znać email) - używamy cache
+      const user = await getCachedUser();
       if (!user) {
         clearTimeout(timeoutId);
         setLoading(false);

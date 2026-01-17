@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCachedUser } from '../lib/supabase';
 
 // Globalny cache - współdzielony między wszystkimi instancjami hooka
 // Inicjalizuj z localStorage od razu
@@ -39,7 +39,7 @@ const fetchRole = async () => {
 
   fetchPromise = (async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user) {
         globalUserRole = null;
         globalLoading = false;

@@ -150,18 +150,19 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Timeout bezpieczeństwa - jeśli auth nie odpowie w 10 sekund, zakończ ładowanie
+    // Timeout bezpieczeństwa - jeśli auth nie odpowie w 3 sekundy, zakończ ładowanie
     const safetyTimeout = setTimeout(() => {
       console.warn('Auth timeout - forcing loading to complete');
       setLoading(false);
-    }, 10000);
+    }, 3000);
 
     const initAuth = async () => {
       try {
         const { data } = await supabase.auth.getSession();
         if (data?.session) {
           setSession(data.session);
-          await check2FARequirement(data.session.user?.email);
+          // Sprawdź 2FA w tle - nie blokuj ładowania
+          check2FARequirement(data.session.user?.email);
         }
       } catch (error) {
         console.error('Auth error:', error);
