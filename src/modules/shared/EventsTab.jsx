@@ -235,7 +235,7 @@ const EventModal = ({ event, onClose, onSave, onDelete, config }) => {
     title: event?.title || '',
     description: event?.description || '',
     start_date: event?.start_date ? event.start_date.split('T')[0] : '',
-    start_time: event?.start_date?.includes('T') ? event.start_date.split('T')[1].substring(0,5) : '',
+    start_time: event?.start_date?.includes('T') ? (event.start_date.endsWith('Z') ? new Date(event.start_date).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', hour12: false }) : event.start_date.split('T')[1].substring(0,5)) : '',
     end_time: event?.end_time || '',
     location: event?.location || '',
     max_participants: event?.max_participants || '',
@@ -251,7 +251,7 @@ const EventModal = ({ event, onClose, onSave, onDelete, config }) => {
     const eventData = {
       title: form.title.trim(),
       description: form.description.trim(),
-      start_date: form.start_date ? new Date(form.start_date + (form.start_time ? 'T' + form.start_time : 'T00:00:00')).toISOString() : null,
+      start_date: form.start_date ? (form.start_date + (form.start_time ? 'T' + form.start_time + ':00' : 'T00:00:00')) : null,
       end_time: form.end_time || null,
       location: form.location,
       max_participants: form.max_participants ? parseInt(form.max_participants) : null,
@@ -613,7 +613,7 @@ GRANT ALL ON ${config.tableName} TO anon;`;
                 <div className="space-y-3">
                   {monthEvents.map(ev => {
                     const date = new Date(ev.start_date);
-                    const timeStr = ev.start_date?.includes('T') ? ev.start_date.split('T')[1].substring(0,5) : null;
+                    const timeStr = ev.start_date?.includes('T') ? (ev.start_date.endsWith('Z') ? new Date(ev.start_date).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', hour12: false }) : ev.start_date.split('T')[1].substring(0,5)) : null;
 
                     return (
                       <div
