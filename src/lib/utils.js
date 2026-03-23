@@ -582,7 +582,8 @@ const appendSongAttachmentPDFs = async (basePdfBytes, program, songsMap) => {
 
   // Zbierz wszystkie pieśni z programu
   const songIds = [];
-  program.schedule?.forEach(row => {
+  program.schedule?.forEach((row, idx) => {
+    console.log(`[PDF DEBUG] appendSong - row[${idx}]:`, JSON.stringify({ type: row.type, songId: row.songId, title: row.title, element: row.element, selectedSongs: row.selectedSongs }));
     if (row.selectedSongs?.length > 0) {
       row.selectedSongs.forEach(s => {
         if (s.songId && !songIds.includes(s.songId)) {
