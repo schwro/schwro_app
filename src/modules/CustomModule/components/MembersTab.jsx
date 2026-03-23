@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabase';
-import { Plus, Search, Trash2, X, User, Mail, Phone, Check, Edit2 } from 'lucide-react';
+import { Plus, Search, Trash2, X, User, Mail, Phone, Check, Edit2, UserX } from 'lucide-react';
 
 export default function MembersTab({ moduleKey, moduleName }) {
   const [members, setMembers] = useState([]);
@@ -9,7 +9,7 @@ export default function MembersTab({ moduleKey, moduleName }) {
   const [searchFilter, setSearchFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '' });
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', is_active: true });
   const [tableExists, setTableExists] = useState(true);
 
   // Służby z team_roles
@@ -159,7 +159,7 @@ export default function MembersTab({ moduleKey, moduleName }) {
 
       setShowModal(false);
       setEditingMember(null);
-      setForm({ full_name: '', email: '', phone: '' });
+      setForm({ full_name: '', email: '', phone: '', is_active: true });
       setSelectedMemberRoles([]);
       fetchMembers();
       fetchModuleRoles();
@@ -195,7 +195,8 @@ export default function MembersTab({ moduleKey, moduleName }) {
     setForm({
       full_name: member.full_name || '',
       email: member.email || '',
-      phone: member.phone || ''
+      phone: member.phone || '',
+      is_active: member.is_active !== false
     });
     loadMemberRoles(member.id);
     setShowModal(true);
@@ -204,7 +205,7 @@ export default function MembersTab({ moduleKey, moduleName }) {
   // Otwórz modal do dodawania
   const openAddModal = () => {
     setEditingMember(null);
-    setForm({ full_name: '', email: '', phone: '' });
+    setForm({ full_name: '', email: '', phone: '', is_active: true });
     setSelectedMemberRoles([]);
     setShowModal(true);
   };
@@ -314,15 +315,20 @@ GRANT ALL ON ${tableName} TO anon;`;
             return (
               <div
                 key={member.id}
-                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition group"
+                className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition group ${member.is_active === false ? 'opacity-50' : ''}`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white font-bold">
-                      {member.full_name?.charAt(0)?.toUpperCase() || '?'}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${member.is_active === false ? 'bg-gray-400 dark:bg-gray-600' : 'bg-gradient-to-br from-pink-500 to-orange-500'}`}>
+                      {member.is_active === false ? <UserX size={18} /> : (member.full_name?.charAt(0)?.toUpperCase() || '?')}
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-800 dark:text-white">{member.full_name}</h4>
+                      <h4 className="font-medium text-gray-800 dark:text-white">
+                        {member.full_name}
+                        {member.is_active === false && (
+                          <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">(nieaktywny)</span>
+                        )}
+                      </h4>
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
@@ -481,6 +487,31 @@ GRANT ALL ON ${tableName} TO anon;`;
                     placeholder="jan@example.com"
                   />
                 </div>
+              </div>
+
+              {/* Status aktywności */}
+              <div className="flex items-center justify-between px-1">
+                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
+                  Status
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, is_active: !form.is_active })}
+                  className={`relative inline-flex h-7 w-[52px] items-center rounded-full transition-colors ${
+                    form.is_active
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                      : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                      form.is_active ? 'translate-x-[28px]' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm font-medium ml-2 ${form.is_active ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {form.is_active ? 'Aktywny' : 'Nieaktywny'}
+                </span>
               </div>
 
               {/* Przyciski */}

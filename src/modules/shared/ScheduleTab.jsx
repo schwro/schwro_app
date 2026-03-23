@@ -275,20 +275,23 @@ export default function ScheduleTab({ moduleKey, moduleName }) {
     ? roles.map(role => ({ key: role.field_key, label: role.name, roleId: role.id }))
     : [{ key: 'osoba', label: 'Osoba', roleId: null }];
 
+  // Tylko aktywni członkowie (do propozycji grafiku)
+  const activeMembers = members.filter(m => m.is_active !== false);
+
   // Filtrowanie członków według służby
   const getMembersForRole = (roleId) => {
     if (!roleId || memberRoles.length === 0) {
-      return members;
+      return activeMembers;
     }
     const assignedMemberIds = memberRoles
       .filter(mr => mr.role_id === roleId)
       .map(mr => mr.member_id);
 
     if (assignedMemberIds.length === 0) {
-      return members;
+      return activeMembers;
     }
 
-    return members.filter(member => assignedMemberIds.includes(String(member.id)));
+    return activeMembers.filter(member => assignedMemberIds.includes(String(member.id)));
   };
 
   if (loading) {
@@ -307,7 +310,7 @@ export default function ScheduleTab({ moduleKey, moduleName }) {
         </h2>
       </div>
 
-      {members.length === 0 ? (
+      {activeMembers.length === 0 ? (
         <div className="p-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center">
           <p className="text-gray-500 dark:text-gray-400">Brak członków w zespole</p>
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
