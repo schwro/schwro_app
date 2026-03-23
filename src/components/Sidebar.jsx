@@ -200,6 +200,9 @@ export default function Sidebar() {
     // Rada starszych zawsze ma dostęp do ustawień
     if (userRole === 'rada_starszych' && moduleResource === 'module:settings') return true;
 
+    // Jeśli rola nie została jeszcze załadowana, nie pokazuj modułów
+    if (!userRole) return false;
+
     // Znajdź uprawnienie dla roli i zasobu
     const perm = permissions.find(p => p.role === userRole && p.resource === moduleResource);
 
@@ -208,6 +211,15 @@ export default function Sidebar() {
 
     return perm.can_read === true;
   };
+
+  // Debug - usuń po naprawieniu
+  useEffect(() => {
+    console.log('[Sidebar Debug] userRole:', userRole, '| permissions count:', permissions.length, '| dynamicModules:', dynamicModules.length);
+    if (permissions.length > 0 && userRole) {
+      const czlonekPerms = permissions.filter(p => p.role === userRole);
+      console.log('[Sidebar Debug] Permissions for role', userRole, ':', czlonekPerms);
+    }
+  }, [userRole, permissions, dynamicModules]);
 
   // Mapowanie ścieżek na zasoby uprawnień
   const moduleResourceMap = {
