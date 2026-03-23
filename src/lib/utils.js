@@ -23,6 +23,11 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
   // Detect format: new format uses item.type/item.title, old uses row.element/row.selectedSongs
   const isNewFormat = program.schedule?.some(row => row.type !== undefined);
 
+  // DEBUG: log schedule data to help diagnose PDF issues
+  console.log('[PDF DEBUG] isNewFormat:', isNewFormat);
+  console.log('[PDF DEBUG] schedule:', JSON.stringify(program.schedule?.slice(0, 3), null, 2));
+  console.log('[PDF DEBUG] songsMap keys:', Object.keys(songsMap).slice(0, 5));
+
   if (isNewFormat) {
     // New format: each song is its own schedule item with type='song', songId, songKey
     program.schedule?.forEach(row => {
@@ -590,19 +595,27 @@ const appendSongAttachmentPDFs = async (basePdfBytes, program, songsMap) => {
     }
   });
 
+  console.log('[PDF DEBUG] appendSongAttachmentPDFs - songIds found:', songIds);
+
+  let attachedCount = 0;
   for (const songId of songIds) {
     const song = songsMap[songId];
+    console.log('[PDF DEBUG] Song:', songId, 'title:', song?.title, 'attachments:', song?.attachments?.length || 0);
     if (!song?.attachments?.length) continue;
 
     const pdfAttachments = song.attachments.filter(att =>
       att.type === 'file' && (att.name?.toLowerCase().endsWith('.pdf') || att.url?.toLowerCase().endsWith('.pdf'))
     );
 
+    console.log('[PDF DEBUG] PDF attachments for', song.title, ':', pdfAttachments.length, pdfAttachments.map(a => ({ name: a.name, url: a.url?.substring(0, 80) })));
+
     for (const att of pdfAttachments) {
       await fetchAndAppendPDF(mergedPdf, att.url, `${att.name} (${song.title})`);
+      attachedCount++;
     }
   }
 
+  console.log('[PDF DEBUG] Total PDF attachments appended:', attachedCount);
   return await mergedPdf.save();
 };
 
@@ -624,6 +637,10 @@ const appendCustomAttachmentPDFs = async (basePdfBytes, program) => {
 };
 
 export const generatePDF = async (program, songsMap, teamRoles = {}, songPagesMode = 'lyrics') => {
+  console.log('[PDF DEBUG] generatePDF called with songPagesMode:', songPagesMode);
+  console.log('[PDF DEBUG] program.schedule length:', program.schedule?.length);
+  console.log('[PDF DEBUG] program.schedule first 2 items:', JSON.stringify(program.schedule?.slice(0, 2)));
+
   const htmlContent = getPDFHtmlContent(program, songsMap, teamRoles);
 
   const parser = new DOMParser();
@@ -632,12 +649,19 @@ export const generatePDF = async (program, songsMap, teamRoles = {}, songPagesMo
   const page1Div = doc.querySelector('.page-1');
   const sectionsDiv = doc.querySelector('.sections-wrapper');
 
+  console.log('[PDF DEBUG] page1Div found:', !!page1Div);
+  console.log('[PDF DEBUG] page1Div text length:', page1Div?.textContent?.trim()?.length);
+  console.log('[PDF DEBUG] sectionsDiv found:', !!sectionsDiv);
+
   // Znajdź tylko niepuste kontenery pieśni (div z page-break-before i treścią)
   const allSongDivs = doc.querySelectorAll('[style*="page-break-before"]');
   const songPages = Array.from(allSongDivs).filter(div => {
     const text = div.textContent?.trim();
     return text && text.length > 50; // Minimalna długość treści pieśni
   });
+
+  console.log('[PDF DEBUG] allSongDivs count:', allSongDivs.length);
+  console.log('[PDF DEBUG] filtered songPages count:', songPages.length);
 
   const pdf = new jsPDF('p', 'mm', 'a4');
   const a4Width = 210;
@@ -739,15 +763,23 @@ export const generatePDF = async (program, songsMap, teamRoles = {}, songPagesMo
       }
     }
 
-    // Tryby wymagające mergowania PDF-ów
-    const needsMerge = ['attachments', 'both', 'custom'].includes(songPagesMode);
-    if (needsMerge) {
+    // Mergowanie załączników PDF
+    // lyrics: + załączniki PDF pieśni
+    // attachments: + załączniki PDF pieśni (bez stron tekstów)
+    // both: + załączniki PDF pieśni + własne załączniki
+    // custom: + własne załączniki
+    const needsSongAttachments = ['lyrics', 'attachments', 'both'].includes(songPagesMode);
+    const needsCustomAttachments = ['custom', 'both'].includes(songPagesMode);
+
+    if (needsSongAttachments || needsCustomAttachments) {
       let mergedBytes = pdf.output('arraybuffer');
 
-      if (songPagesMode === 'attachments' || songPagesMode === 'both') {
+      if (needsSongAttachments) {
+        console.log('[PDF DEBUG] Appending song PDF attachments...');
         mergedBytes = await appendSongAttachmentPDFs(mergedBytes, program, songsMap);
       }
-      if (songPagesMode === 'custom' || songPagesMode === 'both') {
+      if (needsCustomAttachments) {
+        console.log('[PDF DEBUG] Appending custom PDF attachments...');
         mergedBytes = await appendCustomAttachmentPDFs(mergedBytes, program);
       }
 
@@ -937,15 +969,16 @@ export const savePDFToSupabase = async (program, songsMap, teamRoles = {}, songP
     }
 
     let finalBlob;
-    const needsMerge = ['attachments', 'both', 'custom'].includes(songPagesMode);
+    const needsSongAttachments = ['lyrics', 'attachments', 'both'].includes(songPagesMode);
+    const needsCustomAttachments = ['custom', 'both'].includes(songPagesMode);
 
-    if (needsMerge) {
+    if (needsSongAttachments || needsCustomAttachments) {
       let mergedBytes = pdf.output('arraybuffer');
 
-      if (songPagesMode === 'attachments' || songPagesMode === 'both') {
+      if (needsSongAttachments) {
         mergedBytes = await appendSongAttachmentPDFs(mergedBytes, program, songsMap);
       }
-      if (songPagesMode === 'custom' || songPagesMode === 'both') {
+      if (needsCustomAttachments) {
         mergedBytes = await appendCustomAttachmentPDFs(mergedBytes, program);
       }
 
