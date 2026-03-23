@@ -2336,7 +2336,7 @@ export default function ProgramDetail() {
             <span className="font-medium">Wróć do listy</span>
           </button>
 
-          <div className="bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-700/50 p-5 lg:p-6 mb-6 lg:mb-8">
+          <div className={`bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-700/50 p-5 lg:p-6 mb-6 lg:mb-8 relative ${showPdfMenu ? 'z-10' : ''}`}>
             <div className="mb-4">
               <input
                 type="text"
