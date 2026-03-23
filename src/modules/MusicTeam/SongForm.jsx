@@ -1124,7 +1124,7 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
 
           {activeTab === 'basic' && (
             <div className="space-y-6 min-h-[500px]">
-              {/* Rząd 1: Tytuł i Autor */}
+              {/* Rząd 1: Tytuł i Wykonawca */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Tytuł</label>
@@ -1136,7 +1136,7 @@ export default function SongForm({ initialData, onSave, onCancel, allTags = [] }
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Autor</label>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Wykonawca</label>
                   <input 
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-pink-500/20 outline-none transition"
                     placeholder="Np. Chris Tomlin"

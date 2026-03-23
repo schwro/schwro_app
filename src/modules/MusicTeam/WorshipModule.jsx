@@ -2604,7 +2604,7 @@ export default function WorshipModule() {
             <thead className="bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="p-4">Tytuł</th>
-                <th className="p-4">Autor</th>
+                <th className="p-4">Wykonawca</th>
                 <th className="p-4">Tonacja</th>
                 <th className="p-4">Tempo</th>
                 <th className="p-4">Tagi</th>
