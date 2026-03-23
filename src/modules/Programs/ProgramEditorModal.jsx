@@ -5,7 +5,7 @@ import {
   Save, FileText, Presentation, X, Calendar,
   ChevronDown, GripVertical, Search, Check, ChevronUp,
   User, UserX, ChevronLeft, ChevronRight,
-  Mail, Loader2, Music, Trash2, AlertTriangle
+  Mail, Loader2, Music, Trash2, AlertTriangle, Type, Paperclip
 } from 'lucide-react';
 import { downloadPDF, savePDFToSupabase } from '../../lib/utils';
 import { generatePPT } from '../../lib/ppt';
@@ -1365,12 +1365,26 @@ export default function ProgramEditorModal({ programId, onClose, onSave, onDelet
     }
   };
 
-  const handleSaveAndUploadPDF = async () => {
+  const [showPdfMenu, setShowPdfMenu] = useState(false);
+  const pdfMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target)) {
+        setShowPdfMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSaveAndUploadPDF = async (songPagesMode = 'lyrics') => {
     if (!program || !program.date) {
       alert('Najpierw wybierz datę programu.');
       return;
     }
 
+    setShowPdfMenu(false);
     setIsLoading(true);
 
     try {
@@ -1387,8 +1401,8 @@ export default function ProgramEditorModal({ programId, onClose, onSave, onDelet
         teachingSpeakers: teachingSpeakers
       };
 
-      await downloadPDF(program, freshSongsMap, teamRolesForPDF);
-      const result = await savePDFToSupabase(program, freshSongsMap, teamRolesForPDF);
+      await downloadPDF(program, freshSongsMap, teamRolesForPDF, songPagesMode);
+      const result = await savePDFToSupabase(program, freshSongsMap, teamRolesForPDF, songPagesMode);
 
       if (result.success) {
         alert('PDF został pobrany i zapisany w chmurze!');
@@ -1444,15 +1458,51 @@ export default function ProgramEditorModal({ programId, onClose, onSave, onDelet
             </div>
           </div>
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto">
-            <button
-              onClick={handleSaveAndUploadPDF}
-              disabled={isLoading}
-              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-pink-600 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors border border-pink-200 font-medium text-sm disabled:opacity-50"
-              title="Zapisz PDF"
-            >
-              {isLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
-              <span className="hidden sm:inline">PDF</span>
-            </button>
+            <div className="relative flex-1 lg:flex-none" ref={pdfMenuRef}>
+              <button
+                onClick={() => setShowPdfMenu(!showPdfMenu)}
+                disabled={isLoading}
+                className="w-full flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-pink-600 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors border border-pink-200 font-medium text-sm disabled:opacity-50"
+                title="Generuj PDF"
+              >
+                {isLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+                <span className="hidden sm:inline">PDF</span>
+                <ChevronDown size={14} />
+              </button>
+              {showPdfMenu && (
+                <div className="absolute right-0 bottom-full mb-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 py-1">
+                  <button
+                    onClick={() => handleSaveAndUploadPDF('lyrics')}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Type size={16} className="text-pink-500" />
+                    Z tekstami i akordami
+                  </button>
+                  <button
+                    onClick={() => handleSaveAndUploadPDF('attachments')}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <FileText size={16} className="text-orange-500" />
+                    Z załącznikami PDF
+                  </button>
+                  <button
+                    onClick={() => handleSaveAndUploadPDF('both')}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <FileText size={16} className="text-purple-500" />
+                    Teksty + załączniki pieśni
+                  </button>
+                  <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                  <button
+                    onClick={() => handleSaveAndUploadPDF('custom')}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Paperclip size={16} className="text-green-500" />
+                    Z własnymi załącznikami
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={handleGeneratePPT}
               className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-200 font-medium text-sm"

@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { twMerge } from "tailwind-merge";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { PDFDocument } from 'pdf-lib';
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -450,7 +451,73 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
   `;
 };
 
-export const generatePDF = async (program, songsMap, teamRoles = {}) => {
+// Helper: pobiera PDF z URL i dodaje strony do mergedPdf
+const fetchAndAppendPDF = async (mergedPdf, url, label) => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return;
+    const pdfBytes = await response.arrayBuffer();
+    const attachmentPdf = await PDFDocument.load(pdfBytes);
+    const pages = await mergedPdf.copyPages(attachmentPdf, attachmentPdf.getPageIndices());
+    pages.forEach(page => mergedPdf.addPage(page));
+  } catch (err) {
+    console.warn(`Nie udało się dołączyć załącznika "${label}":`, err);
+  }
+};
+
+// Pobiera PDF-y z załączników pieśni i dołącza je do istniejącego PDF
+const appendSongAttachmentPDFs = async (basePdfBytes, program, songsMap) => {
+  const mergedPdf = await PDFDocument.load(basePdfBytes);
+
+  // Zbierz wszystkie pieśni z programu
+  const songIds = [];
+  program.schedule?.forEach(row => {
+    if (row.selectedSongs?.length > 0) {
+      row.selectedSongs.forEach(s => {
+        if (s.songId && !songIds.includes(s.songId)) {
+          songIds.push(s.songId);
+        }
+      });
+    }
+    if (row.type === 'song' && row.songId && !songIds.includes(row.songId)) {
+      songIds.push(row.songId);
+    }
+  });
+
+  for (const songId of songIds) {
+    const song = songsMap[songId];
+    if (!song?.attachments?.length) continue;
+
+    const pdfAttachments = song.attachments.filter(att =>
+      att.type === 'file' && (att.name?.toLowerCase().endsWith('.pdf') || att.url?.toLowerCase().endsWith('.pdf'))
+    );
+
+    for (const att of pdfAttachments) {
+      await fetchAndAppendPDF(mergedPdf, att.url, `${att.name} (${song.title})`);
+    }
+  }
+
+  return await mergedPdf.save();
+};
+
+// Pobiera własne załączniki PDF dodane do elementów programu
+const appendCustomAttachmentPDFs = async (basePdfBytes, program) => {
+  const mergedPdf = await PDFDocument.load(basePdfBytes);
+
+  for (const row of (program.schedule || [])) {
+    if (!row.customAttachments?.length) continue;
+
+    for (const att of row.customAttachments) {
+      if (att.url?.toLowerCase().endsWith('.pdf') || att.name?.toLowerCase().endsWith('.pdf')) {
+        await fetchAndAppendPDF(mergedPdf, att.url, att.name);
+      }
+    }
+  }
+
+  return await mergedPdf.save();
+};
+
+export const generatePDF = async (program, songsMap, teamRoles = {}, songPagesMode = 'lyrics') => {
   const htmlContent = getPDFHtmlContent(program, songsMap, teamRoles);
 
   const parser = new DOMParser();
@@ -556,17 +623,36 @@ export const generatePDF = async (program, songsMap, teamRoles = {}) => {
     if (page1Div) await renderSection(page1Div);
     if (sectionsDiv) await renderSection(sectionsDiv);
 
-    // Renderuj wszystkie pieśni razem, każda na osobnej stronie PDF
-    if (songPages.length > 0) {
+    // Strony pieśni z tekstami - tylko w trybach 'lyrics' i 'both'
+    if ((songPagesMode === 'lyrics' || songPagesMode === 'both') && songPages.length > 0) {
       for (const songPage of songPages) {
-        // Sprawdź czy pieśń ma jakąkolwiek treść przed renderowaniem
         const hasContent = songPage.textContent?.trim().length > 0;
         if (hasContent) {
           await renderSection(songPage);
-        } else {
-          console.log('Pomijam pustą pieśń');
         }
       }
+    }
+
+    // Tryby wymagające mergowania PDF-ów
+    const needsMerge = ['attachments', 'both', 'custom'].includes(songPagesMode);
+    if (needsMerge) {
+      let mergedBytes = pdf.output('arraybuffer');
+
+      if (songPagesMode === 'attachments' || songPagesMode === 'both') {
+        mergedBytes = await appendSongAttachmentPDFs(mergedBytes, program, songsMap);
+      }
+      if (songPagesMode === 'custom') {
+        mergedBytes = await appendCustomAttachmentPDFs(mergedBytes, program);
+      }
+
+      const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${program.name || 'Program'}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return pdf;
     }
 
     pdf.save(`${program.name || 'Program'}.pdf`);
@@ -634,11 +720,11 @@ export const generatePDFBase64 = async (program, songsMap) => {
   });
 };
 
-export const downloadPDF = async (program, songsMap, teamRoles = {}) => {
-  return generatePDF(program, songsMap, teamRoles);
+export const downloadPDF = async (program, songsMap, teamRoles = {}, songPagesMode = 'lyrics') => {
+  return generatePDF(program, songsMap, teamRoles, songPagesMode);
 };
 
-export const savePDFToSupabase = async (program, songsMap, teamRoles = {}) => {
+export const savePDFToSupabase = async (program, songsMap, teamRoles = {}, songPagesMode = 'lyrics') => {
   try {
     const htmlContent = getPDFHtmlContent(program, songsMap, teamRoles);
 
@@ -652,7 +738,7 @@ export const savePDFToSupabase = async (program, songsMap, teamRoles = {}) => {
     const allSongDivs = doc.querySelectorAll('[style*="page-break-before"]');
     const songPages = Array.from(allSongDivs).filter(div => {
       const text = div.textContent?.trim();
-      return text && text.length > 50; // Minimalna długość treści pieśni
+      return text && text.length > 50;
     });
 
     const pdf = new jsPDF('p', 'mm', 'a4');
@@ -663,16 +749,11 @@ export const savePDFToSupabase = async (program, songsMap, teamRoles = {}) => {
     const renderSection = async (element) => {
       if (!element) return;
 
-      // Sprawdź czy element ma jakąś treść (nie jest pusty)
       const textContent = element.textContent?.trim();
-      if (!textContent || textContent.length === 0) {
-        console.log('Pomijam pusty element');
-        return;
-      }
+      if (!textContent || textContent.length === 0) return;
 
       const container = document.createElement('div');
 
-      // Skopiuj pełny HTML razem ze stylami
       const wrapper = document.createElement('div');
       wrapper.innerHTML = htmlContent;
       const styleTag = wrapper.querySelector('style');
@@ -685,7 +766,6 @@ export const savePDFToSupabase = async (program, songsMap, teamRoles = {}) => {
       contentDiv.innerHTML = element.innerHTML;
       container.appendChild(contentDiv);
 
-      // FIX DARK MODE
       container.style.position = 'absolute';
       container.style.left = '-10000px';
       container.style.width = '210mm';
@@ -715,11 +795,7 @@ export const savePDFToSupabase = async (program, songsMap, teamRoles = {}) => {
         const imgData = canvas.toDataURL('image/jpeg', 0.85);
         const imgHeight = (canvas.height * a4Width) / canvas.width;
 
-        // Sprawdź czy wysokość nie jest zbyt mała (pusta strona)
-        if (imgHeight < 50) {
-          console.log('Pomijam stronę - zbyt mała wysokość');
-          return;
-        }
+        if (imgHeight < 50) return;
 
         if (pageNumber > 1) pdf.addPage();
 
@@ -744,20 +820,33 @@ export const savePDFToSupabase = async (program, songsMap, teamRoles = {}) => {
     if (page1Div) await renderSection(page1Div);
     if (sectionsDiv) await renderSection(sectionsDiv);
 
-    // Renderuj wszystkie pieśni razem, każda na osobnej stronie PDF
-    if (songPages.length > 0) {
+    // Strony pieśni z tekstami - tylko w trybach 'lyrics' i 'both'
+    if ((songPagesMode === 'lyrics' || songPagesMode === 'both') && songPages.length > 0) {
       for (const songPage of songPages) {
-        // Sprawdź czy pieśń ma jakąkolwiek treść przed renderowaniem
         const hasContent = songPage.textContent?.trim().length > 0;
         if (hasContent) {
           await renderSection(songPage);
-        } else {
-          console.log('Pomijam pustą pieśń');
         }
       }
     }
 
-    const pdfBlob = pdf.output('blob');
+    let finalBlob;
+    const needsMerge = ['attachments', 'both', 'custom'].includes(songPagesMode);
+
+    if (needsMerge) {
+      let mergedBytes = pdf.output('arraybuffer');
+
+      if (songPagesMode === 'attachments' || songPagesMode === 'both') {
+        mergedBytes = await appendSongAttachmentPDFs(mergedBytes, program, songsMap);
+      }
+      if (songPagesMode === 'custom') {
+        mergedBytes = await appendCustomAttachmentPDFs(mergedBytes, program);
+      }
+
+      finalBlob = new Blob([mergedBytes], { type: 'application/pdf' });
+    } else {
+      finalBlob = pdf.output('blob');
+    }
 
     const dateStr = program.date.split('T')[0];
     const fileName = `Program-${dateStr}.pdf`;
@@ -766,7 +855,7 @@ export const savePDFToSupabase = async (program, songsMap, teamRoles = {}) => {
     const { data, error } = await supabase
       .storage
       .from('programs')
-      .upload(filePath, pdfBlob, {
+      .upload(filePath, finalBlob, {
         contentType: 'application/pdf',
         upsert: true
       });

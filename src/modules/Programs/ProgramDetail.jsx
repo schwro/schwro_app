@@ -8,7 +8,7 @@ import {
   ChevronDown, GripVertical, Search, X, Check,
   ChevronLeft, ChevronRight, Mail, Loader2, AlertTriangle, UserX, ArrowLeft,
   Music, Type, Image, Clock, MoreHorizontal, FileText as NoteIcon,
-  Info, User, Mic2
+  Info, User, Mic2, Paperclip, Upload
 } from 'lucide-react';
 import { downloadPDF, savePDFToSupabase } from '../../lib/utils';
 import { generatePPT } from '../../lib/ppt';
@@ -801,6 +801,62 @@ const ItemEditPanel = ({ item, songs, worshipTeam = [], mediaTeam = [], onUpdate
                       {k}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+            {/* Własne załączniki PDF */}
+            {selectedSong && (
+              <div className="mt-4">
+                <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <Paperclip size={12} />
+                  Załączniki PDF do programu
+                </label>
+                <div className="space-y-2">
+                  {(item.customAttachments || []).map((att, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200/60 dark:border-orange-700/40 rounded-lg px-3 py-2">
+                      <FileText size={14} className="text-orange-500 shrink-0" />
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate flex-1">{att.name}</span>
+                      <button
+                        onClick={() => {
+                          const updated = [...(item.customAttachments || [])];
+                          updated.splice(i, 1);
+                          handleChange('customAttachments', updated);
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-500 rounded transition shrink-0"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer hover:border-orange-300 hover:bg-orange-50/50 dark:hover:border-orange-700 dark:hover:bg-orange-900/10 transition text-gray-400 hover:text-orange-500">
+                    <Upload size={14} />
+                    <span className="text-xs font-medium">Dodaj PDF</span>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 10 * 1024 * 1024) {
+                          alert('Plik jest za duży (max 10MB)');
+                          return;
+                        }
+                        try {
+                          const path = `program_attachments/${Date.now()}_${Math.random().toString(36).slice(2)}.pdf`;
+                          const { error } = await supabase.storage.from('public-assets').upload(path, file);
+                          if (error) throw error;
+                          const { data: urlData } = supabase.storage.from('public-assets').getPublicUrl(path);
+                          const newAtt = { name: file.name, url: urlData.publicUrl, date: new Date().toISOString() };
+                          handleChange('customAttachments', [...(item.customAttachments || []), newAtt]);
+                        } catch (err) {
+                          console.error('Upload error:', err);
+                          alert('Błąd uploadu pliku');
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
                 </div>
               </div>
             )}
@@ -2026,9 +2082,9 @@ export default function ProgramDetail() {
       }
     };
 
-    // Try with all columns, retry without optional if 400
+    // Try with all columns, retry without optional if column doesn't exist
     let result = await doSave({ ...dbData });
-    if (result.error?.code === '42703' || result.error?.message?.includes('column') || result.status === 400) {
+    if (result.error?.code === '42703' || (result.error?.message && /column.*does not exist|undefined column/i.test(result.error.message))) {
       // Column doesn't exist - retry without optional columns
       const fallbackData = {};
       for (const key of BASE_COLUMNS) {
@@ -2052,12 +2108,26 @@ export default function ProgramDetail() {
     alert('Zapisano!');
   };
 
-  const handleSaveAndUploadPDF = async () => {
+  const [showPdfMenu, setShowPdfMenu] = useState(false);
+  const pdfMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target)) {
+        setShowPdfMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSaveAndUploadPDF = async (songPagesMode = 'lyrics') => {
     if (!program || !program.date) {
       alert('Najpierw wybierz lub utwórz program.');
       return;
     }
 
+    setShowPdfMenu(false);
     setIsLoading(true);
 
     try {
@@ -2075,9 +2145,9 @@ export default function ProgramDetail() {
         teachingSpeakers: teachingSpeakers
       };
 
-      await downloadPDF(program, freshSongsMap, teamRolesForPDF);
+      await downloadPDF(program, freshSongsMap, teamRolesForPDF, songPagesMode);
 
-      const result = await savePDFToSupabase(program, freshSongsMap, teamRolesForPDF);
+      const result = await savePDFToSupabase(program, freshSongsMap, teamRolesForPDF, songPagesMode);
 
       if (result.success) {
         alert('PDF został pobrany i zapisany w chmurze!');
@@ -2312,15 +2382,51 @@ export default function ProgramDetail() {
                 {isSending ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
                 <span className="hidden sm:inline">Mail</span>
               </button>
-              <button
-                onClick={handleSaveAndUploadPDF}
-                disabled={isLoading}
-                className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-pink-600 bg-pink-50 hover:bg-pink-200 rounded-lg transition-colors border border-pink-200 font-medium text-sm disabled:opacity-50"
-                title="Zapisz PDF na dysku i w chmurze Supabase"
-              >
-                {isLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
-                <span className="hidden sm:inline">PDF</span>
-              </button>
+              <div className="relative flex-1 lg:flex-none" ref={pdfMenuRef}>
+                <button
+                  onClick={() => setShowPdfMenu(!showPdfMenu)}
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-pink-600 bg-pink-50 hover:bg-pink-200 rounded-lg transition-colors border border-pink-200 font-medium text-sm disabled:opacity-50"
+                  title="Generuj PDF"
+                >
+                  {isLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+                  <span className="hidden sm:inline">PDF</span>
+                  <ChevronDown size={14} />
+                </button>
+                {showPdfMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 py-1">
+                    <button
+                      onClick={() => handleSaveAndUploadPDF('lyrics')}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Type size={16} className="text-pink-500" />
+                      Z tekstami i akordami
+                    </button>
+                    <button
+                      onClick={() => handleSaveAndUploadPDF('attachments')}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <FileText size={16} className="text-orange-500" />
+                      Z załącznikami PDF
+                    </button>
+                    <button
+                      onClick={() => handleSaveAndUploadPDF('both')}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <FileText size={16} className="text-purple-500" />
+                      Teksty + załączniki pieśni
+                    </button>
+                    <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                    <button
+                      onClick={() => handleSaveAndUploadPDF('custom')}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-pink-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <Paperclip size={16} className="text-green-500" />
+                      Z własnymi załącznikami
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => generateDocuments('ppt')}
                 className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2.5 text-orange-600 bg-orange-50 hover:bg-orange-200 rounded-lg transition-colors border border-orange-200 font-medium text-sm"
