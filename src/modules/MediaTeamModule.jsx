@@ -434,20 +434,23 @@ const ScheduleTable = ({ programs, mediaTeam, onUpdateProgram, roles, memberRole
         { key: 'naglosnienie', label: 'Nagłośnienie', roleId: null },
       ];
 
+  // Tylko aktywni członkowie (do propozycji grafiku)
+  const activeTeam = mediaTeam.filter(m => m.status !== 'Nieaktywny');
+
   // Funkcja do filtrowania członków zespołu według przypisania do służby
   const getMembersForRole = (roleId) => {
     if (!roleId || memberRoles.length === 0) {
-      return mediaTeam;
+      return activeTeam;
     }
     const assignedMemberIds = memberRoles
       .filter(mr => mr.role_id === roleId)
       .map(mr => String(mr.member_id));
 
     if (assignedMemberIds.length === 0) {
-      return mediaTeam;
+      return activeTeam;
     }
 
-    return mediaTeam.filter(member => assignedMemberIds.includes(String(member.id)));
+    return activeTeam.filter(member => assignedMemberIds.includes(String(member.id)));
   };
 
   return (
@@ -550,7 +553,7 @@ export default function MediaTeamModule() {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   
-  const [memberForm, setMemberForm] = useState({ id: null, full_name: '', role: '', email: '', phone: '' });
+  const [memberForm, setMemberForm] = useState({ id: null, full_name: '', role: '', email: '', phone: '', status: 'Aktywny' });
   const [selectedMemberRoles, setSelectedMemberRoles] = useState([]);
   const [taskForm, setTaskForm] = useState({
     id: null,
@@ -925,7 +928,8 @@ export default function MediaTeamModule() {
           full_name: memberForm.full_name,
           role: memberForm.role,
           email: memberForm.email,
-          phone: memberForm.phone
+          phone: memberForm.phone,
+          status: memberForm.status || 'Aktywny'
         }).eq('id', memberForm.id);
         if (error) throw error;
       } else {
@@ -933,7 +937,8 @@ export default function MediaTeamModule() {
           full_name: memberForm.full_name,
           role: memberForm.role,
           email: memberForm.email,
-          phone: memberForm.phone
+          phone: memberForm.phone,
+          status: memberForm.status || 'Aktywny'
         }]).select().single();
         if (error) throw error;
         memberId = newMember.id;
@@ -1232,7 +1237,7 @@ export default function MediaTeamModule() {
       <section className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 relative z-[30] transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 bg-clip-text text-transparent">Członkowie ({team.length})</h2>
-          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', email: '', phone: '' }); setSelectedMemberRoles([]); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
+          <button onClick={() => { setMemberForm({ id: null, full_name: '', role: '', email: '', phone: '', status: 'Aktywny' }); setSelectedMemberRoles([]); setShowMemberModal(true); }} className="bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-500 dark:to-orange-500 text-white text-sm px-5 py-2.5 rounded-xl font-medium hover:shadow-lg transition flex items-center gap-2"><Plus size={18}/> Dodaj członka</button>
         </div>
         <div className="bg-white/50 dark:bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
           <div className="overflow-x-auto">
@@ -1452,6 +1457,26 @@ export default function MediaTeamModule() {
                   <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Email</label>
                   <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="jan@example.com" value={memberForm.email} onChange={e => setMemberForm({...memberForm, email: e.target.value})} />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between px-1">
+                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Status</label>
+                <button
+                  type="button"
+                  onClick={() => setMemberForm({...memberForm, status: memberForm.status === 'Nieaktywny' ? 'Aktywny' : 'Nieaktywny'})}
+                  className={`relative inline-flex h-7 w-[52px] items-center rounded-full transition-colors ${
+                    memberForm.status !== 'Nieaktywny'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                      : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                    memberForm.status !== 'Nieaktywny' ? 'translate-x-[28px]' : 'translate-x-1'
+                  }`} />
+                </button>
+                <span className={`text-sm font-medium ml-2 ${memberForm.status !== 'Nieaktywny' ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {memberForm.status !== 'Nieaktywny' ? 'Aktywny' : 'Nieaktywny'}
+                </span>
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
