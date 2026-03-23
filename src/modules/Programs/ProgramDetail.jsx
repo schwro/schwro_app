@@ -2245,23 +2245,46 @@ export default function ProgramDetail() {
         teachingSpeakers: teachingSpeakers
       };
 
-      const response = await fetch('/api/send-program', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          program,
-          songsMap: freshSongsMap,
-          teamRoles: teamRolesForPDF,
-          recipients
+      // Generate and upload PDF to Supabase Storage
+      const pdfResult = await savePDFToSupabase(program, freshSongsMap, teamRolesForPDF, 'lyrics');
+
+      const dateStr = program.date.split('T')[0];
+      const subject = `Program nabożeństwa – ${dateStr}`;
+
+      // Build simple HTML email body
+      const scheduleHtml = (program.schedule || [])
+        .map(item => {
+          if (item.type === 'song' && item.songId) {
+            const song = freshSongsMap[item.songId];
+            return `<li>🎵 ${song ? song.title : item.title || 'Pieśń'}${item.key ? ` (${item.key})` : ''}</li>`;
+          }
+          return `<li>${item.title || item.type || 'Element'}</li>`;
         })
+        .join('');
+
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Program nabożeństwa – ${dateStr}</h2>
+          <ul>${scheduleHtml}</ul>
+          ${pdfResult.success ? '<p><em>PDF w załączniku.</em></p>' : ''}
+        </div>
+      `;
+
+      const { data, error } = await supabase.functions.invoke('send-program-email', {
+        body: {
+          emailTo: recipients,
+          subject,
+          htmlBody,
+          filePath: pdfResult.success ? pdfResult.path : undefined,
+          filename: pdfResult.success ? `Program-${dateStr}.pdf` : undefined,
+        }
       });
 
-      const result = await response.json();
-      if (result.success) {
-        alert('Program został wysłany!');
-      } else {
-        alert('Błąd wysyłki: ' + (result.error || 'Nieznany błąd'));
+      if (error) {
+        throw error;
       }
+
+      alert('Program został wysłany!');
     } catch (error) {
       console.error('Error sending email:', error);
       alert('Wystąpił błąd podczas wysyłania.');
