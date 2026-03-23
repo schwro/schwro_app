@@ -28,12 +28,28 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
   console.log('[PDF DEBUG] schedule:', JSON.stringify(program.schedule?.slice(0, 3), null, 2));
   console.log('[PDF DEBUG] songsMap keys:', Object.keys(songsMap).slice(0, 5));
 
+  // Helper: resolve songId - fallback to matching by title when songId is null
+  const resolveSongId = (row) => {
+    if (row.songId) return row.songId;
+    // songId is null but title exists - find song by title
+    if (row.title) {
+      const match = Object.values(songsMap).find(s => s.title === row.title);
+      return match?.id || null;
+    }
+    return null;
+  };
+
   if (isNewFormat) {
     // New format: each song is its own schedule item with type='song', songId, songKey
     program.schedule?.forEach(row => {
-      if (row.type === 'song' && row.songId) {
-        songCounter++;
-        songNumberMap[row.songId] = songCounter;
+      if (row.type === 'song') {
+        const resolvedId = resolveSongId(row);
+        if (resolvedId) {
+          songCounter++;
+          songNumberMap[resolvedId] = songCounter;
+          // Fix row in-place for later use
+          if (!row.songId) row.songId = resolvedId;
+        }
       }
     });
   } else {
@@ -89,9 +105,10 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
         if (row.type === 'header') {
           // Render header as a spanning row
           tableRows.push({ isHeader: true, title: row.title || '' });
-        } else if (row.type === 'song' && row.songId) {
-          const song = songsMap[row.songId];
-          const songNum = songNumberMap[row.songId];
+        } else if (row.type === 'song') {
+          const resolvedId = resolveSongId(row);
+          const song = resolvedId ? songsMap[resolvedId] : null;
+          const songNum = resolvedId ? songNumberMap[resolvedId] : null;
           tableRows.push({
             element: song?.title || row.title || 'Pieśń',
             person: row.person || '',
@@ -344,11 +361,12 @@ const getPDFHtmlContent = (program, songsMap, teamRoles = {}) => {
     program.schedule?.forEach(row => {
       if (isNewFormat) {
         // New format: each song item has songId, songKey directly
-        if (row.type === 'song' && row.songId) {
-          const song = songsMap[row.songId];
+        const resolvedId = row.type === 'song' ? resolveSongId(row) : null;
+        if (resolvedId) {
+          const song = songsMap[resolvedId];
           if (song) {
             const chordsContent = song.chords_bars || song.chords || '';
-            allSongs.push({ ...song, selectedKey: row.songKey || song.key, finalChords: chordsContent, songNumber: songNumberMap[row.songId] });
+            allSongs.push({ ...song, selectedKey: row.songKey || song.key, finalChords: chordsContent, songNumber: songNumberMap[resolvedId] });
           }
         }
       } else {
@@ -591,8 +609,16 @@ const appendSongAttachmentPDFs = async (basePdfBytes, program, songsMap) => {
         }
       });
     }
-    if (row.type === 'song' && row.songId && !songIds.includes(row.songId)) {
-      songIds.push(row.songId);
+    if (row.type === 'song') {
+      // Resolve songId - fallback to matching by title when songId is null
+      let resolvedId = row.songId;
+      if (!resolvedId && row.title) {
+        const match = Object.values(songsMap).find(s => s.title === row.title);
+        resolvedId = match?.id || null;
+      }
+      if (resolvedId && !songIds.includes(resolvedId)) {
+        songIds.push(resolvedId);
+      }
     }
   });
 

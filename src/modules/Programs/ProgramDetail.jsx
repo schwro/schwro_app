@@ -766,7 +766,7 @@ const ItemEditPanel = ({ item, songs, worshipTeam = [], mediaTeam = [], onUpdate
                   <div className="text-xs text-gray-500 dark:text-gray-400">{selectedSong.artist || ''}{selectedSong.key ? ` · ${selectedSong.key}` : ''}</div>
                 </div>
                 <button
-                  onClick={() => { handleChange('songId', null); handleChange('songKey', null); handleChange('title', ''); }}
+                  onClick={() => onUpdate({ ...item, songId: null, songKey: null, title: '' })}
                   className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition shrink-0"
                   title="Zmień pieśń"
                 >
@@ -777,9 +777,7 @@ const ItemEditPanel = ({ item, songs, worshipTeam = [], mediaTeam = [], onUpdate
               <SongSelector
                 songs={songs}
                 onSelect={(song) => {
-                  handleChange('songId', song.id);
-                  handleChange('songKey', song.key);
-                  handleChange('title', song.title);
+                  onUpdate({ ...item, songId: song.id, songKey: song.key, title: song.title });
                 }}
               />
             )}
