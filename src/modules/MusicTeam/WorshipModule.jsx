@@ -2490,14 +2490,16 @@ export default function WorshipModule() {
     await supabase.from('programs').update(updates).eq('id', id);
   };
 
-  const filteredSongs = songs.filter(s =>
-    (s.title || '').toLowerCase().includes(songFilter.toLowerCase()) &&
-    (tagFilter
+  const filteredSongs = songs.filter(s => {
+    const q = songFilter.toLowerCase();
+    const matchesSearch = (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q);
+    const matchesTag = tagFilter
       ? (Array.isArray(s.tags)
         ? s.tags.some(t => String(t).toLowerCase().includes(tagFilter.toLowerCase()))
         : false)
-      : true)
-  );
+      : true;
+    return matchesSearch && matchesTag;
+  });
 
   if (loading) return <div className="p-10 text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div></div>;
 
