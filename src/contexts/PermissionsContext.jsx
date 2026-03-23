@@ -48,13 +48,11 @@ export function PermissionsProvider({ children }) {
   // Nie blokuj renderowania - mamy cache lub domyślne wartości
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Pobierz dane w tle (nie blokuj UI)
+  const fetchPermissionsData = () => {
     Promise.all([
       supabase.from('app_settings').select('key, value'),
       supabase.from('app_permissions').select('role, resource, can_read')
     ]).then(([settingsResult, permsResult]) => {
-      // Przetwórz ustawienia
       if (settingsResult.data) {
         const settings = settingsResult.data;
         const logo = settings.find(s => s.key === 'org_logo_url')?.value;
@@ -78,7 +76,6 @@ export function PermissionsProvider({ children }) {
         localStorage.setItem(CACHE_KEYS.settings, JSON.stringify(newSettings));
       }
 
-      // Przetwórz uprawnienia
       if (permsResult.data) {
         setPermissions(permsResult.data);
         localStorage.setItem(CACHE_KEYS.permissions, JSON.stringify(permsResult.data));
@@ -86,6 +83,26 @@ export function PermissionsProvider({ children }) {
     }).catch(err => {
       console.error('Error fetching permissions:', err);
     });
+  };
+
+  useEffect(() => {
+    // Pobierz dane w tle (nie blokuj UI)
+    fetchPermissionsData();
+
+    // Realtime: nasłuchuj zmian w uprawnieniach
+    const channel = supabase
+      .channel('permissions-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_permissions' }, () => {
+        fetchPermissionsData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => {
+        fetchPermissionsData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
