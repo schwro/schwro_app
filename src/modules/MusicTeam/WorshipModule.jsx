@@ -1022,22 +1022,23 @@ const ScheduleTable = ({ programs, worshipTeam, onUpdateProgram, roles, memberRo
     return assignment?.status || null;
   };
 
+  // Tylko aktywni członkowie (do propozycji grafiku)
+  const activeTeam = worshipTeam.filter(m => m.status !== 'Nieaktywny');
+
   // Funkcja do filtrowania członków zespołu według przypisania do służby
   const getMembersForRole = (roleId) => {
     if (!roleId || memberRoles.length === 0) {
-      // Brak przypisań lub fallback - pokaż wszystkich
-      return worshipTeam;
+      return activeTeam;
     }
     const assignedMemberIds = memberRoles
       .filter(mr => mr.role_id === roleId)
       .map(mr => String(mr.member_id));
 
     if (assignedMemberIds.length === 0) {
-      // Brak przypisanych osób do tej służby - pokaż wszystkich
-      return worshipTeam;
+      return activeTeam;
     }
 
-    return worshipTeam.filter(member => assignedMemberIds.includes(String(member.id)));
+    return activeTeam.filter(member => assignedMemberIds.includes(String(member.id)));
   };
 
   return (
@@ -2492,7 +2493,7 @@ export default function WorshipModule() {
 
   const filteredSongs = songs.filter(s => {
     const q = songFilter.toLowerCase();
-    const matchesSearch = (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q);
+    const matchesSearch = (s.title || '').toLowerCase().includes(q) || (s.author || '').toLowerCase().includes(q);
     const matchesTag = tagFilter
       ? (Array.isArray(s.tags)
         ? s.tags.some(t => String(t).toLowerCase().includes(tagFilter.toLowerCase()))
@@ -2571,7 +2572,7 @@ export default function WorshipModule() {
           <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 flex items-center gap-2">
               <Search className="text-gray-400 dark:text-gray-500" size={20} />
-              <input className="w-full outline-none text-sm bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500" placeholder="Szukaj pieśni..." value={songFilter} onChange={e => setSongFilter(e.target.value)} />
+              <input className="w-full outline-none text-sm bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500" placeholder="Szukaj po tytule lub wykonawcy..." value={songFilter} onChange={e => setSongFilter(e.target.value)} />
             </div>
             <div className="flex gap-2 items-center">
               <input className="px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400" placeholder="Filtruj po tagach..." value={tagFilter} onChange={e => setTagFilter(e.target.value)} />
@@ -2688,7 +2689,7 @@ export default function WorshipModule() {
                         )}
                       </div>
                     </td>
-                    <td className="p-4"><span className="bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 px-3 py-1 rounded-full text-xs font-medium border border-green-200 dark:border-green-800">{m.status}</span></td>
+                    <td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-medium border ${m.status === 'Nieaktywny' ? 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600' : 'bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'}`}>{m.status || 'Aktywny'}</span></td>
                     <td className="p-4 text-gray-600 dark:text-gray-400">{m.phone}</td>
                     <td className="p-4 text-gray-600 dark:text-gray-400">{m.email}</td>
                     <td className="p-4 text-right flex justify-end gap-2">
@@ -2811,6 +2812,26 @@ export default function WorshipModule() {
                   <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 ml-1">Email</label>
                   <input className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="jan@example.com" value={memberForm.email} onChange={e => setMemberForm({...memberForm, email: e.target.value})} />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between px-1">
+                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Status</label>
+                <button
+                  type="button"
+                  onClick={() => setMemberForm({...memberForm, status: memberForm.status === 'Nieaktywny' ? 'Aktywny' : 'Nieaktywny'})}
+                  className={`relative inline-flex h-7 w-[52px] items-center rounded-full transition-colors ${
+                    memberForm.status !== 'Nieaktywny'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                      : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                    memberForm.status !== 'Nieaktywny' ? 'translate-x-[28px]' : 'translate-x-1'
+                  }`} />
+                </button>
+                <span className={`text-sm font-medium ml-2 ${memberForm.status !== 'Nieaktywny' ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {memberForm.status !== 'Nieaktywny' ? 'Aktywny' : 'Nieaktywny'}
+                </span>
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
