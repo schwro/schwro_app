@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase, getCachedUser } from '../lib/supabase';
 
 // Globalny cache - współdzielony między wszystkimi instancjami hooka
-// Inicjalizuj z localStorage od razu
-const cachedRole = localStorage.getItem('userRole');
-let globalUserRole = cachedRole || null;
-let globalLoading = !cachedRole; // Jeśli mamy cache, nie ładujemy
+let globalUserRole = null;
+let globalLoading = true;
 let fetchPromise = null;
 const listeners = new Set();
 
@@ -19,19 +17,11 @@ const fetchRole = async () => {
   // Jeśli już pobieramy, zwróć istniejący promise
   if (fetchPromise) return fetchPromise;
 
-  // Sprawdź cache od razu
-  const cachedRole = localStorage.getItem('userRole');
-  if (cachedRole) {
-    globalUserRole = cachedRole;
-    globalLoading = false;
-    notifyListeners();
-  }
-
   // Timeout - jeśli pobieranie trwa zbyt długo, użyj domyślnej roli
   const timeoutId = setTimeout(() => {
     if (globalLoading) {
       console.warn('useUserRole timeout - using default role');
-      globalUserRole = cachedRole || 'czlonek';
+      globalUserRole = 'czlonek';
       globalLoading = false;
       notifyListeners();
     }
@@ -56,20 +46,14 @@ const fetchRole = async () => {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        if (!cachedRole) {
-          globalUserRole = 'czlonek';
-          localStorage.setItem('userRole', 'czlonek');
-        }
+        globalUserRole = 'czlonek';
       } else {
-        const role = profile?.role || 'czlonek';
-        globalUserRole = role;
-        localStorage.setItem('userRole', role);
+        globalUserRole = profile?.role || 'czlonek';
       }
+      localStorage.setItem('userRole', globalUserRole);
     } catch (error) {
       console.error('Error fetching user role:', error);
-      if (!globalUserRole) {
-        globalUserRole = localStorage.getItem('userRole') || 'czlonek';
-      }
+      globalUserRole = 'czlonek';
     } finally {
       clearTimeout(timeoutId);
       globalLoading = false;
@@ -91,13 +75,8 @@ export function useUserRole() {
     const listener = (newState) => setState(newState);
     listeners.add(listener);
 
-    // Jeśli mamy już dane, użyj ich od razu
-    if (globalUserRole !== null && !globalLoading) {
-      setState({ userRole: globalUserRole, loading: false });
-    } else {
-      // Rozpocznij pobieranie (lub dołącz do istniejącego)
-      fetchRole();
-    }
+    // Zawsze pobieraj rolę z bazy (nie polegaj na cache)
+    fetchRole();
 
     return () => {
       listeners.delete(listener);
